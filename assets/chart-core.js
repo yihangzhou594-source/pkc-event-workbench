@@ -772,6 +772,7 @@ function renderGameForm(){
   $("#inDmgRed").value = g.dmgRed || "";
   syncTeamDmgPH(g);
   renderMatchWarn();
+  bindFieldLabels();
 }
 
 function teamGroupOf(id){
@@ -1419,6 +1420,83 @@ function renderLaneStat(){
     + (warn.length ? ' <b style="color:var(--warn)">（' + warn.join("；") + '）</b>' : "");
 }
 
+/* ---------- 本局待核对 ----------
+   把最容易漏的字段和百分比异常集中成一条清单，点一下跳到对应行。 */
+function sumPct(values){
+  let sum = 0, n = 0;
+  values.forEach(v => {
+    if (isBlank(v)) return;
+    const num = parseFloat(String(v).replace("%", ""));
+    if (Number.isFinite(num)){ sum += num; n += 1; }
+  });
+  return n ? sum : null;
+}
+function collectIssues(){
+  const out = [];
+  const g = S.game;
+  if (!g) return out;
+  ["our", "opp"].forEach(side => {
+    const label = side === "our" ? "蓝方" : "红方";
+    const seen = new Map();
+    g.rows.forEach((r, i) => {
+      const p = r[side] || {};
+      const where = label + " 第" + (i + 1) + "行";
+      const missing = [];
+      if (isBlank(p.name)) missing.push("选手");
+      if (isBlank(p.hero)) missing.push("英雄");
+      if (isBlank(p.k) && isBlank(p.d) && isBlank(p.a)) missing.push("KDA");
+      if (isBlank(p.gold)) missing.push("总经济");
+      if (missing.length) out.push({ text: where + " 缺 " + missing.join(" / "), side, row: i });
+      if (!isBlank(p.hero)){
+        const k = heroKey(p.hero);
+        if (seen.has(k)) out.push({ text: where + " 英雄重复：" + p.hero, side, row: i });
+        else seen.set(k, i);
+      }
+    });
+    const dmg = sumPct(g.rows.map(r => r[side] && r[side].dmgPct));
+    if (dmg !== null && Math.abs(dmg - 100) > 2) {
+      out.push({ text: label + "输出占比合计 " + dmg.toFixed(1) + "%（应约 100%）", side });
+    }
+    const tank = sumPct(g.rows.map(r => r[side] && r[side].tankPct));
+    if (tank !== null && Math.abs(tank - 100) > 2) {
+      out.push({ text: label + "承伤占比合计 " + tank.toFixed(1) + "%（应约 100%）", side });
+    }
+  });
+  if (isBlank(g.ourScore) || isBlank(g.oppScore)) out.push({ text: "本局比分没填" });
+  if (isBlank(g.duration)) out.push({ text: "对局时长没填" });
+  return out;
+}
+function renderIssues(){
+  const host = $("#issueList");
+  if (!host) return;
+  const list = collectIssues();
+  const stat = $("#issueStat");
+  if (stat) stat.textContent = list.length ? list.length + " 项待核对" : "没有发现问题";
+  if (!list.length){
+    host.innerHTML = '<div class="notice ok">数据看起来齐了，可以出图。</div>';
+    return;
+  }
+  host.innerHTML = list.slice(0, 24).map((x, i) =>
+    '<button type="button" class="issue" data-idx="' + i + '">⚠ ' + esc(x.text) + "</button>").join("")
+    + (list.length > 24 ? '<div class="hint">还有 ' + (list.length - 24) + " 项…</div>" : "");
+  $$(".issue", host).forEach(b => {
+    b.onclick = () => {
+      const x = list[Number(b.dataset.idx)];
+      if (x && x.side && Number.isInteger(x.row)){
+        const tr = document.querySelector('#tables tr[data-side="' + x.side + '"][data-row="' + x.row + '"]');
+        if (tr){
+          tr.scrollIntoView({ behavior: "smooth", block: "center" });
+          tr.classList.add("row-flash");
+          setTimeout(() => tr.classList.remove("row-flash"), 1800);
+        }
+      } else {
+        const t = $("#tables");
+        if (t) t.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+    };
+  });
+}
+
 function renderTables(){
   const host = $("#tables"); host.innerHTML = "";
   AUTO_FIELDS = [];
@@ -1441,6 +1519,8 @@ function renderTables(){
     const tb = document.createElement("tbody");
     S.game.rows.forEach((row, i) => {
       const tr = document.createElement("tr");
+      tr.dataset.side = side;
+      tr.dataset.row = String(i);
       const td = document.createElement("td");
       td.className = "pos";
       const laneKey = side === "opp" ? "posOpp" : "pos";     // 两边分路各自独立
@@ -1508,6 +1588,7 @@ function renderTables(){
     box.appendChild(tbl);
     host.appendChild(box);
   });
+  renderIssues();
 }
 
 /* ============================================================
@@ -2447,6 +2528,7 @@ function renderPreview(){
     if (s.kind === "card") renderInto(s.canvas, "card", S.game, s.idx, pw, ph);
     else if (s.kind === "overview") renderInto(s.canvas, "overview", S.game, -1, pw, ph);
   });
+  renderIssues();
   status("已刷新 · " + Math.round(performance.now()-t0) + "ms");
 }
 
@@ -4483,6 +4565,7 @@ function renderBracket(){
   $("#bkSeriesName").textContent = S.series.name;
   renderBkGroups(); renderBkDraw(); renderBkMatches(); renderBkPreviewArea();
   renderBkLinkWarn();
+  bindFieldLabels();
 }
 /** 队伍库改名 / 增删后刷新赛程图（不动标题输入框，免得正在打字被清掉） */
 function bkOnTeamsChanged(){
@@ -5402,6 +5485,18 @@ function fillHeroDL(){
   const dl = $("#heroDL"); if (!dl) return;
   const names = HEROES ? Object.keys(HEROES.heroes).sort((a,b) => a.localeCompare(b,"zh")) : [];
   dl.innerHTML = names.map(n => '<option value="'+esc(n)+'"></option>').join("");
+}
+
+/** 把 .fld 里的 label 和控件绑起来：键盘 Tab / 读屏软件能念出字段名。 */
+let fldSeq = 0;
+function bindFieldLabels(root){
+  $$(".fld", root || document).forEach(f => {
+    const lab = f.querySelector("label");
+    const ctl = f.querySelector("input, select, textarea");
+    if (!lab || !ctl) return;
+    if (!ctl.id) ctl.id = "pkc-fld-" + (++fldSeq);
+    if (lab.htmlFor !== ctl.id) lab.htmlFor = ctl.id;
+  });
 }
 
 /* ============================================================
