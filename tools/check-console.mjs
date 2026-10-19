@@ -102,9 +102,14 @@ function isWrapped(src) {
   return opens && closes;
 }
 
-const corePath = path.join(ROOT, 'assets', 'chart-core.js');
-const coreDecls = readFileSync(corePath, 'utf8');
-const coreNames = topLevelDecls(coreDecls);
+const CORE_FILES = [
+  'pkc-core.js', 'pkc-data.js', 'pkc-draw.js', 'pkc-hero.js',
+  'pkc-ocr.js', 'pkc-export.js', 'pkc-app.js',
+];
+const coreNames = new Set();
+for (const name of CORE_FILES) {
+  for (const n of topLevelDecls(readFileSync(path.join(ROOT, 'assets', name), 'utf8'))) coreNames.add(n);
+}
 
 let collisions = 0;
 blocks.forEach((src, i) => {
@@ -116,7 +121,7 @@ blocks.forEach((src, i) => {
   const dup = [...mine].filter((n) => coreNames.has(n));
   if (dup.length) {
     collisions += dup.length;
-    console.log(`✖ 脚本块 ${i + 1} 与 chart-core.js 顶层重名：${dup.join(', ')}`);
+    console.log(`✖ 脚本块 ${i + 1} 与数据引擎顶层重名：${dup.join(', ')}`);
     console.log('  → 浏览器会报 SyntaxError 并使整块脚本失效；请包进 IIFE 或改名。');
   }
 });
