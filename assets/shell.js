@@ -69,7 +69,7 @@
       showPane(v.pane);
     }
     const pv = $("#wkPreviewToggle");
-    if (pv) pv.hidden = v.pane !== "engine";
+    if (pv) pv.hidden = v.pane !== "engine" || name === "help" || name === "bracket";
     document.title = v.title + " · PKC 赛事工作台";
     window.__wkView = name;
     if (push !== false) {
@@ -127,6 +127,8 @@
     if (titleEl) titleEl.textContent = VIEWS[d.tab].title;
     if (subEl) subEl.textContent = VIEWS[d.tab].sub;
     window.__wkView = d.tab;
+    const pv = $("#wkPreviewToggle");
+    if (pv) pv.hidden = d.tab === "help" || d.tab === "bracket";
     try { history.replaceState({ view: d.tab }, "", "/?view=" + d.tab); } catch {}
   });
 

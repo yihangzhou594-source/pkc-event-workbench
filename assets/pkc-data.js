@@ -1038,10 +1038,12 @@ function renderTables(){
 function switchTab(name){
   $$(".tab").forEach(t => t.classList.toggle("on", t.dataset.tab === name));
   $$(".panel").forEach(p => p.classList.toggle("on", p.id === "panel-" + name));
-  const wide = name === "bracket";                 // 赛程图很宽：这一页收起右侧预览，整页给赛程图
+  const wide = name === "bracket" || name === "help";   // 赛程图 / 说明页收起右侧预览，整页给内容
   $$(".layout").forEach(l => l.classList.toggle("single", wide));
   const pv = $("#preview");
   if (pv) pv.style.display = wide ? "none" : "";
+  const pvBtn = $("#btnPreviewToggle");
+  if (pvBtn) pvBtn.hidden = wide;
   if (name === "teams") renderTeamGrid();
   if (name === "hero") renderHeroGrid();
   if (name === "out") renderMgInfo();
