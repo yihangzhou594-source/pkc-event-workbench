@@ -1,0 +1,135 @@
+{
+  "baseUrl": "https://image.xmkhsl.com/khsl/bp-assets/music/",
+  "source": "bp-analysis\\evidence\\scripts-05\\files\\origins\\d382496e2c14b2ef58f8bb666fac7131dfbabbaa8f6f5f94c8268d43e0cdace9\\assets\\lineupRoom-1vKugV2v.js",
+  "downloadedAt": "2026-10-16T12:33:43.417Z",
+  "totalBytes": 302308334,
+  "failed": [
+    {
+      "key": "bp",
+      "name": "年总BP",
+      "error": "超时"
+    }
+  ],
+  "tracks": [
+    {
+      "key": "pregame",
+      "name": "年总赛前",
+      "file": "音乐素材\\pregame_年总赛前.mp3",
+      "bytes": 1827947
+    },
+    {
+      "key": "bp2",
+      "name": "常规赛BP",
+      "file": "音乐素材\\bp2_常规赛BP.mp3",
+      "bytes": 2719710
+    },
+    {
+      "key": "bp3",
+      "name": "2025挑杯BP",
+      "file": "音乐素材\\bp3_2025挑杯BP.mp3",
+      "bytes": 5407951
+    },
+    {
+      "key": "bp4",
+      "name": "2026挑杯BP",
+      "file": "音乐素材\\bp4_2026挑杯BP.wav",
+      "bytes": 50630734
+    },
+    {
+      "key": "bp5",
+      "name": "2026挑杯决赛下半场BP",
+      "file": "音乐素材\\bp5_2026挑杯决赛下半场BP.wav",
+      "bytes": 50929742
+    },
+    {
+      "key": "afterbp",
+      "name": "2026挑杯BP结束",
+      "file": "音乐素材\\afterbp_2026挑杯BP结束.wav",
+      "bytes": 19894350
+    },
+    {
+      "key": "relax",
+      "name": "评论席1",
+      "file": "音乐素材\\relax_评论席1.wav",
+      "bytes": 26841166
+    },
+    {
+      "key": "lineup",
+      "name": "年总阵容展示",
+      "file": "音乐素材\\lineup_年总阵容展示.mp3",
+      "bytes": 1737038
+    },
+    {
+      "key": "lineup2",
+      "name": "常规赛阵容展示",
+      "file": "音乐素材\\lineup2_常规赛阵容展示.m4a",
+      "bytes": 936486
+    },
+    {
+      "key": "lineup3",
+      "name": "2026挑杯阵容展示",
+      "file": "音乐素材\\lineup3_2026挑杯阵容展示.wav",
+      "bytes": 32448590
+    },
+    {
+      "key": "prepeak",
+      "name": "巅峰对决评论席",
+      "file": "音乐素材\\prepeak_巅峰对决评论席.m4a",
+      "bytes": 3261317
+    },
+    {
+      "key": "peak",
+      "name": "巅峰对决",
+      "file": "音乐素材\\peak_巅峰对决.wav",
+      "bytes": 56750158
+    },
+    {
+      "key": "victorysmall",
+      "name": "2025挑杯小局胜利",
+      "file": "音乐素材\\victorysmall_2025挑杯小局胜利.m4a",
+      "bytes": 809610
+    },
+    {
+      "key": "victorysmall2",
+      "name": "2026挑杯小局胜利",
+      "file": "音乐素材\\victorysmall2_2026挑杯小局胜利.m4a",
+      "bytes": 4002897
+    },
+    {
+      "key": "victorybig",
+      "name": "2025挑杯大场胜利",
+      "file": "音乐素材\\victorybig_2025挑杯大场胜利.m4a",
+      "bytes": 934867
+    },
+    {
+      "key": "highlight",
+      "name": "2026挑杯高光时刻",
+      "file": "音乐素材\\highlight_2026挑杯高光时刻.wav",
+      "bytes": 17260622
+    },
+    {
+      "key": "replay",
+      "name": "常规赛高光时刻",
+      "file": "音乐素材\\replay_常规赛高光时刻.m4a",
+      "bytes": 1171920
+    },
+    {
+      "key": "mvp",
+      "name": "常规赛MVP",
+      "file": "音乐素材\\mvp_常规赛MVP.m4a",
+      "bytes": 416896
+    },
+    {
+      "key": "postmatch",
+      "name": "常规赛赛后数据",
+      "file": "音乐素材\\postmatch_常规赛赛后数据.m4a",
+      "bytes": 2027631
+    },
+    {
+      "key": "postmatch2",
+      "name": "2026挑杯赛后数据",
+      "file": "音乐素材\\postmatch2_2026挑杯赛后数据.wav",
+      "bytes": 22298702
+    }
+  ]
+}

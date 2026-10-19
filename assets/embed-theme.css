@@ -1,0 +1,12 @@
+/* ============================================================
+   工作台内嵌模式：只做视觉对齐，不改生成器的排版与尺寸。
+   ============================================================ */
+body{
+  font-family:"Microsoft YaHei","PingFang SC","Noto Sans SC",system-ui,sans-serif !important;
+  background:#eef2f8 !important;
+}
+.contextbar{
+  background:rgba(255,255,255,.92) !important;
+  backdrop-filter:blur(10px);
+  border-bottom:1px solid #e2e7f0 !important;
+}

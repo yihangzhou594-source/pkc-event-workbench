@@ -1,0 +1,678 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<link rel="icon" href="data:," />
+<title>PKC 赛后数据图生成器 · 薄扶林王者杯</title>
+<style>
+  :root{
+    --bg:#f2f5f9; --surface:#ffffff; --surface2:#f7f9fc; --line:#e4e9f0; --line2:#eef1f6;
+    --text:#16202e; --muted:#6b7c93; --faint:#96a5ba;
+    --primary:#2f6bff; --primary-soft:#eaf1ff; --primary-line:#c9dbff;
+    --ok:#15a05a; --ok-soft:#e7f7ee; --warn:#c2760a; --warn-soft:#fdf3e2; --bad:#d6455f; --bad-soft:#fdeef1;
+    --radius:12px; --shadow:0 1px 2px rgba(22,32,46,.05), 0 8px 24px rgba(22,32,46,.06);
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{
+    background:var(--bg); color:var(--text);
+    font-family:"Noto Sans SC","Microsoft YaHei","PingFang SC",system-ui,-apple-system,sans-serif;
+    font-size:13.5px; line-height:1.55; padding-bottom:40px;
+  }
+  a{color:var(--primary);text-decoration:none}
+  .wrap{max-width:2100px;margin:0 auto;padding:0 18px}
+
+  .topbar{position:sticky;top:0;z-index:50;background:rgba(255,255,255,.93);backdrop-filter:blur(8px);border-bottom:1px solid var(--line)}
+  .topbar-in{display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding:10px 18px;max-width:2100px;margin:0 auto}
+  .brand{display:flex;align-items:center;gap:10px;margin-right:6px}
+  .logo{width:32px;height:32px;border-radius:9px;flex:none;display:grid;place-items:center;
+    background:linear-gradient(135deg,#ffd76a,#ff9f2e);color:#4a3200;font-weight:800;font-size:12px}
+  .brand b{font-size:15px;letter-spacing:.2px}
+  .brand span{font-size:11.5px;color:var(--muted);display:block;line-height:1.2}
+  .grow{margin-right:auto}
+
+  button,.btn{font-family:inherit;font-size:13px;font-weight:600;padding:7px 13px;border-radius:9px;
+    background:var(--surface);color:var(--text);border:1px solid var(--line);cursor:pointer;transition:.14s;white-space:nowrap}
+  button:hover{border-color:#cfd8e6;background:var(--surface2)}
+  button.primary{background:var(--primary);border-color:var(--primary);color:#fff}
+  button.primary:hover{filter:brightness(1.06)}
+  button.ghost{background:transparent}
+  button.mini{padding:4px 9px;font-size:12px;border-radius:7px;font-weight:600}
+  button:disabled{opacity:.5;cursor:not-allowed}
+  button.danger{color:#b42318;border-color:#f4c7c3;background:#fff5f4}
+  button.danger:hover{background:#ffe9e7;border-color:#eea9a2}
+  .bk-linkbar .bk-del{color:#8a94a6}
+  .bk-linkbar .bk-del:hover{color:#b42318;background:#fff5f4;border-color:#f4c7c3}
+  .pkc-undo{
+    position:fixed;left:50%;bottom:26px;transform:translate(-50%,20px);z-index:9999;
+    display:flex;align-items:center;gap:14px;padding:10px 14px 10px 18px;
+    border-radius:12px;background:#16202e;color:#fff;box-shadow:0 18px 44px rgba(11,18,30,.4);
+    font-size:12.5px;opacity:0;pointer-events:none;transition:opacity .2s ease,transform .2s ease;
+  }
+  .pkc-undo.on{opacity:1;transform:translate(-50%,0);pointer-events:auto}
+  .pkc-undo button{
+    border:0;border-radius:8px;padding:5px 11px;background:#ffd76a;color:#3a2b05;
+    font:inherit;font-weight:800;font-size:12px;cursor:pointer;
+  }
+  input[type=text],input[type=number],input[type=date],select,textarea{
+    font-family:inherit;font-size:13px;color:var(--text);background:var(--surface);
+    border:1px solid var(--line);border-radius:8px;padding:6px 9px;width:100%;outline:none;transition:.14s}
+  input:focus,select:focus,textarea:focus{border-color:var(--primary);box-shadow:0 0 0 3px var(--primary-soft)}
+  input[type=color]{width:100%;max-width:120px;height:32px;padding:2px;border:1px solid var(--line);border-radius:8px;background:var(--surface);cursor:pointer}
+  .fld{display:flex;flex-direction:column;gap:4px;min-width:0}
+  .fld>label{font-size:11.5px;color:var(--muted);font-weight:500}
+  .row{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end}
+  .sw{display:flex;align-items:center;gap:6px;font-size:12.5px;color:var(--muted);white-space:nowrap;padding-bottom:6px;cursor:pointer}
+  .sw input{width:15px;height:15px;accent-color:var(--primary)}
+
+  .card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);min-width:0}
+  .card-h{display:flex;align-items:center;gap:8px;padding:11px 15px;border-bottom:1px solid var(--line2)}
+  .card-h b{font-size:13.5px}
+  .card-h .sub{font-size:11.5px;color:var(--muted);margin-left:auto}
+  .card-b{padding:15px}
+
+  .tabs{display:flex;gap:4px;padding:10px 18px 0;max-width:2100px;margin:0 auto;flex-wrap:wrap}
+  .tab{font-size:13px;font-weight:600;color:var(--muted);padding:7px 14px;border-radius:9px 9px 0 0;
+    border:1px solid transparent;border-bottom:none;cursor:pointer;background:transparent}
+  .tab:hover{color:var(--text);background:rgba(255,255,255,.7)}
+  .tab.on{background:var(--surface);border-color:var(--line);color:var(--text);margin-bottom:-1px;box-shadow:inset 0 2px 0 var(--primary)}
+  .tab-group{display:flex;align-items:center;gap:2px;padding-right:10px;margin-right:6px;border-right:1px solid var(--line)}
+  .tab-cap{font-size:10.5px;font-weight:700;color:var(--faint);letter-spacing:.08em;margin:0 4px 0 6px}
+  .tab-help{margin-left:auto}
+  .panel{display:none;padding-top:14px}
+  .panel.on{display:block}
+
+  .brand{text-decoration:none;color:inherit}
+  .appnav{display:flex;align-items:center;gap:2px;background:var(--surface2);border:1px solid var(--line);border-radius:10px;padding:3px}
+  .appnav a{font-size:12.5px;font-weight:600;color:var(--muted);text-decoration:none;padding:5px 10px;border-radius:7px;white-space:nowrap}
+  .appnav a:hover{color:var(--text)}
+  .appnav a.on{background:var(--surface);color:var(--text);box-shadow:0 1px 3px rgba(22,32,46,.08)}
+
+  .contextbar{position:sticky;top:54px;z-index:45;background:rgba(247,249,252,.96);backdrop-filter:blur(8px);border-bottom:1px solid var(--line)}
+  .ctx-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:9px 18px;max-width:2100px;margin:0 auto}
+  .ctx-k{font-size:11.5px;font-weight:700;color:var(--faint);letter-spacing:.04em}
+  .ctx-sep{width:1px;height:20px;background:var(--line);margin:0 4px}
+  .ctx-series{width:190px}
+  .ctx-match{width:300px}
+  .ctx-games{display:flex;gap:4px;flex-wrap:wrap;align-items:center}
+  .ctx-hint{font-size:11.5px;color:var(--muted);margin-left:2px}
+  .contextbar #matchWarn{margin:0 18px 8px;max-width:2100px}
+
+  .layout{display:grid;grid-template-columns:minmax(560px,1fr) 470px;gap:16px;align-items:start}
+  .layout>div{min-width:0}
+  @media (max-width:1400px){ .layout{grid-template-columns:1fr} .pv{position:static !important;max-height:none !important} }
+  @media (max-width:900px){ .contextbar{position:static} .subnav{position:static} .ctx-series,.ctx-match{width:100%} }
+  .pv{position:sticky;top:150px;max-height:calc(100vh - 166px);overflow:auto;display:flex;flex-direction:column;gap:12px}
+  .layout.focus{grid-template-columns:1fr}
+  .layout.focus .pv{display:none}
+
+  .tbl-wrap{overflow:auto}
+  table.g{border-collapse:separate;border-spacing:0;width:100%}
+  table.g th{font-size:11.5px;color:var(--muted);font-weight:600;text-align:center;padding:6px 3px;border-bottom:1px solid var(--line);white-space:nowrap}
+  table.g td{padding:2px;border-bottom:1px solid var(--line2)}
+  table.g td.pos{font-size:12.5px;font-weight:700;white-space:nowrap;padding-right:8px;color:var(--text)}
+  table.g input{padding:5px 6px;font-size:12.5px;text-align:center;border-radius:6px;background:var(--surface2)}
+  table.g input:focus{background:#fff}
+  table.g td.t input{text-align:left}
+  .hero-img{width:32px;height:32px;border-radius:7px;background:#fff;border:1px solid var(--line);object-fit:contain;cursor:pointer;display:block;margin:auto}
+  .hero-img.none{border-style:dashed;background:var(--surface2)}
+
+  .team-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:10px}
+  .team{position:relative;display:flex;align-items:center;gap:10px;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--surface);transition:.14s}
+  .team:hover{border-color:#cfd8e6}
+  .team.out{background:var(--surface2);opacity:.7}
+  .team .dot{width:12px;height:12px;border-radius:4px;flex:none}
+  .team .nm{font-weight:700;font-size:13.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .team .sm{font-size:11.5px;color:var(--muted)}
+  .team .ops{position:absolute;right:8px;top:50%;transform:translateY(-50%);display:flex;gap:4px;
+    background:var(--surface);padding-left:8px;opacity:0;transition:.14s;pointer-events:none}
+  .team:hover .ops{opacity:1;pointer-events:auto}
+  .tag{font-size:11px;padding:1px 7px;border-radius:99px;font-weight:600}
+  .tag.out{background:var(--bad-soft);color:var(--bad)}
+  .tag.in{background:var(--ok-soft);color:var(--ok)}
+
+  /* 导入名单 */
+  .imp-drop{border:2px dashed var(--line);border-radius:12px;padding:14px;text-align:center;color:var(--muted);
+    background:var(--surface2);cursor:pointer;transition:.14s}
+  .imp-drop:hover,.imp-drop.over{border-color:var(--primary);background:var(--primary-soft);color:var(--primary)}
+  .imp-wrap{overflow:auto;max-height:460px;border:1px solid var(--line);border-radius:10px}
+  table.imp-t{border-collapse:separate;border-spacing:0;width:100%}
+  table.imp-t th{position:sticky;top:0;background:var(--surface2);font-size:11.5px;color:var(--muted);font-weight:600;
+    padding:5px 7px;border-bottom:1px solid var(--line);white-space:nowrap;text-align:left;z-index:1}
+  table.imp-t td{font-size:12px;padding:4px 7px;border-bottom:1px solid var(--line2);white-space:nowrap}
+  table.imp-t td.nm{font-weight:700}
+  table.imp-t td.tip{font-size:11px;white-space:normal;max-width:260px}
+  table.imp-t select.imp-lane{font-size:11.5px;padding:2px 4px;border-radius:6px;background:var(--surface2);width:100%;min-width:78px}
+
+  .hero-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(102px,1fr));gap:10px}
+  .hc{border:1px solid var(--line);border-radius:10px;background:var(--surface);padding:6px;cursor:pointer;transition:.14s;text-align:center}
+  .hc:hover{border-color:var(--primary-line);box-shadow:var(--shadow)}
+  .hc.on{border-color:var(--primary);box-shadow:0 0 0 3px var(--primary-soft)}
+  .hc img{width:100%;aspect-ratio:1/1;object-fit:contain;border-radius:7px;
+    background:repeating-conic-gradient(#f1f4f9 0 25%, #ffffff 0 50%) 50%/14px 14px}
+  .hc .t{font-size:11.5px;margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--muted)}
+  .hc .t b{color:var(--text)}
+  .cands{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+  .cand{border:1px solid var(--line);border-radius:9px;padding:5px;background:var(--surface);cursor:pointer;width:92px;text-align:center}
+  .cand.on{border-color:var(--primary);box-shadow:0 0 0 3px var(--primary-soft)}
+  .cand img{width:100%;height:76px;object-fit:contain;border-radius:6px;
+    background:repeating-conic-gradient(#f1f4f9 0 25%, #ffffff 0 50%) 50%/12px 12px}
+  .cand .t{font-size:10.5px;margin-top:3px;color:var(--muted);word-break:break-all;line-height:1.25}
+
+  .shot{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow)}
+  .shot-h{display:flex;align-items:center;gap:8px;padding:8px 12px;border-bottom:1px solid var(--line2)}
+  .shot-h b{font-size:12.5px}
+  .shot-h span{font-size:11px;color:var(--muted);margin-left:auto}
+  .shot canvas{display:block;width:100%;height:auto;background:#fff}
+
+  .notice{border-radius:10px;padding:10px 12px;font-size:12.5px;display:flex;gap:8px;align-items:flex-start}
+  .notice.info{background:var(--primary-soft);color:#1d4ed8}
+  .notice.warn{background:var(--warn-soft);color:#8a5406}
+  .notice.ok{background:var(--ok-soft);color:#0f7a44}
+  .notice.bad{background:var(--bad-soft);color:#a52a41}
+  .hint{font-size:11.5px;color:var(--muted)}
+  .drop{border:2px dashed var(--line);border-radius:12px;padding:18px;text-align:center;color:var(--muted);background:var(--surface2);cursor:pointer;transition:.14s}
+  .drop:hover,.drop.over{border-color:var(--primary);background:var(--primary-soft);color:var(--primary)}
+  .bar{height:6px;background:var(--line);border-radius:99px;overflow:hidden}
+  .bar>i{display:block;height:100%;background:var(--primary);width:0;transition:width .18s}
+  .toast{position:fixed;left:50%;bottom:24px;transform:translate(-50%,16px);background:#16202e;color:#fff;
+    border-radius:10px;padding:10px 18px;font-size:13px;opacity:0;pointer-events:none;transition:.2s;z-index:99;max-width:70vw}
+  .toast.show{opacity:1;transform:translate(-50%,0)}
+  details>summary{cursor:pointer;font-size:12.5px;color:var(--muted);padding:4px 0}
+  pre.ocr{background:var(--surface2);border:1px solid var(--line);border-radius:9px;padding:10px;font-size:12px;
+    max-height:240px;overflow:auto;white-space:pre-wrap;word-break:break-all;margin:0;font-family:ui-monospace,Consolas,monospace}
+  .sep{height:1px;background:var(--line2);margin:12px 0}
+
+  /* ---------- 淘汰赛赛程图 ---------- */
+  .subnav{position:sticky;top:118px;z-index:20;display:flex;gap:6px;flex-wrap:wrap;padding:8px 10px;margin:0 0 12px;
+    background:rgba(255,255,255,.94);backdrop-filter:blur(8px);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow)}
+  .subnav button{font-size:12px;padding:5px 12px;border-radius:8px}
+  .bk-layout{display:grid;grid-template-columns:minmax(540px,660px) 1fr;gap:16px;align-items:start}
+  .bk-layout>div{min-width:0}
+  @media (max-width:1560px){ .bk-layout{grid-template-columns:1fr} }
+  .bk-view{display:flex;flex-direction:column;gap:12px;min-width:0}
+  .bk-layout.single{grid-template-columns:1fr}
+  .bk-gt{table-layout:fixed;width:100%;border-collapse:separate;border-spacing:0}
+  .bk-gt th{font-size:11.5px;color:var(--muted);font-weight:600;padding:2px 4px 7px;text-align:center}
+  .bk-gt td{padding:3px 4px}
+  .bk-gt td.s{font-size:11.5px;font-weight:700;color:var(--muted);white-space:nowrap;width:56px}
+  .bk-gt select{font-size:12px;padding:4px 6px}
+  .bk-gtag{display:inline-block;padding:1px 9px;border-radius:99px;font-weight:700;font-size:11.5px}
+  .bk-round-h{display:flex;align-items:center;gap:8px;margin:14px 0 5px;flex-wrap:wrap}
+  .bk-round-h b{font-size:12.5px}
+  .bk-round-h .tip{font-size:11px;color:var(--muted)}
+  .bk-round-h .z{font-size:10.5px;padding:1px 8px;border-radius:99px;font-weight:700}
+  .bk-m{display:grid;grid-template-columns:52px 1fr 40px 10px 40px 1fr 28px;gap:5px;align-items:center;
+    padding:4px 0;border-bottom:1px solid var(--line2)}
+  .bk-m .bk-code{font-size:11px;color:var(--faint);font-weight:700;white-space:nowrap;text-align:center}
+  .bk-pick{display:flex;align-items:center;gap:6px;padding:5px 8px;border-radius:8px;border:1px solid var(--line);
+    background:var(--surface2);font-size:12.5px;font-weight:600;text-align:left;min-width:0;color:var(--text)}
+  .bk-pick .nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .bk-pick .sd{font-size:10.5px;color:var(--faint);flex:none;font-weight:700}
+  .bk-pick.w{border-color:var(--ok);background:var(--ok-soft);color:#0f7a44}
+  .bk-pick .dot{width:9px;height:9px;border-radius:3px;flex:none}
+  .bk-m .bk-vs{text-align:center;color:var(--faint);font-weight:700;font-size:12px}
+  .bk-m input.bk-sc{width:100%;text-align:center;padding:4px 2px;font-size:12px;background:var(--surface2)}
+  .bk-linkbar{display:flex;align-items:center;gap:6px;padding:0 0 6px 57px;margin-top:-2px}
+  .bk-linkbar .mini{padding:2px 7px;font-size:11px}
+  .bk-rec{font-size:11px;color:#8a6a12;background:#fff7dd;border:1px solid #f0dca0;border-radius:6px;padding:1px 7px;white-space:nowrap}
+  .bk-rec.empty{color:var(--faint);background:transparent;border-color:var(--line2)}
+  .bk-m.bk-flash{animation:bkFlash 2.2s ease}
+  @keyframes bkFlash{0%,100%{background:transparent}18%,62%{background:#fff5cc;box-shadow:0 0 0 2px #f0d37a inset}}
+  .bk-draw{display:grid;grid-template-columns:58px 1fr 20px 1fr;gap:6px;align-items:end;
+    padding:5px 0;border-bottom:1px solid var(--line2)}
+  .bk-draw .n{font-size:11.5px;font-weight:700;color:var(--text);line-height:1.35;padding-bottom:10px}
+  .bk-draw .n em{font-style:normal;font-size:10.5px;color:var(--faint);font-weight:400}
+  .bk-draw .fld label{font-size:10.5px;color:var(--muted)}
+  .bk-draw select{font-size:12px;padding:4px 6px}
+  .bk-draw .vs{font-size:11px;color:var(--faint);text-align:center;padding-bottom:9px}
+
+  /* ============================================================
+     2026-10 UI 刷新：统一卡片 / 控件 / 表格 / 各页密度
+     ============================================================ */
+  :root{
+    --radius:14px;
+    --shadow:0 1px 2px rgba(22,32,46,.04), 0 8px 22px rgba(22,32,46,.05);
+  }
+  body{-webkit-font-smoothing:antialiased}
+
+  .card{border-radius:14px}
+  .card-h{padding:13px 18px;min-height:46px}
+  .card-h b{font-size:14px;letter-spacing:.01em}
+  .card-b{padding:16px 18px}
+  .panel{padding-top:18px}
+
+  button,.btn{
+    min-height:34px;border-radius:9px;padding:7px 14px;
+    transition:background-color .16s ease,border-color .16s ease,box-shadow .16s ease,transform .12s ease;
+  }
+  button:active{transform:translateY(1px)}
+  button.mini{min-height:28px;padding:4px 10px}
+  button.primary{box-shadow:0 6px 16px rgba(47,107,255,.16)}
+  button.primary:hover{box-shadow:0 8px 20px rgba(47,107,255,.24)}
+
+  input[type=text],input[type=number],input[type=date],select,textarea{
+    min-height:34px;border-radius:9px;padding:7px 10px;
+  }
+  input[type=text]:hover,input[type=number]:hover,input[type=date]:hover,select:hover,textarea:hover{
+    border-color:#cfd8e6;
+  }
+  .fld{gap:6px}
+  .fld>label{font-size:11px;letter-spacing:.02em}
+  .row{gap:12px}
+  .hint{font-size:12px;line-height:1.7}
+
+  /* 对位数据表 */
+  .tbl-wrap{
+    border:1px solid var(--line);border-radius:12px;background:var(--surface);
+  }
+  table.g thead th{
+    position:sticky;top:0;z-index:3;background:#fbfcfe;padding:9px 6px;
+    font-size:11px;letter-spacing:.03em;
+  }
+  table.g tbody tr:hover td{background:#f8fbff}
+  table.g td{padding:3px}
+  table.g td.pos{padding-left:10px}
+  table.g input{background:#fbfcfe}
+  table.g input:focus{background:#fff}
+
+  /* 截图识别区 */
+  .drop{
+    padding:26px 20px;border-radius:14px;border:2px dashed #ccd8ea;
+    background:linear-gradient(160deg,#fbfcff,#f1f6fd);
+    transition:border-color .16s ease,background .16s ease,box-shadow .16s ease,transform .16s ease;
+  }
+  .drop:hover{
+    border-color:var(--primary);background:linear-gradient(160deg,#f7faff,#e9f1ff);
+    box-shadow:var(--shadow);transform:translateY(-1px);
+  }
+  .drop.over{border-color:var(--primary);background:#e9f1ff}
+
+  /* 队伍 / 英雄 / 导入 */
+  .team{border-radius:12px;padding:11px 13px}
+  .team:hover{border-color:var(--primary-line);box-shadow:var(--shadow);transform:translateY(-1px)}
+  .imp-drop,.hc,.cand{border-radius:12px}
+  .hc:hover{transform:translateY(-2px)}
+  .hc{position:relative}
+  .hc .hc-flag{
+    position:absolute;top:8px;right:8px;width:7px;height:7px;border-radius:50%;
+    background:#e8a13a;box-shadow:0 0 0 2px #fff;font-size:0;line-height:0;color:transparent;
+  }
+
+  /* 赛程编辑行 */
+  .bk-m{border-radius:9px;padding:5px 6px}
+  .bk-m:hover{background:#f8fbff}
+  .bk-round-h{margin:18px 0 6px}
+  .bk-linkbar{padding-left:60px}
+
+  /* 本局信息：两队 + 比分 + 元数据 */
+  .match-form{display:flex;flex-direction:column;gap:14px}
+  .mf-teams{
+    display:grid;grid-template-columns:minmax(0,1.15fr) 88px 30px minmax(0,1.15fr) 88px;
+    gap:10px;align-items:end;
+  }
+  .mf-vs{padding-bottom:9px;text-align:center;font:800 10px/1 Bahnschrift,system-ui,sans-serif;color:var(--faint);letter-spacing:.1em}
+  .mf-with-btn{display:flex;gap:6px}
+  .mf-with-btn select{flex:1;min-width:0}
+  .mf-with-btn .mini{min-height:34px;padding:0 11px}
+  .mf-meta{
+    display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px;
+    padding-top:14px;border-top:1px dashed var(--line);
+  }
+  @media (max-width:1500px){
+    .mf-teams{grid-template-columns:minmax(0,1fr) 76px 26px minmax(0,1fr) 76px}
+    .mf-meta{grid-template-columns:repeat(6,minmax(0,1fr))}
+    .mf-meta .fld:nth-child(-n+3){grid-column:span 2}
+    .mf-meta .fld:nth-child(n+4){grid-column:span 3}
+  }
+  @media (max-width:900px){
+    .mf-teams{grid-template-columns:1fr}
+    .mf-vs{display:none}
+    .mf-meta{grid-template-columns:1fr 1fr}
+  }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-in">
+    <a class="brand" href="/" title="回到赛事工作台">
+      <div class="logo">PKC</div>
+      <div><b>PKC 数据工作台</b><span>薄扶林王者杯 · 赛程 / 对局 / 数据图</span></div>
+    </a>
+    <nav class="appnav">
+      <a class="on" href="/generator">数据工作台</a>
+      <a href="/director">导播台</a>
+      <a href="/使用说明.md">说明</a>
+    </nav>
+    <div class="grow"></div>
+    <button class="mini" id="btnTheme">🌗 深色底图</button>
+    <button class="mini" id="btnStyle">🏆 KPL 风格</button>
+    <button class="mini" id="btnPreviewToggle" title="显示 / 收起右侧预览">👁 预览</button>
+    <button class="primary" id="btnZip">导出当前局</button>
+    <span class="hint" id="status"></span>
+  </div>
+</div>
+
+<div class="contextbar">
+  <div class="ctx-row">
+    <span class="ctx-k">系列赛</span>
+    <select id="selSeries" class="ctx-series"></select>
+    <button class="mini" id="btnSeriesAdd" title="新建系列赛">＋</button>
+    <button class="mini" id="btnSeriesRen">重命名</button>
+    <button class="mini" id="btnSeriesDel">删除</button>
+    <span class="ctx-sep"></span>
+    <span class="ctx-k">场次</span>
+    <select id="selMatch" class="ctx-match"></select>
+    <button class="mini" id="btnMatchData" title="打开当前场次最近一局；没有就新建">打开本场</button>
+    <span class="ctx-sep"></span>
+    <span class="ctx-k">局</span>
+    <div id="gameBar" class="ctx-games"></div>
+    <button class="primary mini" id="btnSwapTop" title="交换本局蓝方与红方">⇄ 交换红蓝</button>
+    <button class="mini danger" id="btnClearMatch" title="删除本场全部对局数据" style="display:none">🗑 清除本场数据</button>
+    <span class="ctx-hint" id="gameHint"></span>
+  </div>
+  <div id="matchWarn" class="notice warn" style="display:none"></div>
+</div>
+
+<nav class="tabs">
+  <div class="tab-group"><span class="tab-cap">数据</span>
+    <button class="tab on" data-tab="data">📝 对局</button>
+    <button class="tab" data-tab="bracket">🏆 赛程</button>
+  </div>
+  <div class="tab-group"><span class="tab-cap">资料</span>
+    <button class="tab" data-tab="teams">👥 队伍</button>
+    <button class="tab" data-tab="hero">🖼️ 英雄</button>
+  </div>
+  <div class="tab-group"><span class="tab-cap">输出</span>
+    <button class="tab" data-tab="out">📦 导出</button>
+  </div>
+  <div class="grow"></div>
+  <button class="tab tab-help" data-tab="help">? 说明</button>
+</nav>
+
+<div class="wrap">
+  <div class="layout">
+    <div>
+      <section class="panel on" id="panel-data">
+        <div class="card" style="margin-bottom:14px">
+          <div class="card-h"><b>本局信息</b><span class="sub">队伍 · 本局击杀比分</span></div>
+          <div class="card-b">
+            <div class="match-form">
+              <div class="mf-teams">
+                <div class="fld">
+                  <label>蓝方队伍（来自队伍库）</label>
+                  <div class="mf-with-btn">
+                    <select id="inOurTeam"></select>
+                    <button class="mini" id="btnOurTeamEdit" title="去②队伍库编辑这支队伍">编辑</button>
+                  </div>
+                </div>
+                <div class="fld"><label>蓝方比分</label><input type="text" id="inOurScore" placeholder="击杀"></div>
+                <div class="mf-vs">VS</div>
+                <div class="fld">
+                  <label>红方队伍（来自队伍库）</label>
+                  <div class="mf-with-btn">
+                    <select id="inOppTeam"></select>
+                    <button class="mini" id="btnOppTeamEdit" title="去②队伍库编辑这支队伍">编辑</button>
+                  </div>
+                </div>
+                <div class="fld"><label>红方比分</label><input type="text" id="inOppScore" placeholder="击杀"></div>
+              </div>
+              <div class="mf-meta">
+                <div class="fld"><label>本局结果</label>
+                  <select id="selResult"><option value="win">蓝方获胜</option><option value="lose">红方获胜</option></select>
+                </div>
+                <div class="fld"><label>日期</label><input type="text" id="inDate" placeholder="如 10-18"></div>
+                <div class="fld"><label>对局时长</label><input type="text" id="inDur" placeholder="如 12:11"></div>
+                <div class="fld"><label>蓝方总输出(万)</label><input type="text" id="inDmgBlue" placeholder="选填，用来算经济转伤"></div>
+                <div class="fld"><label>红方总输出(万)</label><input type="text" id="inDmgRed" placeholder="选填，用来算经济转伤"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card" style="margin-bottom:14px">
+          <div class="card-h"><b>截图识别 / 粘贴导入</b><span class="sub">最快路径</span></div>
+          <div class="card-b">
+            <div class="drop" id="drop">
+              <div style="font-size:24px;line-height:1">🖼️</div>
+              <div style="margin-top:6px"><b>把赛宝战绩截图拖进来</b>，或点击选择图片</div>
+              <div class="hint" style="margin-top:4px">支持多张；识别后先核对，再一键填入表格</div>
+              <input type="file" id="fileShot" accept="image/*" multiple style="display:none">
+            </div>
+            <div class="row" style="margin-top:8px;align-items:center">
+              <button class="primary mini" id="btnAiOcr">✨ 用 DeepSeek 识别</button>
+              <button class="mini" id="btnAiKey">AI 设置</button>
+              <label class="sw"><input type="checkbox" id="swAiAuto" checked> 拖图后自动用 AI</label>
+              <span class="hint" id="aiStatus">正在检查 AI 接口…</span>
+            </div>
+            <div id="ocrBox" style="display:none;margin-top:12px">
+              <div class="bar" style="margin-bottom:6px"><i id="ocrBar"></i></div>
+              <div class="hint" id="ocrMsg">准备中…</div>
+            </div>
+            <div id="ocrReview" style="display:none;margin-top:12px"></div>
+            <div style="margin-top:12px">
+              <textarea id="pasteBox" rows="3" placeholder="也可以直接粘贴：位置 选手 英雄 击杀 死亡 助攻 总经济 分均经济 输出伤害 承受伤害 经济占比 参团率 经济转伤 总输出万　（可加“蓝方/红方”前缀，5/2/7 这种合并 KDA 也能识别；列要对齐，空位写 - ）"></textarea>
+              <div class="row" style="margin-top:8px">
+                <button class="primary mini" id="btnParse">解析粘贴内容</button>
+                <button class="mini" id="btnTpl">插入表头模板</button>
+                <button class="primary mini" id="btnSwap">⇄ 交换红蓝方</button>
+                <button class="mini" id="btnFillHero">按英雄名自动配图</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-h"><b>对位数据</b><span class="sub" id="laneStat"></span>
+            <button class="mini" id="btnHeroLanes" title="按英雄的常用位置重新匹配双方分路；会覆盖当前分路">按英雄分路</button>
+            <button class="mini" id="btnLanes" title="把蓝方、红方的分路都按 上单→打野→中路→发育路→游走 顺序各填一遍，之后按需单独修改">按顺序填分路</button></div>
+          <div class="card-b" style="padding:8px 10px">
+            <div class="hint" style="margin:0 2px 6px">蓝方、红方<b>各自指定分路</b>，互相不受限制（上面第 1 行可以是上单，下面第 1 行可以是发育路）；出图时按分路自动配成对位。</div>
+            <div class="tbl-wrap" id="tables"></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel" id="panel-teams">
+        <div class="card">
+          <div class="card-h"><b>队伍库</b><span class="sub" id="teamStat"></span></div>
+          <div class="card-b">
+            <div class="row" style="margin-bottom:12px">
+              <div class="fld" style="flex:1;min-width:180px"><label>搜索队伍</label><input type="text" id="teamSearch" placeholder="输入队名筛选"></div>
+              <div class="fld" style="width:146px"><label>显示</label>
+                <select id="teamFilter"><option value="all">全部队伍</option><option value="alive">参赛中</option><option value="out">已淘汰</option></select>
+              </div>
+              <button class="primary mini" id="btnTeamAdd">＋ 添加队伍</button>
+              <button class="mini" id="btnTeamBulk">批量粘贴名单</button>
+              <button class="mini" id="btnTeamImport">📥 导入名单（Excel）</button>
+            </div>
+            <div id="teamBulk" style="display:none;margin-bottom:12px">
+              <textarea id="bulkBox" rows="4" placeholder="每行一支队伍：队名,主色（主色可省略）
+出肉混得了,#2b6cff
+果宝特攻,#e5484d"></textarea>
+              <div class="row" style="margin-top:8px"><button class="primary mini" id="btnBulkGo">导入</button></div>
+            </div>
+            <div id="teamImport" style="display:none;margin-bottom:12px">
+              <div class="imp-drop" id="impDrop">
+                <div style="font-size:22px;line-height:1.1">📥</div>
+                <div style="margin-top:4px"><b>把 .xlsx 名单拖进来</b>，或点击选择文件</div>
+                <div class="hint" style="margin-top:3px">也支持 .csv / .txt；表格里一行一名选手，带「队伍名称 / 游戏 ID / 主分路」这几列即可（列顺序不限）</div>
+                <input type="file" id="impFile" accept=".xlsx,.csv,.txt,.tsv" style="display:none">
+              </div>
+              <textarea id="impPaste" rows="3" style="margin-top:10px" placeholder="或者：在 Excel 里框选整张名单（连表头一起选）→ Ctrl+C → 粘贴到这里"></textarea>
+              <div class="row" style="margin-top:8px">
+                <button class="primary mini" id="impParse">解析并预览</button>
+                <button class="mini" id="impClear">清空</button>
+                <div class="fld" style="width:200px"><label>队伍库里已有同名队伍时</label>
+                  <select id="impMode">
+                    <option value="over">覆盖它的选手名单</option>
+                    <option value="fill">只补齐空缺的位置</option>
+                    <option value="skip">跳过，不动它</option>
+                  </select></div>
+              </div>
+              <div id="impPreview" style="margin-top:10px"></div>
+            </div>
+            <div class="team-grid" id="teamGrid"></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel" id="panel-hero">
+        <div class="card">
+          <div class="card-h"><b>英雄图库</b><span class="sub" id="heroStat"></span></div>
+          <div class="card-b">
+            <div id="heroNotice"></div>
+            <div class="row" style="margin-top:10px">
+              <div class="fld" style="flex:1;min-width:180px"><label>搜索英雄</label><input type="text" id="heroSearch" placeholder="输入英雄名，如 吕布 / 伽罗 / 张飞"></div>
+              <div class="fld" style="width:170px"><label>筛选</label>
+                <select id="heroFilter">
+                  <option value="all">全部英雄</option>
+                  <option value="multi">多张候选（待你选）</option>
+                  <option value="used">本局用到</option>
+                </select>
+              </div>
+              <button class="mini" id="btnHeroRefresh">重新扫描素材</button>
+            </div>
+            <div class="cands" id="heroCands" style="display:none"></div>
+            <div class="hero-grid" id="heroGrid" style="margin-top:12px"></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel" id="panel-out">
+        <div class="card" style="margin-bottom:14px">
+          <div class="card-h"><b>系列赛多局对比</b><span class="sub" id="mgStat"></span></div>
+          <div class="card-b">
+            <div class="row" style="margin-bottom:10px">
+              <button class="mini primary" id="btnMgDown">生成并下载多局对比图</button>
+              <span class="hint">把每局数据录好后，生成一张横向对比大图</span>
+            </div>
+            <div id="mgInfo" class="hint"></div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-h"><b>导出设置</b></div>
+          <div class="card-b">
+            <div class="row">
+              <div class="fld" style="width:196px"><label>输出尺寸</label>
+                <select id="selSize">
+                  <option value="1920x1080">1920 × 1080（直播/横屏）</option>
+                  <option value="2560x1440">2560 × 1440（2K）</option>
+                  <option value="1280x720">1280 × 720（轻量）</option>
+                </select>
+              </div>
+              <div class="fld" style="width:230px"><label>底部署名 / 水印</label><input type="text" id="inFooter"></div>
+              <div class="fld" style="width:158px"><label>英雄图提亮</label>
+                <select id="selLift">
+                  <option value="auto">自动（暗图自动提亮）</option>
+                  <option value="strong">加强提亮</option>
+                  <option value="off">关闭（用原图）</option>
+                </select>
+              </div>
+              <label class="sw"><input type="checkbox" id="swValues" checked>雷达显示数值</label>
+              <label class="sw"><input type="checkbox" id="swOverview" checked>附带五路总览</label>
+              <label class="sw"><input type="checkbox" id="swBracket">附带淘汰赛赛程图</label>
+              <label class="sw"><input type="checkbox" id="swAllGames">导出包含本场所有局</label>
+            </div>
+            <div class="sep"></div>
+            <div class="row">
+              <button class="primary" id="btnZip2">⬇ 打包下载（ZIP）</button>
+              <button id="btnEach">🗂 逐个下载（固定名，OBS 用）</button>
+            </div>
+            <div class="hint" style="margin-top:8px">固定名：PKC_1_上单.png … PKC_5_游走.png、PKC_总览.png、PKC_多局对比.png；勾选赛程图后另有 PKC_赛程_16强.png、PKC_赛程_八强双败.png</div>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel" id="panel-bracket">
+        <div class="subnav" id="bkSubnav">
+          <button data-bk-jump="bkGroups">① 分组</button>
+          <button data-bk-jump="bkDrawTable">② 抽签</button>
+          <button data-bk-jump="bkMatches">③ 赛果</button>
+          <button data-bk-jump="bkPreview">④ 导出</button>
+        </div>
+        <div class="bk-layout">
+          <div class="bk-ctrl">
+            <div class="card" style="margin-bottom:14px">
+              <div class="card-h"><b>赛程图标题</b><span class="sub">直接显示在图上</span></div>
+              <div class="card-b">
+                <div class="row">
+                  <div class="fld" style="flex:1;min-width:200px"><label>赛事名（主标题）</label>
+                    <input type="text" id="bkTitle" placeholder="2026 薄扶林王者杯秋季赛"></div>
+                  <div class="fld" style="width:110px"><label>简称</label><input type="text" id="bkShort" placeholder="PKC"></div>
+                </div>
+                <div class="row" style="margin-top:10px">
+                  <div class="fld" style="flex:1;min-width:200px"><label>副标题 / 备注（时间、直播地址等，可留空）</label>
+                    <input type="text" id="bkNote" placeholder="如：10月18日 19:00 开赛 · 直播 B站 xxxxx"></div>
+                </div>
+                <div class="hint" style="margin-top:6px">主标题留空时自动用当前系列赛名（<b id="bkSeriesName"></b>）。</div>
+              </div>
+            </div>
+
+            <div class="card" style="margin-bottom:14px">
+              <div class="card-h"><b>① 预选赛分组</b><span class="sub">4 组 × 4 队 = 16 强</span>
+                <button class="mini" id="bkFill" title="按队伍库顺序（未淘汰的排前面）填满 4 组">按队伍库自动填</button>
+                <button class="mini" id="bkClearTeams">清空</button></div>
+              <div class="card-b">
+                <div id="bkGroupWarn"></div>
+                <div class="tbl-wrap" id="bkGroups"></div>
+                <div class="hint" style="margin-top:8px">下拉里是<b>当前系列赛的队伍库</b>；队伍不在这里增删，去 <b>② 队伍库</b> 维护。</div>
+              </div>
+            </div>
+
+            <div class="card" style="margin-bottom:14px">
+              <div class="card-h"><b>② 抽签（抽队伍，不抽组）</b><span class="sub">8 场 16 强对阵</span>
+                <button class="mini" id="bkDrawClear">清空对阵</button></div>
+              <div class="card-b">
+                <div class="hint" style="margin-bottom:8px">
+                  把<b>你们抽签抽出来的结果填进下面 8 场</b>就行——本工具不代替抽签。<br>
+                  位置上的「各组第 1 名 / 第 4 名 / 第 2 名 / 第 3 名」是赛制要求：<b>第 1 名打另一组的第 4 名、第 2 名打另一组的第 3 名</b>，<b>同组不碰面</b>；
+                  抽的是<b>队伍</b>，除了本组的队，其它哪个组都行，不限制哪两个组成对碰面。
+                </div>
+                <div id="bkDrawWarn"></div>
+                <div id="bkLinkWarn" style="display:none"></div>
+                <div id="bkDrawTable" style="margin-top:8px"></div>
+              </div>
+            </div>
+
+            <div class="card" style="margin-bottom:14px">
+              <div class="card-h"><b>③ 点队伍名 = 它晋级</b><span class="sub">再点一次取消；比分选填</span>
+                <button class="mini" id="bkResetAll">清空所有赛果</button></div>
+              <div class="card-b"><div id="bkMatches"></div></div>
+            </div>
+
+            <div class="card">
+              <div class="card-h"><b>④ 导出赛程图</b><span class="sub">尺寸跟随「④ 多局与导出」里的输出尺寸</span></div>
+              <div class="card-b">
+                <div class="row">
+                  <button class="primary mini" id="bkDown16">⬇ 16强对阵图</button>
+                  <button class="primary mini" id="bkDownDE">⬇ 八强双败图</button>
+                  <button class="mini" id="bkDownAll">⬇ 总览长图</button>
+                  <button class="mini" id="bkText">复制文字版赛程</button>
+                </div>
+                <div class="hint" style="margin-top:8px">也可以在「④ 多局与导出」里勾选「附带淘汰赛赛程图」，和其它图一起打包下载。</div>
+              </div>
+            </div>
+          </div>
+          <div class="bk-view" id="bkPreview"></div>
+        </div>
+      </section>
+
+      <section class="panel" id="panel-help">
+        <div class="card"><div class="card-b" id="helpBody"></div></div>
+      </section>
+    </div>
+
+    <aside class="pv" id="preview"></aside>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+<datalist id="heroDL"></datalist>
+
+<script src="/assets/ocr-tools.js"></script>
+<script src="/assets/chart-core.js"></script>
+</body>
+</html>

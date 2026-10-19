@@ -1,0 +1,37 @@
+{
+  "teams": [
+    {
+      "id": "t_mvaz5qe3_c4cv",
+      "name": "成都AG超玩会",
+      "logo": "",
+      "players": [
+        {
+          "name": "轩染",
+          "realName": "刘明",
+          "lane": "对抗路"
+        },
+        {
+          "name": "钟意",
+          "realName": "陈家豪",
+          "lane": "打野"
+        },
+        {
+          "name": "长生",
+          "realName": "谢承峻",
+          "lane": "中路"
+        },
+        {
+          "name": "一诺",
+          "realName": "徐必成",
+          "lane": "发育路"
+        },
+        {
+          "name": "大帅",
+          "realName": "孟家俊",
+          "lane": "游走"
+        }
+      ]
+    }
+  ],
+  "updatedAt": "2026-10-16T12:59:38.332Z"
+}

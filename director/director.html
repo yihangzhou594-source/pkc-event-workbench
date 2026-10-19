@@ -1,0 +1,722 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<link rel="icon" href="data:," />
+<title>PKC · 导播台</title>
+<style>
+  :root{
+    --bg:#eef1f6; --surface:#ffffff; --surface2:#f7f9fc; --line:#e2e7f0; --line2:#edf1f7;
+    --text:#18212f; --muted:#6b7c93; --faint:#9aa8bb;
+    --primary:#2f6bff; --primary-soft:#eaf1ff; --primary-line:#c9dbff;
+    --nav-active:#1f2a44; --ok:#15a05a; --warn:#c2760a;
+    --radius:12px; --shadow:0 1px 2px rgba(24,33,47,.05), 0 8px 24px rgba(24,33,47,.06);
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%;margin:0}
+  body{
+    background:var(--bg); color:var(--text);
+    font:13.5px/1.55 "Microsoft YaHei","PingFang SC","Noto Sans SC",system-ui,sans-serif;
+    overflow:hidden;
+  }
+  button{font:inherit;cursor:pointer}
+
+  /* ---------- 外壳：左侧导航 + 主区域 ---------- */
+  .shell{display:flex;height:100vh}
+  .side{
+    width:212px;flex:0 0 212px;background:var(--surface);
+    border-right:1px solid var(--line);display:flex;flex-direction:column;padding:14px 12px;
+  }
+  .side-top{
+    font-size:12px;font-weight:700;color:var(--muted);letter-spacing:.04em;
+    padding:4px 8px 14px;border-bottom:1px solid var(--line2);margin-bottom:10px;
+  }
+  .side-nav{display:flex;flex-direction:column;gap:4px;flex:1}
+  .nav-item{
+    display:flex;align-items:center;gap:9px;padding:9px 11px;border:0;border-radius:9px;
+    background:transparent;color:var(--text);text-align:left;
+    transition:background-color .18s ease,color .18s ease,transform .18s ease;
+  }
+  .nav-item svg{width:17px;height:17px;flex:0 0 17px;stroke:currentColor;fill:none;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+  .nav-item:hover{background:var(--surface2)}
+  .nav-item.on{background:var(--nav-active);color:#fff;box-shadow:0 6px 16px rgba(31,42,68,.22)}
+  .nav-item.on:active{transform:scale(.985)}
+  .nav-badge{margin-left:auto;font-size:10px;background:var(--primary);color:#fff;border-radius:6px;padding:1px 5px}
+  .side-foot{font-size:11.5px;color:var(--faint);padding:10px 8px 2px;border-top:1px solid var(--line2)}
+  .side-foot b{color:var(--muted)}
+
+  .main{flex:1;position:relative;overflow:hidden}
+
+  /* ---------- 视图切换动画 ---------- */
+  .view{
+    position:absolute;inset:0;padding:16px 18px;overflow:auto;
+    opacity:0;transform:translateY(10px) scale(.995);pointer-events:none;
+    transition:opacity .26s ease,transform .26s cubic-bezier(.22,.61,.36,1);
+  }
+  .view.on{opacity:1;transform:none;pointer-events:auto}
+  .view-head{display:flex;align-items:center;gap:10px;margin-bottom:14px}
+  .view-head h1{font-size:17px;margin:0;font-weight:700}
+  .view-head .sub{color:var(--muted);font-size:12.5px}
+  .grow{flex:1}
+
+  /* ---------- 通用控件 ---------- */
+  .card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow)}
+  .btn{
+    padding:7px 13px;border:1px solid var(--line);border-radius:9px;background:var(--surface);color:var(--text);
+    transition:background-color .16s ease,border-color .16s ease,transform .16s ease,box-shadow .16s ease;
+  }
+  .btn:hover{background:var(--surface2);border-color:var(--primary-line)}
+  .btn:active{transform:translateY(1px)}
+  .btn.primary{background:var(--primary);border-color:var(--primary);color:#fff;font-weight:600}
+  .btn.primary:hover{filter:brightness(1.06);box-shadow:0 6px 18px rgba(47,107,255,.28)}
+  .btn.ghost{background:transparent}
+  .btn:disabled{opacity:.45;cursor:not-allowed;transform:none}
+
+  /* ---------- 导播台三栏 ---------- */
+  .director{display:grid;grid-template-columns:118px minmax(0,1fr) 292px;gap:14px;height:100%;min-height:0}
+  .scenes{display:flex;flex-direction:column;gap:9px;padding:11px;overflow:auto}
+  .scenes .cap{font-size:11.5px;color:var(--faint);font-weight:700;letter-spacing:.06em;margin:2px 0 2px 2px}
+  .scene{
+    position:relative;padding:14px 6px;border:1px solid var(--line);border-radius:11px;
+    background:var(--surface2);color:var(--text);font-weight:600;font-size:12.5px;
+    transition:background-color .2s ease,border-color .2s ease,color .2s ease,transform .2s ease,box-shadow .2s ease;
+  }
+  .scene:hover{transform:translateY(-1px);border-color:var(--primary-line)}
+  .scene.on{background:var(--primary-soft);border-color:var(--primary);color:var(--primary);box-shadow:0 4px 14px rgba(47,107,255,.16)}
+  .scene .live{
+    position:absolute;top:-6px;right:-4px;font-size:9.5px;font-weight:700;color:#fff;background:var(--ok);
+    border-radius:6px;padding:1px 5px;box-shadow:0 2px 6px rgba(21,160,90,.35);
+  }
+
+  .stage{position:relative;display:flex;flex-direction:column;min-height:0;overflow:hidden}
+  .stage-top{display:flex;align-items:center;gap:8px;padding:10px 12px;border-bottom:1px solid var(--line2)}
+  .seg{display:flex;background:var(--surface2);border:1px solid var(--line);border-radius:9px;padding:2px}
+  .seg button{border:0;background:transparent;padding:5px 14px;border-radius:7px;color:var(--muted);font-size:12.5px;transition:background-color .18s ease,color .18s ease}
+  .seg button.on{background:var(--surface);color:var(--text);font-weight:700;box-shadow:0 1px 3px rgba(24,33,47,.12)}
+  .stage-canvas{flex:1;min-height:0;position:relative;background:repeating-conic-gradient(#eef1f6 0 25%,#fff 0 50%) 0 0/22px 22px}
+  .stage-canvas iframe{position:absolute;inset:0;width:100%;height:100%;border:0;transition:opacity .28s ease}
+  .stage-canvas iframe.fading{opacity:0}
+
+  .ops{display:flex;flex-direction:column;gap:12px;padding:12px;overflow:auto}
+  .ops h2{font-size:11.5px;color:var(--faint);font-weight:700;letter-spacing:.06em;margin:0 0 8px}
+  .ops .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px}
+  .ops .kv{font-size:12.5px;color:var(--muted)}
+  .ops .kv b{color:var(--text);font-weight:600}
+  input[type=number],input[type=text],textarea,select{
+    font:inherit;padding:6px 9px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--text);
+    transition:border-color .16s ease,box-shadow .16s ease;
+  }
+  input:focus,textarea:focus,select:focus{outline:0;border-color:var(--primary);box-shadow:0 0 0 3px var(--primary-soft)}
+  input[type=number]{width:60px;text-align:center}
+  code{background:var(--surface2);border:1px solid var(--line2);border-radius:6px;padding:1px 6px;font-size:11.5px;word-break:break-all}
+
+  /* ---------- 队伍库 ---------- */
+  .team-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(268px,1fr));gap:12px}
+  .team{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:13px;box-shadow:var(--shadow);transition:transform .2s ease,box-shadow .2s ease}
+  .team:hover{transform:translateY(-2px);box-shadow:0 10px 26px rgba(24,33,47,.1)}
+  .team .name{display:flex;align-items:center;gap:8px;font-weight:700;margin-bottom:9px}
+  .team .logo{width:26px;height:26px;border-radius:7px;object-fit:cover;background:var(--surface2);border:1px solid var(--line2)}
+  .team .p{display:flex;gap:8px;font-size:12.5px;padding:3px 0;border-bottom:1px dashed var(--line2)}
+  .team .p:last-child{border-bottom:0}
+  .team .p .lane{color:var(--faint);width:52px;flex:0 0 52px}
+  .team .p .rn{color:var(--faint);margin-left:auto}
+  .empty-hint{color:var(--faint);font-size:13px;padding:26px;text-align:center;border:1px dashed var(--line);border-radius:var(--radius);background:var(--surface2)}
+  .import-area{display:grid;grid-template-columns:1fr 300px;gap:14px;margin-bottom:14px}
+  .import-area textarea{width:100%;min-height:132px;font-family:ui-monospace,Consolas,monospace;font-size:12px;resize:vertical}
+  .msg{font-size:12.5px;padding:7px 10px;border-radius:8px;display:none;margin-top:8px}
+  .msg.ok{display:block;background:#e7f7ee;color:#0f7a44;border:1px solid #bfe8d3}
+  .msg.bad{display:block;background:#fdeef1;color:#a32340;border:1px solid #f6c9d4}
+  .dirty{font-size:12px;color:var(--warn);font-weight:600;opacity:0;transition:opacity .25s ease}
+  .dirty.on{opacity:1}
+  /* ---------- BP 操作台 ---------- */
+  .bp-ops{display:none}
+  .bp-ops.on{display:block}
+  .bp-search{width:100%;margin-bottom:8px}
+  .bp-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;max-height:300px;overflow:auto;padding-right:2px}
+  .bp-hero{position:relative;aspect-ratio:1;border:1px solid var(--line);border-radius:9px;background:var(--surface2);padding:0;overflow:hidden;cursor:pointer;transition:transform .14s ease,border-color .14s ease,box-shadow .14s ease}
+  .bp-hero:hover{transform:translateY(-2px);border-color:var(--primary-line)}
+  .bp-hero.on{border-color:var(--primary);box-shadow:0 0 0 2px var(--primary-soft)}
+  .bp-hero img{width:100%;height:100%;object-fit:cover;display:block}
+  .bp-hero.used{opacity:.3;cursor:not-allowed}
+  .bp-hero span{position:absolute;left:0;right:0;bottom:0;font-size:10px;line-height:1.5;background:rgba(24,33,47,.62);color:#fff;text-align:center;padding:1px 2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .bp-picked{font-size:12.5px;color:var(--muted);margin:6px 0}
+  .bp-picked b{color:var(--primary);font-weight:700}
+  .bp-stat{font-size:12.5px;color:var(--muted);margin-bottom:7px}
+  .bp-stat b{color:var(--text)}
+</style>
+</head>
+<body>
+<div class="shell">
+
+  <!-- ============ 左侧主导航 ============ -->
+  <aside class="side">
+    <div class="side-top">PKC 赛事导播系统</div>
+    <nav class="side-nav">
+      <button class="nav-item" data-view="teams">
+        <svg viewBox="0 0 24 24"><path d="M16 20v-1.6a3.4 3.4 0 0 0-3.4-3.4H6.4A3.4 3.4 0 0 0 3 18.4V20"/><circle cx="9.5" cy="7.6" r="3.6"/><path d="M21 20v-1.6a3.4 3.4 0 0 0-2.6-3.3"/><path d="M15.4 4.2a3.4 3.4 0 0 1 0 6.6"/></svg>
+        <span>队伍</span>
+        <span class="nav-badge" id="teamBadge">0</span>
+      </button>
+      <button class="nav-item on" data-view="director">
+        <svg viewBox="0 0 24 24"><rect x="2.6" y="4.4" width="18.8" height="13.2" rx="2"/><path d="M2.6 14.6l4.6-4.2 3.6 3.2 3.2-2.8 6.4 5.6"/><circle cx="15.6" cy="8.6" r="1.3"/></svg>
+        <span>导播台</span>
+      </button>
+    </nav>
+    <div class="side-foot">
+      <div>服务端口 <b id="portLabel">8971</b></div>
+      <div id="connLabel">连接中…</div>
+    </div>
+  </aside>
+
+  <div class="main">
+
+    <!-- ============ 视图一：队伍 ============ -->
+    <section class="view" id="view-teams">
+      <div class="view-head">
+        <h1>队伍</h1>
+        <span class="sub">上传队伍名单，供导播台与阵容画面使用</span>
+        <span class="grow"></span>
+        <button class="btn ghost" id="btnTeamSample">填入示例</button>
+        <button class="btn primary" id="btnTeamSave">保存名单</button>
+      </div>
+
+      <div class="import-area">
+        <div class="card" style="padding:13px">
+          <h2 style="font-size:11.5px;color:var(--faint);font-weight:700;letter-spacing:.06em;margin:0 0 8px">粘贴 JSON 名单</h2>
+          <textarea id="teamJson" spellcheck="false" placeholder='[
+  {
+    "name": "成都AG超玩会",
+    "logo": "",
+    "players": [
+      { "name": "轩染", "realName": "刘明",   "lane": "对抗路" },
+      { "name": "钟意", "realName": "陈家豪", "lane": "打野" },
+      { "name": "长生", "realName": "谢承峻", "lane": "中路" },
+      { "name": "一诺", "realName": "徐必成", "lane": "发育路" },
+      { "name": "大帅", "realName": "孟家俊", "lane": "游走" }
+    ]
+  }
+]'></textarea>
+          <div class="row" style="display:flex;gap:8px;margin-top:9px">
+            <label class="btn" style="display:inline-flex;align-items:center">
+              选择 JSON 文件
+              <input type="file" id="teamFile" accept=".json,application/json" hidden />
+            </label>
+            <button class="btn ghost" id="btnTeamClear">清空</button>
+          </div>
+          <div class="msg" id="teamMsg"></div>
+        </div>
+
+        <div class="card" style="padding:13px">
+          <h2 style="font-size:11.5px;color:var(--faint);font-weight:700;letter-spacing:.06em;margin:0 0 8px">格式说明</h2>
+          <div class="ops kv" style="line-height:1.9">
+            每支队伍一个对象：<br />
+            <b>name</b> 队伍名（必填）<br />
+            <b>logo</b> 队徽图片地址（可留空，也可填 <code>/hicon/…</code>）<br />
+            <b>players</b> 最多五名选手：<br />
+            　<b>name</b> 选手 ID、<b>realName</b> 真实姓名<br />
+            　<b>lane</b> 分路，留空则按位置自动补齐为<br />
+            　对抗路 / 打野 / 中路 / 发育路 / 游走
+          </div>
+        </div>
+      </div>
+
+      <div class="team-grid" id="teamGrid"></div>
+      <div class="empty-hint" id="teamEmpty">还没有队伍名单。粘贴 JSON 或选择文件后点「保存名单」。</div>
+    </section>
+
+    <!-- ============ 视图二：导播台 ============ -->
+    <section class="view on" id="view-director" style="padding:14px 16px">
+      <div class="view-head" style="margin-bottom:10px">
+        <h1 style="font-size:16px">导播台</h1>
+        <span class="dirty" id="dirtyTag">● 预览有未推送改动</span>
+        <span class="grow"></span>
+        <button class="btn ghost" id="btnDiscard">丢弃预览</button>
+        <button class="btn primary" id="btnPush">推送到直播端</button>
+      </div>
+
+      <div class="director">
+        <div class="card scenes" id="sceneList"></div>
+
+        <div class="card stage">
+          <div class="stage-top">
+            <div class="seg">
+              <button class="on" data-mode="preview">预览</button>
+              <button data-mode="live">实时</button>
+            </div>
+            <span class="grow"></span>
+            <span class="kv" id="stageHint" style="color:var(--muted);font-size:12.5px"></span>
+          </div>
+          <div class="stage-canvas">
+            <iframe id="stageFrame" src="about:blank"></iframe>
+          </div>
+        </div>
+
+        <div class="card ops">
+          <div>
+            <h2>现场操作 · 点击即生效</h2>
+            <div class="row">
+              <input type="number" id="mm" min="0" max="99" value="5" /> <span class="kv">分</span>
+              <input type="number" id="ss" min="0" max="59" value="0" /> <span class="kv">秒</span>
+            </div>
+            <div class="row">
+              <button class="btn" id="btnStart">开始</button>
+              <button class="btn" id="btnResume">继续</button>
+              <button class="btn" id="btnResetTimer">重置</button>
+            </div>
+            <div class="kv" id="timerState">—</div>
+          </div>
+
+          <div>
+            <h2>推送</h2>
+            <div class="kv" id="pushState">—</div>
+          </div>
+
+          <div class="bp-ops" id="bpOps">
+            <h2>BP 操作台</h2>
+            <div class="bp-stat" id="bpStat">未开始</div>
+            <div class="row">
+              <button class="btn primary" id="bpStart">开始 BP</button>
+            </div>
+            <div class="bp-picked" id="bpPicked">未选英雄</div>
+            <div class="row">
+              <button class="btn primary" id="bpLock" disabled>锁定禁用</button>
+              <button class="btn" id="bpEmpty">空 Ban</button>
+            </div>
+            <div class="row">
+              <button class="btn" id="bpUndo" disabled>撤回</button>
+              <button class="btn" id="bpRedo" disabled>重做</button>
+              <button class="btn ghost" id="bpResetAll">重置本局</button>
+            </div>
+            <input type="text" class="bp-search" id="bpSearch" placeholder="搜索英雄，支持拼音" />
+            <div class="bp-grid" id="bpGrid"></div>
+          </div>
+
+          <div>
+            <h2>OBS 浏览器源</h2>
+            <div class="kv">在播场景：<b id="onAirScene">—</b></div>
+            <div class="kv" style="margin:7px 0">把下面的地址粘进 OBS 的「浏览器」源，宽 1920 高 1080：</div>
+            <code id="obsUrl">—</code>
+            <div class="row" style="margin-top:9px">
+              <button class="btn ghost" id="btnCopyObs">复制地址</button>
+              <a class="btn ghost" id="btnOpenObs" target="_blank" rel="noopener" style="text-decoration:none;display:inline-flex;align-items:center">打开预览</a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </div>
+</div>
+
+<script>
+"use strict";
+/* 包进 IIFE：本脚本与 chart-core.js 同处一个全局脚本作用域，
+   若在顶层声明 const $ 会与 chart-core 的 $ 冲突，
+   导致整块脚本语法错误、一行都不执行。 */
+(function () {
+const $ = (id) => document.getElementById(id);
+
+/* ================= 视图切换 ================= */
+function showView(name) {
+  document.querySelectorAll(".nav-item").forEach(b => b.classList.toggle("on", b.dataset.view === name));
+  document.querySelectorAll(".view").forEach(v => v.classList.toggle("on", v.id === "view-" + name));
+  if (name === "teams") loadTeams();
+}
+document.querySelectorAll(".nav-item").forEach(b => {
+  b.onclick = () => showView(b.dataset.view);
+});
+
+/* ================= 导播状态 ================= */
+let state = null;
+let stageMode = "preview";
+let framedScene = null;
+
+async function post(action, body) {
+  const res = await fetch("/api/director/" + action, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body || {}),
+  });
+  return res.json();
+}
+
+function paintScenes() {
+  if (!state) return;
+  const { preview, onAir, scenes } = state;
+  const box = $("sceneList");
+  box.replaceChildren();
+  const cap = document.createElement("div");
+  cap.className = "cap";
+  cap.textContent = "场景";
+  box.append(cap);
+
+  for (const s of scenes) {
+    const b = document.createElement("button");
+    b.className = "scene";
+    if (s.id === preview.scene) b.classList.add("on");
+    b.textContent = s.label;
+    if (s.id === onAir.scene) {
+      const tag = document.createElement("span");
+      tag.className = "live";
+      tag.textContent = "直播中";
+      b.append(tag);
+    }
+    b.onclick = async () => {
+      state = await post("scene", { id: s.id });
+      paint();
+      syncFrame();
+    };
+    box.append(b);
+  }
+}
+
+function paint() {
+  if (!state) return;
+  const { preview, onAir, live, isPreviewDirty } = state;
+  const scenes = state.scenes || [];
+
+  $("dirtyTag").classList.toggle("on", !!isPreviewDirty);
+  $("pushState").textContent = isPreviewDirty
+    ? "预览中的改动尚未推送至直播端"
+    : "直播端与当前预览一致";
+
+  const onAirLabel = (scenes.find(s => s.id === onAir.scene) || {}).label || onAir.scene;
+  $("onAirScene").textContent = onAirLabel;
+  const obs = location.origin + "/obs/" + onAir.scene;
+  $("obsUrl").textContent = obs;
+  $("btnOpenObs").href = obs;
+
+  const c = live && live.countdown;
+  $("timerState").textContent = c
+    ? (c.running
+        ? "运行中，剩余 " + Math.round((c.remainingMs || 0) / 1000) + " 秒"
+        : "已停止，时长 " + Math.round((c.durationMs || 0) / 1000) + " 秒")
+    : "—";
+
+  paintScenes();
+  paintBpOps();
+}
+
+/* 预览窗跟随：切换时先淡出再换源，避免白闪 */
+function syncFrame() {
+  if (!state) return;
+  const want = stageMode === "live" ? state.onAir.scene : state.preview.scene;
+  const f0 = $("stageFrame");
+  const hint = $("stageHint");
+  if (framedScene === want) return;
+  framedScene = want;
+  const f = f0;
+  if (!f) { if (hint) hint.textContent = "预览 iframe 未找到"; return; }
+  f.classList.add("fading");
+  setTimeout(() => {
+    // 预览态走 mode=preview，让预览窗渲染「正在编辑的场景」而非「在播场景」
+    f.src = "/obs/" + want + (stageMode === "preview" ? "?mode=preview" : "");
+    f.onload = () => f.classList.remove("fading");
+    setTimeout(() => f.classList.remove("fading"), 400);
+  }, 140);
+
+  $("stageHint").textContent = stageMode === "live"
+    ? "显示直播端此刻的画面"
+    : (state.isPreviewDirty ? "预览含未推送改动" : "预览与直播端一致");
+}
+
+document.querySelectorAll(".seg button").forEach(b => {
+  b.onclick = () => {
+    stageMode = b.dataset.mode;
+    document.querySelectorAll(".seg button").forEach(x => x.classList.toggle("on", x === b));
+    syncFrame();
+  };
+});
+
+$("btnPush").onclick = async () => { state = await post("push"); paint(); syncFrame(); };
+$("btnDiscard").onclick = async () => { state = await post("discard"); paint(); syncFrame(); };
+
+const durationMs = () => (Number($("mm").value) || 0) * 60000 + (Number($("ss").value) || 0) * 1000;
+$("btnStart").onclick = async () => {
+  const d = durationMs();
+  state = await post("countdown", { patch: { running: true, durationMs: d, remainingMs: d } });
+  paint();
+};
+$("btnResume").onclick = async () => { state = await post("countdown", { patch: { running: true } }); paint(); };
+$("btnResetTimer").onclick = async () => {
+  const d = durationMs();
+  state = await post("countdown", { patch: { running: false, durationMs: d, remainingMs: d } });
+  paint();
+};
+$("btnCopyObs").onclick = async () => {
+  try {
+    await navigator.clipboard.writeText($("obsUrl").textContent);
+    $("btnCopyObs").textContent = "已复制";
+    setTimeout(() => { $("btnCopyObs").textContent = "复制地址"; }, 1200);
+  } catch {
+    $("btnCopyObs").textContent = "复制失败";
+  }
+};
+
+/* ================= 队伍库 ================= */
+let teams = [];
+
+function teamMsg(text, ok) {
+  const el = $("teamMsg");
+  el.className = "msg " + (ok ? "ok" : "bad");
+  el.textContent = text;
+  if (ok) setTimeout(() => { el.className = "msg"; }, 2400);
+}
+
+function paintTeams() {
+  const grid = $("teamGrid");
+  if (!grid) return;
+  grid.replaceChildren();
+  $("teamEmpty").style.display = teams.length ? "none" : "block";
+  $("teamBadge").textContent = String(teams.length);
+
+  for (const t of teams) {
+    const card = document.createElement("div");
+    card.className = "team";
+
+    const head = document.createElement("div");
+    head.className = "name";
+    if (t.logo) {
+      const img = document.createElement("img");
+      img.className = "logo";
+      img.src = t.logo;
+      img.alt = "";
+      img.onerror = () => img.remove();
+      head.append(img);
+    }
+    const nm = document.createElement("span");
+    nm.textContent = t.name;
+    head.append(nm);
+    card.append(head);
+
+    for (const p of t.players || []) {
+      const row = document.createElement("div");
+      row.className = "p";
+      const lane = document.createElement("span");
+      lane.className = "lane";
+      lane.textContent = p.lane || "";
+      const name = document.createElement("span");
+      name.textContent = p.name || "—";
+      const rn = document.createElement("span");
+      rn.className = "rn";
+      rn.textContent = p.realName || "";
+      row.append(lane, name, rn);
+      card.append(row);
+    }
+    grid.append(card);
+  }
+}
+
+async function loadTeams() {
+  if (!$("teamGrid")) return;
+  try {
+    const r = await fetch("/api/director/teams");
+    const d = await r.json();
+    teams = Array.isArray(d.teams) ? d.teams : [];
+    paintTeams();
+    if (teams.length && $("teamJson") && !$("teamJson").value.trim()) {
+      $("teamJson").value = JSON.stringify(teams, null, 2);
+    }
+  } catch {
+    teamMsg("读取队伍名单失败", false);
+  }
+}
+
+function parseTeams(text) {
+  const data = JSON.parse(text);
+  const list = Array.isArray(data) ? data : (Array.isArray(data.teams) ? data.teams : null);
+  if (!list) throw new Error("应为数组，或含 teams 数组的对象");
+  if (!list.length) throw new Error("名单为空");
+  return list;
+}
+
+/* 统一外壳里队伍录入口由生成器「队伍库」面板承担；这些元素不存在时跳过绑定，
+   否则会抛错并中断后续的连接与渲染逻辑。 */
+if (!$("btnTeamSave")) { /* 无独立队伍页，跳过 */ } else {
+$("btnTeamSave").onclick = async () => {
+  let list;
+  try {
+    list = parseTeams($("teamJson").value.trim());
+  } catch (e) {
+    return teamMsg("解析失败：" + e.message, false);
+  }
+  try {
+    const res = await fetch("/api/director/teams", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ teams: list }),
+    });
+    const d = await res.json();
+    if (!res.ok) throw new Error(d.message || d.error);
+    teams = d.teams || [];
+    paintTeams();
+    teamMsg("已保存 " + teams.length + " 支队伍", true);
+  } catch (e) {
+    teamMsg("保存失败：" + e.message, false);
+  }
+};
+
+$("btnTeamClear").onclick = () => { $("teamJson").value = ""; teamMsg("已清空输入框（未保存）", true); };
+
+$("teamFile").onchange = async (e) => {
+  const f = e.target.files && e.target.files[0];
+  if (!f) return;
+  $("teamJson").value = await f.text();
+  teamMsg("已读入 " + f.name + "，点「保存名单」生效", true);
+  e.target.value = "";
+};
+
+$("btnTeamSample").onclick = () => {
+  $("teamJson").value = JSON.stringify([
+    { name: "成都AG超玩会", logo: "", players: [
+      { name: "轩染", realName: "刘明", lane: "对抗路" },
+      { name: "钟意", realName: "陈家豪", lane: "打野" },
+      { name: "长生", realName: "谢承峻", lane: "中路" },
+      { name: "一诺", realName: "徐必成", lane: "发育路" },
+      { name: "大帅", realName: "孟家俊", lane: "游走" },
+    ] },
+  ], null, 2);
+  teamMsg("已填入示例，可直接保存", true);
+};
+}
+
+/* ================= BP 操作台 ================= */
+let bpSel = null;
+let heroes = [];
+
+async function loadHeroes() {
+  try {
+    const d = await (await fetch("/api/heroes")).json();
+    heroes = Object.keys(d.heroes || {}).sort((a, b) => a.localeCompare(b, "zh"));
+    const py = {};
+    for (const [name, list] of Object.entries(d.heroes || {})) {
+      const rec = (list || [])[0] || {};
+      py[name] = (rec.hero || "").toLowerCase();
+    }
+    window.__heroIndex = d.heroes || {};
+    window.__heroPinyin = py;
+    paintGrid();
+  } catch { /* 素材索引不可用时静默降级 */ }
+}
+
+function heroThumbOf(name) {
+  const list = (window.__heroIndex || {})[name];
+  const rec = list && list.find((x) => x.thumb || x.opt);
+  return rec ? "/thumb/" + (rec.thumb || rec.opt) : "";
+}
+
+function paintGrid() {
+  const box = $("bpGrid");
+  if (!box) return;
+  const q = ($("bpSearch").value || "").trim().toLowerCase();
+  const used = new Set();
+  const b = state && state.live && state.live.bp;
+  if (b) {
+    (b.bans.blue || []).concat(b.bans.red || [], b.picks.blue || [], b.picks.red || []).forEach((h) => h && used.add(h));
+    // 一步多人时，本步已锁定但尚未提交的英雄同样要标为不可用
+    ((b.pending && b.pending.heroes) || []).forEach((h) => h && used.add(h));
+  }
+  box.replaceChildren();
+  for (const name of heroes) {
+    if (q && !name.toLowerCase().includes(q) && !(window.__heroPinyin && window.__heroPinyin[name] || "").includes(q)) continue;
+    const btn = document.createElement("button");
+    btn.className = "bp-hero" + (bpSel === name ? " on" : "") + (used.has(name) ? " used" : "");
+    const src = heroThumbOf(name);
+    if (src) { const img = document.createElement("img"); img.src = src; img.alt = name; btn.append(img); }
+    const lb = document.createElement("span");
+    lb.textContent = name;
+    btn.append(lb);
+    if (!used.has(name)) btn.onclick = () => { bpSel = bpSel === name ? null : name; paintGrid(); paintBpOps(); };
+    box.append(btn);
+  }
+}
+
+function paintBpOps() {
+  const ops = $("bpOps");
+  if (!ops || !state) return;
+  const active = state.preview.scene === "bp";
+  ops.classList.toggle("on", active);
+  if (!active) return;
+  const b = state.live.bp;
+  if (!b) {
+    $("bpStat").textContent = "未开始";
+    $("bpPicked").textContent = "未选英雄";
+    $("bpLock").disabled = true;
+  } else {
+    const pend = b.pending || { filled: 0, size: 1 };
+    const multi = pend.size > 1;
+    $("bpStat").innerHTML = "阶段 <b>" + b.phaseLabel + "</b> · 计步 <b>" + b.step.current + " / " + b.step.total + "</b> · " +
+      (b.finished ? "本局结束" : (b.activeParty === "blue" ? "蓝方行动" : "红方行动")) +
+      (multi ? " · <b>本步还需 " + (pend.size - pend.filled) + " 个</b>" : "");
+    $("bpPicked").innerHTML = (multi
+      ? "本步已锁 <b>" + pend.filled + " / " + pend.size + "</b>" + (pend.heroes.length ? "：" + pend.heroes.join("、") : "")
+      : "") + (bpSel ? "　待锁：<b>" + bpSel + "</b>" : (multi ? "" : "未选英雄"));
+    $("bpLock").disabled = !bpSel || b.finished;
+    $("bpLock").textContent = b.phaseLabel === "禁用" ? "锁定禁用" : (multi ? "锁定选择" : "锁定");
+  }
+  $("bpUndo").disabled = !(b && b.canUndo);
+  $("bpRedo").disabled = !(b && b.canRedo);
+  $("bpStart").disabled = !!(b && !b.finished);
+}
+
+async function bpPost(action, body) {
+  const r = await fetch("/api/director/" + action, {
+    method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body || {}),
+  });
+  const d = await r.json();
+  if (d && d.live !== undefined) state = d;
+  else if (d && d.error) window.alert("操作失败：" + (d.message || d.error));
+  return d;
+}
+
+function bindBp() {
+  $("bpStart").onclick = async () => {
+    const teams = await (await fetch("/api/director/teams")).json().catch(() => ({ teams: [] }));
+    const list = teams.teams || [];
+    await bpPost("bp/start", { teams: { blue: (list[0] && list[0].name) || "蓝方", red: (list[1] && list[1].name) || "红方" } });
+    bpSel = null; paint(); paintGrid(); paintBpOps();
+  };
+  $("bpLock").onclick = async () => { await bpPost("bp/lock", { heroId: bpSel }); bpSel = null; paint(); paintGrid(); paintBpOps(); };
+  $("bpEmpty").onclick = async () => { await bpPost("bp/lock", { heroId: null }); bpSel = null; paint(); paintGrid(); paintBpOps(); };
+  $("bpUndo").onclick = async () => { await bpPost("bp/undo"); paint(); paintGrid(); paintBpOps(); };
+  $("bpRedo").onclick = async () => { await bpPost("bp/redo"); paint(); paintGrid(); paintBpOps(); };
+  $("bpResetAll").onclick = async () => {
+    if (!window.confirm("重置本局？将清空全部禁选与历史。")) return;
+    await bpPost("bp/reset"); bpSel = null; paint(); paintGrid(); paintBpOps();
+  };
+  $("bpSearch").oninput = () => paintGrid();
+  loadHeroes();
+}
+bindBp();
+
+/* ================= 连接 ================= */
+const source = new EventSource("/api/director/stream");
+const setConn = (t) => { const el = $("connLabel"); if (el) el.textContent = t; };
+source.addEventListener("hello", (e) => {
+  setConn("已连接");
+  state = JSON.parse(e.data);
+  window.__pkDirectorReady = true;
+  paint();
+  syncFrame();
+});
+["preview", "onAir", "live"].forEach(ch => {
+  source.addEventListener(ch, (e) => { state = JSON.parse(e.data); paint(); syncFrame(); });
+});
+source.addEventListener("error", () => { setConn("已断开，重连中…"); });
+
+const portEl = $("portLabel"); if (portEl) portEl.textContent = location.port || "80";
+fetch("/api/director/state").then(r => r.json()).then(s => {
+  state = s;
+  window.__pkDirectorReady = true;
+  paint();
+  syncFrame();
+}).catch((err) => {
+  // 不再静默吞错：失败时显示在自诊断条里
+  console.error("状态接口失败", err);
+});
+loadTeams();
+})();
+</script>
+</body>
+</html>

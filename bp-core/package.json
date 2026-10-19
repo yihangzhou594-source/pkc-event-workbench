@@ -1,0 +1,14 @@
+{
+  "name": "pkc-bp-core",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "PKC 个人 BP 工具内核：局次编排 + 单局禁选状态机（零依赖）",
+  "scripts": {
+    "test": "node test/sequence.test.js && node test/machine.test.js && node test/series.test.js"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
+

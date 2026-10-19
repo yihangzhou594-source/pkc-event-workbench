@@ -1,0 +1,28 @@
+# 运行期产物与临时文件
+node_modules/
+tmp/
+*.log
+
+# 体积大的素材 / 第三方运行时（本地留存，不进版本库）
+音乐素材/
+音乐素材_web/
+bp-analysis/
+英雄半身像/
+英雄缩略图/
+英雄优化/
+直播素材/
+素材/
+预览/
+assets/tesseract/
+assets/lang/
+
+# 旧备份
+_备份-*/
+
+# 含本机加密密钥，不进版本库
+数据/ai-config.json
+
+# 系统文件
+Thumbs.db
+.DS_Store
+desktop.ini

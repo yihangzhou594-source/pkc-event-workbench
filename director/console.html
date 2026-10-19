@@ -1,0 +1,1329 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<link rel="icon" href="data:," />
+<title>PKC 赛事导播系统</title>
+<style>
+
+  :root{
+    --bg:#eef1f6; --surface:#ffffff; --surface2:#f7f9fc; --line:#e2e7f0; --line2:#edf1f7;
+    --text:#18212f; --muted:#6b7c93; --faint:#9aa8bb;
+    --primary:#2f6bff; --primary-soft:#eaf1ff; --primary-line:#c9dbff;
+    --nav-active:#1f2a44; --ok:#15a05a; --warn:#c2760a;
+    --radius:12px; --shadow:0 1px 2px rgba(24,33,47,.05), 0 8px 24px rgba(24,33,47,.06);
+  }
+  .pk *{box-sizing:border-box}
+  .pk html, .pk body{height:100%;margin:0}
+  .pk body{
+    background:var(--bg); color:var(--text);
+    font:13.5px/1.55 "Microsoft YaHei","PingFang SC","Noto Sans SC",system-ui,sans-serif;
+    overflow:hidden;
+  }
+  .pk button{font:inherit;cursor:pointer}
+
+  /* ---------- 外壳：左侧导航 + 主区域 ---------- */
+  .pk .shell{display:flex;height:100vh}
+  .pk .side{
+    width:212px;flex:0 0 212px;background:var(--surface);
+    border-right:1px solid var(--line);display:flex;flex-direction:column;padding:14px 12px;
+  }
+  .pk .side-top{
+    font-size:12px;font-weight:700;color:var(--muted);letter-spacing:.04em;
+    padding:4px 8px 14px;border-bottom:1px solid var(--line2);margin-bottom:10px;
+  }
+  .pk .side-nav{display:flex;flex-direction:column;gap:4px;flex:1}
+  .pk .nav-item{
+    display:flex;align-items:center;gap:9px;padding:9px 11px;border:0;border-radius:9px;
+    background:transparent;color:var(--text);text-align:left;
+    transition:background-color .18s ease,color .18s ease,transform .18s ease;
+  }
+  .pk .nav-item svg{width:17px;height:17px;flex:0 0 17px;stroke:currentColor;fill:none;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+  .pk .nav-item:hover{background:var(--surface2)}
+  .pk .nav-item.on{background:var(--nav-active);color:#fff;box-shadow:0 6px 16px rgba(31,42,68,.22)}
+  .pk .nav-item.on:active{transform:scale(.985)}
+  .pk .nav-badge{margin-left:auto;font-size:10px;background:var(--primary);color:#fff;border-radius:6px;padding:1px 5px}
+  .pk .side-foot{font-size:11.5px;color:var(--faint);padding:10px 8px 2px;border-top:1px solid var(--line2)}
+  .pk .side-foot b{color:var(--muted)}
+
+  .pk .main{flex:1;position:relative;overflow:hidden}
+
+  /* ---------- 视图切换动画 ---------- */
+  .pk .view{
+    position:absolute;inset:0;padding:16px 18px;overflow:auto;
+    opacity:0;transform:translateY(10px) scale(.995);pointer-events:none;
+    transition:opacity .26s ease,transform .26s cubic-bezier(.22,.61,.36,1);
+  }
+  .pk .view.on{opacity:1;transform:none;pointer-events:auto}
+  .pk .view-head{display:flex;align-items:center;gap:10px;margin-bottom:14px}
+  .pk .view-head h1{font-size:17px;margin:0;font-weight:700}
+  .pk .view-head .sub{color:var(--muted);font-size:12.5px}
+  .ctx-chip{display:none;align-items:center;gap:6px;padding:4px 10px;border-radius:999px;
+    background:#eef4ff;color:#2457c5;font-size:12px;font-weight:700;border:1px solid #cfe0ff;
+    max-width:560px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .ctx-chip.on{display:inline-flex}
+  .pk .grow{flex:1}
+
+  /* ---------- 通用控件 ---------- */
+  .pk .card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow)}
+  .pk .btn{
+    padding:7px 13px;border:1px solid var(--line);border-radius:9px;background:var(--surface);color:var(--text);
+    transition:background-color .16s ease,border-color .16s ease,transform .16s ease,box-shadow .16s ease;
+  }
+  .pk .btn:hover{background:var(--surface2);border-color:var(--primary-line)}
+  .pk .btn:active{transform:translateY(1px)}
+  .pk .btn.primary{background:var(--primary);border-color:var(--primary);color:#fff;font-weight:600}
+  .pk .btn.primary:hover{filter:brightness(1.06);box-shadow:0 6px 18px rgba(47,107,255,.28)}
+  .pk .btn.ghost{background:transparent}
+  .pk .btn:disabled{opacity:.45;cursor:not-allowed;transform:none}
+
+  /* ---------- 导播台三栏 ---------- */
+  .pk .director{display:grid;grid-template-columns:118px minmax(0,1fr) 292px;gap:14px;height:100%;min-height:0}
+  @media (max-width:1100px){
+    .pk .director{grid-template-columns:110px minmax(0,1fr)}
+    .pk .director .ops{grid-column:1 / -1}
+  }
+  .pk .scenes{display:flex;flex-direction:column;gap:9px;padding:11px;overflow:auto}
+  .pk .scenes .cap{font-size:11.5px;color:var(--faint);font-weight:700;letter-spacing:.06em;margin:2px 0 2px 2px}
+  .pk .scene{
+    position:relative;padding:14px 6px;border:1px solid var(--line);border-radius:11px;
+    background:var(--surface2);color:var(--text);font-weight:600;font-size:12.5px;
+    transition:background-color .2s ease,border-color .2s ease,color .2s ease,transform .2s ease,box-shadow .2s ease;
+  }
+  .pk .scene:hover{transform:translateY(-1px);border-color:var(--primary-line)}
+  .pk .scene.on{background:var(--primary-soft);border-color:var(--primary);color:var(--primary);box-shadow:0 4px 14px rgba(47,107,255,.16)}
+  .pk .scene .live{
+    position:absolute;top:-6px;right:-4px;font-size:9.5px;font-weight:700;color:#fff;background:var(--ok);
+    border-radius:6px;padding:1px 5px;box-shadow:0 2px 6px rgba(21,160,90,.35);
+  }
+
+  .pk .stage{position:relative;display:flex;flex-direction:column;min-height:0;overflow:hidden}
+  .pk .stage-top{display:flex;align-items:center;gap:8px;padding:10px 12px;border-bottom:1px solid var(--line2)}
+  .pk .seg{display:flex;background:var(--surface2);border:1px solid var(--line);border-radius:9px;padding:2px}
+  .pk .seg button{border:0;background:transparent;padding:5px 14px;border-radius:7px;color:var(--muted);font-size:12.5px;transition:background-color .18s ease,color .18s ease}
+  .pk .seg button.on{background:var(--surface);color:var(--text);font-weight:700;box-shadow:0 1px 3px rgba(24,33,47,.12)}
+  .pk .stage-canvas{flex:1;min-height:0;position:relative;background:repeating-conic-gradient(#eef1f6 0 25%,#fff 0 50%) 0 0/22px 22px}
+  .pk .stage-canvas iframe{position:absolute;inset:0;width:100%;height:100%;border:0;transition:opacity .28s ease}
+  .pk .stage-canvas iframe.fading{opacity:0}
+
+  .pk .ops{display:flex;flex-direction:column;gap:12px;padding:12px;overflow:auto}
+  .pk .ops h2{font-size:11.5px;color:var(--faint);font-weight:700;letter-spacing:.06em;margin:0 0 8px}
+  .pk .ops .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px}
+  .pk .ops .kv{font-size:12.5px;color:var(--muted)}
+  .pk .ops .kv b{color:var(--text);font-weight:600}
+  .pk input[type=number], .pk input[type=text], .pk textarea, .pk select{
+    font:inherit;padding:6px 9px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--text);
+    transition:border-color .16s ease,box-shadow .16s ease;
+  }
+  .pk input:focus, .pk textarea:focus, .pk select:focus{outline:0;border-color:var(--primary);box-shadow:0 0 0 3px var(--primary-soft)}
+  .pk input[type=number]{width:60px;text-align:center}
+  .pk code{background:var(--surface2);border:1px solid var(--line2);border-radius:6px;padding:1px 6px;font-size:11.5px;word-break:break-all}
+
+  /* ---------- 队伍库 ---------- */
+  .pk .team-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(268px,1fr));gap:12px}
+  .pk .team{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:13px;box-shadow:var(--shadow);transition:transform .2s ease,box-shadow .2s ease}
+  .pk .team:hover{transform:translateY(-2px);box-shadow:0 10px 26px rgba(24,33,47,.1)}
+  .pk .team .name{display:flex;align-items:center;gap:8px;font-weight:700;margin-bottom:9px}
+  .pk .team .logo{width:26px;height:26px;border-radius:7px;object-fit:cover;background:var(--surface2);border:1px solid var(--line2)}
+  .pk .team .p{display:flex;gap:8px;font-size:12.5px;padding:3px 0;border-bottom:1px dashed var(--line2)}
+  .pk .team .p:last-child{border-bottom:0}
+  .pk .team .p .lane{color:var(--faint);width:52px;flex:0 0 52px}
+  .pk .team .p .rn{color:var(--faint);margin-left:auto}
+  .pk .empty-hint{color:var(--faint);font-size:13px;padding:26px;text-align:center;border:1px dashed var(--line);border-radius:var(--radius);background:var(--surface2)}
+  .pk .import-area{display:grid;grid-template-columns:1fr 300px;gap:14px;margin-bottom:14px}
+  .pk .import-area textarea{width:100%;min-height:132px;font-family:ui-monospace,Consolas,monospace;font-size:12px;resize:vertical}
+  .pk .msg{font-size:12.5px;padding:7px 10px;border-radius:8px;display:none;margin-top:8px}
+  .pk .msg.ok{display:block;background:#e7f7ee;color:#0f7a44;border:1px solid #bfe8d3}
+  .pk .msg.bad{display:block;background:#fdeef1;color:#a32340;border:1px solid #f6c9d4}
+  .pk .dirty{font-size:12px;color:var(--warn);font-weight:600;opacity:0;transition:opacity .25s ease}
+  .pk .dirty.on{opacity:1}
+  /* ---------- BP 操作台 ---------- */
+  .pk .bp-ops{display:none}
+  .pk .bp-ops.on{display:block}
+  .pk .bk-ops{display:none}
+  .pk .bk-ops.on{display:block}
+  .pk .chart-ops{display:none}
+  .pk .chart-ops.on{display:block}
+  .pk .scene-ops{display:none}
+  .pk .scene-ops.on{display:block}
+  .pk .ops-scene-hint{font-size:12px;font-weight:700;color:#2457c5;background:#eef4ff;border:1px solid #cfe0ff;border-radius:9px;padding:7px 10px}
+  .pk .cm-person{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;margin-top:6px}
+  .pk .cm-person.off{display:none}
+  .pk .cm-banner-box{margin-top:12px;padding-top:10px;border-top:1px solid var(--line2)}
+  .pk .cm-banner-head{font-size:12px;font-weight:700;color:var(--muted);margin-bottom:6px;letter-spacing:.04em}
+  #cmBannerSub.off,#cmBannerAch.off{display:none}
+  .pk .chart-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;margin-top:8px}
+  .pk .chart-chip{
+    border:1px solid var(--line);border-radius:8px;background:var(--surface2);color:var(--muted);
+    padding:6px 7px;text-align:left;font-size:11.5px;line-height:1.35;white-space:nowrap;
+    overflow:hidden;text-overflow:ellipsis;transition:background-color .16s ease,border-color .16s ease,color .16s ease;
+  }
+  .pk .chart-chip:hover{border-color:var(--primary-line);background:var(--surface)}
+  .pk .chart-chip.on{border-color:var(--primary);background:var(--primary-soft);color:var(--primary);font-weight:700}
+  .pk .bp-search{width:100%;margin-bottom:8px}
+  .pk .bp-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;max-height:300px;overflow:auto;padding-right:2px}
+  .pk .bp-hero{position:relative;aspect-ratio:1;border:1px solid var(--line);border-radius:9px;background:var(--surface2);padding:0;overflow:hidden;cursor:pointer;transition:transform .14s ease,border-color .14s ease,box-shadow .14s ease}
+  .pk .bp-hero:hover{transform:translateY(-2px);border-color:var(--primary-line)}
+  .pk .bp-hero.on{border-color:var(--primary);box-shadow:0 0 0 2px var(--primary-soft)}
+  .pk .bp-hero img{width:100%;height:100%;object-fit:cover;display:block}
+  .pk .bp-hero.used{opacity:.3;cursor:not-allowed}
+  .pk .bp-hero span{position:absolute;left:0;right:0;bottom:0;font-size:10px;line-height:1.5;background:rgba(24,33,47,.62);color:#fff;text-align:center;padding:1px 2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .pk .bp-picked{font-size:12.5px;color:var(--muted);margin:6px 0}
+  .pk .bp-picked b{color:var(--primary);font-weight:700}
+  .pk .bp-stat{font-size:12.5px;color:var(--muted);margin-bottom:7px}
+  .pk .bp-stat b{color:var(--text)}
+
+</style>
+<link rel="stylesheet" href="/assets/shell.css" />
+</head>
+<body style="margin:0;overflow:hidden">
+<script>
+"use strict";
+(function () {
+  var lines = [];
+  function paintDiag() {
+    var el = document.getElementById("pkDiag");
+    if (!el) return false;
+    el.textContent = lines.join("\n");
+    el.classList.toggle("on", lines.length > 0);
+    return true;
+  }
+  window.__pkSay = function (msg) {
+    if (lines.indexOf(msg) >= 0) return;
+    lines.push(msg);
+    if (!paintDiag()) {
+      if (document.readyState === "loading") {
+        document.addEventListener("DOMContentLoaded", paintDiag, { once: true });
+      } else {
+        setTimeout(paintDiag, 0);
+      }
+    }
+  };
+  window.addEventListener("error", function (e) {
+    window.__pkSay("JS 错误：" + e.message + "  @" + String(e.filename || "").split("/").pop() + ":" + (e.lineno || ""));
+  });
+  window.addEventListener("unhandledrejection", function (e) {
+    var r = e.reason || {};
+    var st = String(r.stack || "").split("\n").slice(0, 3).join(" <- ");
+    window.__pkSay("异步错误：" + (r.message || r) + (st ? "  " + st : ""));
+  });
+})();
+</script>
+<div class="pk wk-shell">
+  <aside class="wk-rail">
+    <a class="wk-brand" href="/" title="回到工作台">
+      <img src="/assets/pkc-emblem.png" alt="" />
+      <div><b>薄扶林王者杯</b><span>赛事工作台</span></div>
+    </a>
+    <nav class="wk-nav">
+      <div class="wk-cap">工作</div>
+      <button class="wk-item on" data-view="overview" data-icon="overview"><span class="wk-ico"></span><span>概览</span></button>
+      <div class="wk-cap">直播</div>
+      <button class="wk-item" data-view="director" data-icon="live"><span class="wk-ico"></span><span>导播台</span></button>
+      <div class="wk-cap">数据</div>
+      <button class="wk-item" data-view="data" data-icon="data"><span class="wk-ico"></span><span>对局数据</span></button>
+      <button class="wk-item" data-view="bracket" data-icon="bracket"><span class="wk-ico"></span><span>淘汰赛赛程</span></button>
+      <div class="wk-cap">资料</div>
+      <button class="wk-item" data-view="teams" data-icon="teams"><span class="wk-ico"></span><span>队伍库</span></button>
+      <button class="wk-item" data-view="hero" data-icon="hero"><span class="wk-ico"></span><span>英雄图</span></button>
+      <div class="wk-cap">输出</div>
+      <button class="wk-item" data-view="out" data-icon="out"><span class="wk-ico"></span><span>多局与导出</span></button>
+      <div class="wk-grow"></div>
+      <button class="wk-item" data-view="help" data-icon="help"><span class="wk-ico"></span><span>说明</span></button>
+    </nav>
+    <div class="wk-rail-foot"><span class="wk-dot" id="wkDot"></span><span id="wkService">本地服务</span></div>
+  </aside>
+  <div class="wk-main">
+    <header class="wk-top">
+      <div class="wk-top-title"><h1 id="wkTitle">概览</h1><p id="wkSub">当前工作、OBS 源与赛事状态</p></div>
+      <div class="wk-ctx">
+        <span class="wk-ctx-series" id="wkCtxSeries">未选择系列赛</span>
+        <span class="wk-ctx-sep">›</span>
+        <span class="wk-ctx-match" id="wkCtxMatch">未关联赛程</span>
+        <span class="wk-ctx-sep">›</span>
+        <span class="wk-ctx-game" id="wkCtxGame">—</span>
+        <span class="wk-ctx-teams"><b class="blue" id="wkBlue">蓝方</b><i>VS</i><b class="red" id="wkRed">红方</b></span>
+        <span class="wk-ctx-score" id="wkScore" title="本局击杀比分">- : -</span>
+      </div>
+      <div class="wk-top-right">
+        <span class="wk-live" id="wkLive"><i></i>在播：<b>—</b></span>
+        <button class="wk-btn ghost" id="wkPreviewToggle" hidden>收起预览</button>
+        <a class="wk-btn ghost" href="/obs/commentary" target="_blank" rel="noopener">OBS 预览</a>
+      </div>
+    </header>
+    <div class="pk-diag" id="pkDiag"></div>
+    <div class="wk-panes">
+      <section class="wk-pane on" id="pane-overview">
+        <div class="wk-ov">
+          <div class="wk-hero">
+            <div class="wk-hero-top">
+              <div>
+                <span class="wk-eyebrow">CURRENT SERIES · PKC 2026</span>
+                <h2 id="ovSeries">还没有系列赛</h2>
+                <p class="wk-hero-stage" id="ovStage">—</p>
+              </div>
+            </div>
+            <div class="wk-hero-match">
+              <div class="wk-side blue"><span>BLUE SIDE</span><b id="ovBlue">蓝方</b></div>
+              <div class="wk-hero-score"><b id="ovScore">0 : 0</b><span id="ovScoreHint">大场比分</span></div>
+              <div class="wk-side red"><span>RED SIDE</span><b id="ovRed">红方</b></div>
+            </div>
+            <div class="wk-hero-actions">
+              <button class="wk-btn primary" data-go="data">录这一局</button>
+              <button class="wk-btn" data-go="bracket">看赛程</button>
+              <button class="wk-btn" data-go="director">开导播台</button>
+            </div>
+          </div>
+
+          <div class="wk-grid">
+            <div class="wk-card">
+              <h3>OBS 浏览器源 <em>1920 × 1080</em></h3>
+              <div class="wk-obs">
+                <div class="wk-obs-row"><span class="nm">解说</span><code>/obs/commentary</code><button class="wk-copy" data-copy="/obs/commentary">复制</button></div>
+                <div class="wk-obs-row"><span class="nm">赛间板</span><code>/obs/interval</code><button class="wk-copy" data-copy="/obs/interval">复制</button></div>
+                <div class="wk-obs-row"><span class="nm">赛程图</span><code>/obs/bracket</code><button class="wk-copy" data-copy="/obs/bracket">复制</button></div>
+                <div class="wk-obs-row"><span class="nm">数据图</span><code>/obs/chart</code><button class="wk-copy" data-copy="/obs/chart">复制</button></div>
+              </div>
+            </div>
+            <div class="wk-card">
+              <h3>今天的状态</h3>
+              <div class="wk-stats">
+                <div class="wk-stat"><span>队伍</span><b id="ovTeamCount">0</b></div>
+                <div class="wk-stat"><span>已录局</span><b id="ovGameCount">0</b></div>
+                <div class="wk-stat"><span>在播场景</span><b class="sm" id="ovScene">—</b></div>
+                <div class="wk-stat"><span>服务端口</span><b class="sm" id="ovPort">—</b></div>
+              </div>
+              <div class="wk-note">概览每 30 秒刷新一次；顶栏的场次与在播状态走实时通道。</div>
+            </div>
+            <div class="wk-card wk-span2">
+              <h3>第一次用</h3>
+              <ol class="wk-steps">
+                <li><b>队伍库</b>建队、录选手名单；<b>赛程</b>填分组和抽签。</li>
+                <li>在赛程里点某场的 <b>录数据</b>，回对局页拖截图或手填。</li>
+                <li>录完点 <b>回填赛果</b>，再到导播台推送画面；OBS 源宽高填 1920×1080。</li>
+              </ol>
+            </div>
+          </div>
+        </div>
+      </section>
+      <section class="wk-pane" id="pane-director">
+<section class="view on" id="view-director" style="padding:14px 16px">
+      <div class="view-head" style="margin-bottom:10px">
+        <span class="dirty" id="dirtyTag">● 预览有未推送改动</span>
+        <span class="ctx-chip" id="ctxChip">未选择场次</span>
+        <span class="grow"></span>
+        <button class="btn ghost" id="btnDiscard">丢弃预览</button>
+        <button class="btn primary" id="btnPush">推送到直播端</button>
+      </div>
+
+      <div class="director">
+        <div class="card scenes" id="sceneList"></div>
+
+        <div class="card stage">
+          <div class="stage-top">
+            <div class="seg">
+              <button class="on" data-mode="preview">预览</button>
+              <button data-mode="live">实时</button>
+            </div>
+            <span class="grow"></span>
+            <span class="kv" id="stageHint" style="color:var(--muted);font-size:12.5px"></span>
+          </div>
+          <div class="stage-canvas">
+            <iframe id="stageFrame" src="about:blank"></iframe>
+          </div>
+        </div>
+
+        <div class="card ops">
+          <div class="ops-scene-hint" id="opsSceneHint">当前场景：—</div>
+          <div id="opsTimer" class="scene-ops">
+            <h2>现场操作 · 点击即生效</h2>
+            <div class="row">
+              <input type="number" id="mm" min="0" max="99" value="5" /> <span class="kv">分</span>
+              <input type="number" id="ss" min="0" max="59" value="0" /> <span class="kv">秒</span>
+            </div>
+            <div class="row">
+              <button class="btn" id="btnStart">开始</button>
+              <button class="btn" id="btnResume">继续</button>
+              <button class="btn" id="btnResetTimer">重置</button>
+            </div>
+            <div class="kv" id="timerState">—</div>
+          </div>
+
+          <div id="opsInterval" class="scene-ops">
+            <h2>赛间板</h2>
+            <div class="row">
+              <select id="ivBlue" style="flex:1"></select> <span class="kv">蓝方</span>
+            </div>
+            <div class="row" style="margin-top:5px">
+              <select id="ivRed" style="flex:1"></select> <span class="kv">红方</span>
+            </div>
+            <input type="text" id="ivTitle" placeholder="底部标题，留空则不显示" style="width:100%;margin-top:7px" />
+            <div class="row" style="margin-top:7px">
+              <input type="text" id="ivCaption" placeholder="倒计时下方文案" style="flex:1" value="距离比赛开始还有" />
+            </div>
+            <label class="kv" style="display:flex;align-items:center;gap:6px;margin-top:7px">
+              <input type="checkbox" id="ivReal" checked /> 显示选手真实姓名
+            </label>
+            <label class="kv" style="display:flex;align-items:center;gap:6px;margin-top:5px">
+              <input type="checkbox" id="ivFollow" checked /> 跟随当前场次
+            </label>
+            <div class="kv" style="margin-top:5px;color:var(--muted)">改完点右上角「推送到直播端」才上线；倒计时是现场操作，点了立刻生效。</div>
+          </div>
+
+          <div class="bk-ops" id="bracketOps">
+            <h2>赛程图 · 抽签直播</h2>
+            <div class="kv">在「⑤ 淘汰赛赛程图」里改分组 / 抽签，赛程图场景会实时同步；最近一次落位会高亮强调。</div>
+            <div class="row" style="margin-top:8px">
+              <button class="btn" id="btnBkReplay">重播最近落位</button>
+            </div>
+            <div class="kv" style="margin-top:5px;color:var(--muted)">先把「赛程图」场景推送到直播端，之后的改动不用再推送。</div>
+          </div>
+
+          <div class="chart-ops" id="chartOps">
+            <h2>数据图轮播</h2>
+            <div class="kv" id="chartStatus">尚未推送本局数据图</div>
+            <div class="chart-list" id="chartList"></div>
+            <div class="row" style="margin-top:8px">
+              <button class="btn primary" id="btnChartPush">推送本局六张</button>
+              <button class="btn" id="btnChartAir" disabled>切到直播端</button>
+            </div>
+            <div class="row" style="margin-top:6px">
+              <span class="kv">间隔</span>
+              <select id="chartInterval" style="flex:1">
+                <option value="5000">5 秒</option>
+                <option value="8000" selected>8 秒</option>
+                <option value="10000">10 秒</option>
+                <option value="15000">15 秒</option>
+                <option value="20000">20 秒</option>
+                <option value="30000">30 秒</option>
+                <option value="45000">45 秒</option>
+              </select>
+            </div>
+            <div class="row">
+              <button class="btn" id="btnChartPrev">上一张</button>
+              <button class="btn" id="btnChartToggle">开始轮播</button>
+              <button class="btn" id="btnChartNext">下一张</button>
+            </div>
+            <div class="kv" style="margin-top:5px;color:var(--muted)">先在「① 对局数据」选好本局；推送后按 上单 → 打野 → 中路 → 发育路 → 游走 → 五路总览 循环播放。点上方任意一张可直接跳转。</div>
+          </div>
+
+          <div>
+            <h2>推送</h2>
+            <div class="kv" id="pushState">—</div>
+          </div>
+
+          <div id="opsGeneric" class="scene-ops">
+            <h2>这个场景没有额外面板</h2>
+            <div class="kv">切到「解说 / 赛间 / 赛程图 / 数据图」时，这里会出现对应操作。</div>
+          </div>
+
+          <div class="commentary-ops scene-ops" id="commentaryOps">
+            <h2>解说画面</h2>
+            <div class="kv">队名自动跟随当前场次；中间是<b>大场比分</b>，由你在这里手填（双方各赢了几局）。BO 选「自动」就按赛程阶段判断：16 强到胜者组/败者组半决赛前 BO5，半决赛起 BO7。</div>
+            <input type="text" id="cmTitle" placeholder="主标题" style="margin-top:7px" />
+            <div class="row" style="margin-top:6px;align-items:center">
+              <span class="kv">解说阶段</span>
+              <select id="cmStage" style="flex:1">
+                <option value="赛前解说">赛前解说</option>
+                <option value="局间解说">局间解说</option>
+                <option value="赛后解说">赛后解说</option>
+                <option value="__custom__">自定义（用下方副标题）</option>
+              </select>
+            </div>
+            <input type="text" id="cmSubtitle" placeholder="副标题（选自定义时填写）" style="margin-top:6px" />
+            <div class="cm-banner-box">
+              <div class="cm-banner-head">大场比分（导播手填）</div>
+              <div class="row" style="align-items:center;gap:6px">
+                <input type="number" id="cmScoreBlue" min="0" max="4" step="1" value="0" style="width:64px" title="蓝方已赢局数" />
+                <span class="kv" style="font-size:16px">:</span>
+                <input type="number" id="cmScoreRed" min="0" max="4" step="1" value="0" style="width:64px" title="红方已赢局数" />
+                <select id="cmBo" style="flex:1;margin-left:6px">
+                  <option value="auto">赛制自动</option>
+                  <option value="5">BO5</option>
+                  <option value="7">BO7</option>
+                  <option value="0">不显示 BO</option>
+                </select>
+              </div>
+              <div class="row" style="margin-top:6px">
+                <button class="btn ghost" id="cmBluePlus">蓝方 +1</button>
+                <button class="btn ghost" id="cmRedPlus">红方 +1</button>
+                <button class="btn ghost" id="cmScoreZero">清零</button>
+              </div>
+            </div>
+            <div class="row" style="margin-top:7px;align-items:center">
+              <span class="kv">解说人数</span>
+              <select id="cmCount" style="width:96px">
+                <option value="1">1 位</option>
+                <option value="2">2 位</option>
+                <option value="3" selected>3 位</option>
+              </select>
+            </div>
+            <div class="cm-person cm-left">
+              <input type="text" id="cmLeftName" placeholder="左解说" style="flex:1" />
+              <input type="text" id="cmLeftRole" placeholder="身份" style="width:92px" />
+            </div>
+            <div class="cm-person cm-center">
+              <input type="text" id="cmCenterName" placeholder="中间嘉宾" style="flex:1" />
+              <input type="text" id="cmCenterRole" placeholder="身份" style="width:92px" />
+            </div>
+            <div class="cm-person cm-right">
+              <input type="text" id="cmRightName" placeholder="右解说" style="flex:1" />
+              <input type="text" id="cmRightRole" placeholder="身份" style="width:92px" />
+            </div>
+            <div class="cm-banner-box">
+              <div class="cm-banner-head">底部横幅</div>
+              <div class="row" style="align-items:center">
+                <label class="sw"><input type="checkbox" id="cmBannerOn"> 显示</label>
+                <select id="cmBannerType" style="flex:1">
+                  <option value="substitution">换人</option>
+                  <option value="achievement">赛事成就</option>
+                </select>
+              </div>
+              <select id="cmBannerTeam" style="margin-top:6px"></select>
+              <div id="cmBannerSub">
+                <div class="row" style="margin-top:6px">
+                  <select id="cmBannerLane" style="width:118px">
+                    <option value="上单">上单换人</option>
+                    <option value="打野" selected>打野换人</option>
+                    <option value="中路">中路换人</option>
+                    <option value="发育路">发育路换人</option>
+                    <option value="游走">游走换人</option>
+                  </select>
+                  <input type="text" id="cmBannerOut" placeholder="下场选手" style="flex:1" />
+                </div>
+                <input type="text" id="cmBannerIn" placeholder="上场选手" style="margin-top:6px" />
+              </div>
+              <div id="cmBannerAch">
+                <input type="text" id="cmAchTitle" placeholder="成就名，如 联赛 100 胜" style="margin-top:6px" />
+                <input type="text" id="cmAchContent" placeholder="成就内容 / 说明" style="margin-top:6px" />
+                <input type="text" id="cmAchPlayer" placeholder="选手名（可选）" style="margin-top:6px" />
+              </div>
+            </div>
+            <div class="kv" style="margin-top:6px;color:var(--muted)">头像先用首字圆形占位；改完点右上角「推送到直播端」上线。</div>
+          </div>
+
+          <div>
+            <h2>OBS 浏览器源</h2>
+            <div class="kv">在播场景：<b id="onAirScene">—</b></div>
+            <div class="kv" style="margin:7px 0">把下面的地址粘进 OBS 的「浏览器」源，宽 1920 高 1080：</div>
+            <code id="obsUrl">—</code>
+            <div class="row" style="margin-top:9px">
+              <button class="btn ghost" id="btnCopyObs">复制地址</button>
+              <a class="btn ghost" id="btnOpenObs" target="_blank" rel="noopener" style="text-decoration:none;display:inline-flex;align-items:center">打开预览</a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+      </section>
+      <section class="wk-pane" id="pane-engine">
+        <iframe id="genFrame" src="/generator?bare=1" title="数据图生成器"></iframe>
+      </section>
+    </div>
+  </div>
+</div>
+<script>
+
+"use strict";
+/* 包进 IIFE：本脚本与 chart-core.js 同处一个全局脚本作用域，
+   若在顶层声明 const $ 会与 chart-core 的 $ 冲突，
+   导致整块脚本语法错误、一行都不执行。 */
+(function () {
+const $ = (id) => document.getElementById(id);
+
+/* ================= 视图切换 ================= */
+function showView(name) {
+  document.querySelectorAll(".nav-item").forEach(b => b.classList.toggle("on", b.dataset.view === name));
+  document.querySelectorAll(".view").forEach(v => v.classList.toggle("on", v.id === "view-" + name));
+  if (name === "teams") loadTeams();
+}
+document.querySelectorAll(".nav-item").forEach(b => {
+  b.onclick = () => showView(b.dataset.view);
+});
+
+/* ================= 导播状态 ================= */
+let state = null;
+let stageMode = "preview";
+let framedScene = null;
+
+async function post(action, body) {
+  const res = await fetch("/api/director/" + action, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body || {}),
+  });
+  return res.json();
+}
+
+function paintScenes() {
+  if (!state) return;
+  const { preview, onAir, scenes } = state;
+  const box = $("sceneList");
+  box.replaceChildren();
+  const cap = document.createElement("div");
+  cap.className = "cap";
+  cap.textContent = "直播场景";
+  box.append(cap);
+
+  const GROUP = { commentary: "赛前", interval: "赛前", bracket: "赛中", chart: "赛后", blank: "其他" };
+  const ORDER = { commentary: 0, interval: 1, bracket: 2, chart: 3, blank: 4 };
+  const sorted = scenes.slice().sort((a, b) => (ORDER[a.id] ?? 99) - (ORDER[b.id] ?? 99));
+  let lastGroup = "";
+  for (const s of sorted) {
+    const group = GROUP[s.id] || "其他";
+    if (group !== lastGroup) {
+      const gh = document.createElement("div");
+      gh.className = "cap";
+      gh.textContent = group;
+      box.append(gh);
+      lastGroup = group;
+    }
+    const b = document.createElement("button");
+    b.className = "scene";
+    if (s.id === preview.scene) b.classList.add("on");
+    b.textContent = s.label;
+    if (s.id === onAir.scene) {
+      const tag = document.createElement("span");
+      tag.className = "live";
+      tag.textContent = "直播中";
+      b.append(tag);
+    }
+    b.onclick = async () => {
+      state = await post("scene", { id: s.id });
+      paint();
+      syncFrame();
+    };
+    box.append(b);
+  }
+}
+
+function paint() {
+  if (!state) return;
+  const { preview, onAir, live, isPreviewDirty } = state;
+  const scenes = state.scenes || [];
+
+  $("dirtyTag").classList.toggle("on", !!isPreviewDirty);
+  $("pushState").textContent = isPreviewDirty
+    ? "预览中的改动尚未推送至直播端"
+    : "直播端与当前预览一致";
+
+  const onAirLabel = (scenes.find(s => s.id === onAir.scene) || {}).label || onAir.scene;
+  $("onAirScene").textContent = onAirLabel;
+  const obs = location.origin + "/obs/" + onAir.scene;
+  $("obsUrl").textContent = obs;
+  $("btnOpenObs").href = obs;
+
+  const c = live && live.countdown;
+  $("timerState").textContent = c
+    ? (c.running
+        ? "运行中，剩余 " + Math.round((c.remainingMs || 0) / 1000) + " 秒"
+        : "已停止，时长 " + Math.round((c.durationMs || 0) / 1000) + " 秒")
+    : "—";
+
+  paintScenes();
+  paintBpOps();
+  paintOps(preview, scenes);
+  if ($("bracketOps")) $("bracketOps").classList.toggle("on", preview.scene === "bracket");
+  paintChartOps();
+  syncIvForm();
+  paintContext();
+  syncCmForm();
+}
+
+function paintOps(preview, scenes) {
+  const scene = preview.scene;
+  const label = (scenes.find(s => s.id === scene) || {}).label || scene;
+  const hint = $("opsSceneHint");
+  if (hint) hint.textContent = "当前场景：" + label + " · 修改后点「推送到直播端」上线";
+  const specific = scene === "commentary" || scene === "interval" || scene === "bracket" || scene === "chart";
+  ["opsTimer", "opsInterval"].forEach((id) => {
+    const el = $(id);
+    if (el) el.classList.toggle("on", scene === "interval");
+  });
+  const generic = $("opsGeneric");
+  if (generic) generic.classList.toggle("on", !specific);
+  const cm = $("commentaryOps");
+  if (cm) cm.classList.toggle("on", scene === "commentary");
+}
+
+function paintContext() {
+  const c = state && state.live && state.live.context;
+  const chip = $("ctxChip");
+  if (!chip) return;
+  if (!c) {
+    chip.textContent = "未选择场次";
+    chip.classList.remove("on");
+    chip.title = "";
+    return;
+  }
+  chip.textContent = [c.matchLabel || "未关联赛程", c.gameLabel || ""].filter(Boolean).join(" · ");
+  chip.classList.add("on");
+  chip.title = [c.seriesName, c.matchRound, c.blueTeam + " vs " + c.redTeam].filter(Boolean).join(" / ");
+}
+
+function paintChartOps() {
+  if (!$("chartOps")) return;
+  $("chartOps").classList.toggle("on", state && state.preview.scene === "chart");
+  const p = state && state.live && state.live.chartPlaylist;
+  const ctx = state && state.live && state.live.context;
+  const ctxLabel = ctx ? [ctx.matchLabel, ctx.gameLabel].filter(Boolean).join(" · ") : "";
+  const statusEl = $("chartStatus");
+  const toggle = $("btnChartToggle");
+  const list = $("chartList");
+  const air = $("btnChartAir");
+  if (list) list.replaceChildren();
+  if (!p || !Array.isArray(p.items) || !p.items.length) {
+    if (statusEl) statusEl.textContent = "尚未推送本局数据图" + (ctxLabel ? " · " + ctxLabel : "");
+    if (toggle) toggle.textContent = "开始轮播";
+    if (air) { air.disabled = true; air.textContent = "切到直播端"; }
+    return;
+  }
+  const item = p.items[p.index] || {};
+  const lane = ["上单", "打野", "中路", "发育路", "游走"][item.idx];
+  const label = item.label || (item.kind === "overview" ? "五路总览" : (lane ? lane + "对位图" : "数据图"));
+  if (statusEl) {
+    statusEl.textContent = "第 " + (p.index + 1) + " / " + p.items.length + " 张 · " + label
+      + (ctxLabel ? " · " + ctxLabel : "")
+      + " · " + (p.running ? ("自动 " + Math.round(p.intervalMs / 1000) + " 秒") : "已暂停");
+  }
+  if (toggle) toggle.textContent = p.running ? "暂停" : "开始轮播";
+  const sel = $("chartInterval");
+  if (sel && document.activeElement !== sel) sel.value = String(p.intervalMs);
+  if (list) {
+    p.items.forEach((it, i) => {
+      const b = document.createElement("button");
+      b.className = "chart-chip" + (i === p.index ? " on" : "");
+      b.textContent = (i + 1) + " · " + (it.label || "数据图");
+      b.title = "跳到第 " + (i + 1) + " 张";
+      b.onclick = async () => {
+        state = await post("chart/playlist", { patch: { index: i } });
+        paint();
+      };
+      list.append(b);
+    });
+  }
+  if (air) {
+    const liveNow = state.onAir.scene === "chart";
+    air.disabled = !!liveNow;
+    air.textContent = liveNow ? "数据图已在直播端" : "切到直播端";
+  }
+}
+
+/* 预览窗跟随：切换时先淡出再换源，避免白闪 */
+function syncFrame() {
+  if (!state) return;
+  const want = stageMode === "live" ? state.onAir.scene : state.preview.scene;
+  const f0 = $("stageFrame");
+  const hint = $("stageHint");
+  if (framedScene === want) return;
+  framedScene = want;
+  const f = f0;
+  if (!f) { if (hint) hint.textContent = "预览 iframe 未找到"; return; }
+  f.classList.add("fading");
+  setTimeout(() => {
+    // 预览态走 mode=preview，让预览窗渲染「正在编辑的场景」而非「在播场景」
+    f.src = "/obs/" + want + (stageMode === "preview" ? "?mode=preview" : "");
+    f.onload = () => f.classList.remove("fading");
+    setTimeout(() => f.classList.remove("fading"), 400);
+  }, 140);
+
+  $("stageHint").textContent = stageMode === "live"
+    ? "显示直播端此刻的画面"
+    : (state.isPreviewDirty ? "预览含未推送改动" : "预览与直播端一致");
+}
+
+document.querySelectorAll(".seg button").forEach(b => {
+  b.onclick = () => {
+    stageMode = b.dataset.mode;
+    document.querySelectorAll(".seg button").forEach(x => x.classList.toggle("on", x === b));
+    syncFrame();
+  };
+});
+
+$("btnPush").onclick = async () => { state = await post("push"); paint(); syncFrame(); };
+$("btnDiscard").onclick = async () => { state = await post("discard"); paint(); syncFrame(); };
+const bkReplayBtn = $("btnBkReplay");
+if (bkReplayBtn) bkReplayBtn.onclick = async () => { await post("bracket/replay"); };
+
+const chartPushBtn = $("btnChartPush");
+if (chartPushBtn) chartPushBtn.onclick = async () => {
+  const f = $("genFrame");
+  const w = f && f.contentWindow;
+  const items = w && w.PKC && typeof w.PKC.chartItems === "function" ? w.PKC.chartItems() : null;
+  if (!items || !items.length) {
+    if (window.__pkSay) window.__pkSay("生成器尚未就绪，先在「① 对局数据」选好本局再推送");
+    return;
+  }
+  const intervalMs = Number(($("chartInterval") || {}).value) || 8000;
+  state = await post("chart/playlist", { patch: { items, index: 0, running: true, intervalMs } });
+  paint();
+};
+const chartAirBtn = $("btnChartAir");
+if (chartAirBtn) chartAirBtn.onclick = async () => {
+  const p = state && state.live && state.live.chartPlaylist;
+  if (!p || !Array.isArray(p.items) || !p.items.length) {
+    if (window.__pkSay) window.__pkSay("先推送本局六张，再切到直播端");
+    return;
+  }
+  state = await post("scene", { id: "chart" });
+  state = await post("push");
+  paint();
+  syncFrame();
+};
+const chartToggleBtn = $("btnChartToggle");
+if (chartToggleBtn) chartToggleBtn.onclick = async () => {
+  const p = state && state.live && state.live.chartPlaylist;
+  if (!p || !Array.isArray(p.items) || !p.items.length) {
+    if (chartPushBtn) chartPushBtn.click();
+    return;
+  }
+  state = await post("chart/playlist", { patch: { running: !p.running } });
+  paint();
+};
+const chartPrevBtn = $("btnChartPrev");
+if (chartPrevBtn) chartPrevBtn.onclick = async () => { state = await post("chart/step", { dir: -1 }); paint(); };
+const chartNextBtn = $("btnChartNext");
+if (chartNextBtn) chartNextBtn.onclick = async () => { state = await post("chart/step", { dir: 1 }); paint(); };
+const chartIntervalSel = $("chartInterval");
+if (chartIntervalSel) chartIntervalSel.onchange = async () => {
+  state = await post("chart/playlist", { patch: { intervalMs: Number(chartIntervalSel.value) } });
+  paint();
+};
+
+const durationMs = () => (Number($("mm").value) || 0) * 60000 + (Number($("ss").value) || 0) * 1000;
+$("btnStart").onclick = async () => {
+  const d = durationMs();
+  state = await post("countdown", { patch: { running: true, durationMs: d, remainingMs: d } });
+  paint();
+};
+$("btnResume").onclick = async () => { state = await post("countdown", { patch: { running: true } }); paint(); };
+$("btnResetTimer").onclick = async () => {
+  const d = durationMs();
+  state = await post("countdown", { patch: { running: false, durationMs: d, remainingMs: d } });
+  paint();
+};
+
+/* 赛间板设置：写进 preview.settings.interval，点「推送到直播端」才上线 */
+const ivSettings = () => ({
+  follow: true,
+  ...((state && state.preview && state.preview.settings && state.preview.settings.interval) || {}),
+});
+let ivTeams = [];
+const ivFill = (sel, cur) => {
+  if (!sel) return;
+  sel.innerHTML = "";
+  sel.appendChild(new Option("— 未选 —", ""));
+  ivTeams.forEach(t => sel.appendChild(new Option(t.name, t.name)));
+  sel.value = cur || "";
+};
+async function loadIvTeams() {
+  if (!ivTeams.length){
+    const d = await (await fetch("/api/director/teams")).json().catch(() => ({ teams: [] }));
+    ivTeams = d.teams || [];
+    cmFillTeams();
+  }
+  const s = ivSettings();
+  ivFill($("ivBlue"), s.blueTeam);
+  ivFill($("ivRed"), s.redTeam);
+}
+const ivPatch = async (patch) => { state = await post("settings", { id: "interval", patch }); paint(); syncFrame(); };
+const ivBind = (id, key, ev, read) => {
+  const el = $(id);
+  if (el) el.addEventListener(ev, () => ivPatch({ [key]: read(el) }));
+};
+let ctxAppliedKey = "";
+ivBind("ivBlue", "blueTeam", "change", e => e.value);
+ivBind("ivRed", "redTeam", "change", e => e.value);
+ivBind("ivTitle", "bottomTitle", "input", e => e.value.trim());
+ivBind("ivCaption", "caption", "input", e => e.value.trim());
+ivBind("ivReal", "showRealName", "change", e => e.checked);
+ivBind("ivFollow", "follow", "change", (e) => { if (e.checked) ctxAppliedKey = ""; return e.checked; });
+function syncIvForm() {
+  const s = ivSettings();
+  const title = $("ivTitle"), cap = $("ivCaption"), real = $("ivReal"), follow = $("ivFollow");
+  const blue = $("ivBlue"), red = $("ivRed");
+  if (blue && document.activeElement !== blue) blue.value = s.blueTeam || "";
+  if (red && document.activeElement !== red) red.value = s.redTeam || "";
+  if (title && document.activeElement !== title) title.value = s.bottomTitle || "";
+  if (cap && document.activeElement !== cap) cap.value = s.caption || "距离比赛开始还有";
+  if (real) real.checked = s.showRealName !== false;
+  if (follow) follow.checked = s.follow !== false;
+}
+async function applyContextToInterval() {
+  const c = state && state.live && state.live.context;
+  if (!c || !c.blueTeam || !c.redTeam) return;
+  const s = ivSettings();
+  if (s.follow === false) return;
+  const key = [c.seriesId, c.matchKey, c.gameId, c.blueTeam, c.redTeam].join("|");
+  if (key === ctxAppliedKey) return;
+  ctxAppliedKey = key;
+  if (s.blueTeam === c.blueTeam && s.redTeam === c.redTeam) return;
+  state = await post("settings", { id: "interval", patch: { blueTeam: c.blueTeam, redTeam: c.redTeam } });
+  paint();
+  syncFrame();
+}
+
+const cmSettings = () => ({
+  count: 3,
+  banner: {},
+  ...((state && state.preview && state.preview.settings && state.preview.settings.commentary) || {}),
+});
+const cmBanner = () => ({
+  visible: false, type: "substitution", team: "", lane: "打野",
+  outPlayer: "", inPlayer: "", title: "", content: "", player: "",
+  ...(cmSettings().banner || {}),
+});
+const cmPatch = async (patch) => {
+  state = await post("settings", { id: "commentary", patch });
+  paint();
+  syncFrame();
+};
+const cmBannerPatch = async (patch) => cmPatch({ banner: { ...cmBanner(), ...patch } });
+/* 大场比分：导播手填，不做自动推断。 */
+const cmScore = () => ({
+  blue: 0, red: 0, bo: "auto",
+  ...(cmSettings().score || {}),
+});
+const cmScoreDom = () => ({
+  blue: Math.max(0, Math.min(4, Number($("cmScoreBlue") && $("cmScoreBlue").value) || 0)),
+  red: Math.max(0, Math.min(4, Number($("cmScoreRed") && $("cmScoreRed").value) || 0)),
+  bo: ($("cmBo") && $("cmBo").value) || "auto",
+});
+const cmScorePatch = async (patch) => {
+  const next = { ...cmScoreDom(), ...patch };
+  next.blue = Math.max(0, Math.min(4, Number(next.blue) || 0));
+  next.red = Math.max(0, Math.min(4, Number(next.red) || 0));
+  await cmPatch({ score: next });
+};
+const cmScoreStep = async (key, delta) => {
+  const el = $(key === "blue" ? "cmScoreBlue" : "cmScoreRed");
+  const cur = Math.max(0, Math.min(4, Number(el && el.value) || 0));
+  const next = Math.max(0, Math.min(4, cur + delta));
+  if (el) el.value = String(next);
+  await cmScorePatch({ [key]: next });
+};
+const cmBind = (id, key, ev, read) => {
+  const el = $(id);
+  if (el) el.addEventListener(ev, () => cmPatch({ [key]: read(el) }));
+};
+cmBind("cmTitle", "title", "input", (e) => e.value);
+cmBind("cmSubtitle", "subtitle", "input", (e) => e.value);
+cmBind("cmLeftName", "leftName", "input", (e) => e.value);
+cmBind("cmLeftRole", "leftRole", "input", (e) => e.value);
+cmBind("cmCenterName", "centerName", "input", (e) => e.value);
+cmBind("cmCenterRole", "centerRole", "input", (e) => e.value);
+cmBind("cmRightName", "rightName", "input", (e) => e.value);
+cmBind("cmRightRole", "rightRole", "input", (e) => e.value);
+[["cmScoreBlue", "blue"], ["cmScoreRed", "red"]].forEach(([id, key]) => {
+  const el = $(id);
+  if (!el) return;
+  el.addEventListener("input", () => {
+    const raw = String(el.value == null ? "" : el.value).trim();
+    const v = raw === "" ? 0 : Math.max(0, Math.min(4, Number(raw) || 0));
+    if (raw !== "" && String(v) !== raw) el.value = String(v);
+    cmScorePatch({ [key]: v });
+  });
+});
+const cmBoEl = $("cmBo");
+if (cmBoEl) cmBoEl.onchange = () => cmScorePatch({ bo: cmBoEl.value });
+if ($("cmBluePlus")) $("cmBluePlus").onclick = () => cmScoreStep("blue", 1);
+if ($("cmRedPlus")) $("cmRedPlus").onclick = () => cmScoreStep("red", 1);
+if ($("cmScoreZero")) $("cmScoreZero").onclick = async () => {
+  if ($("cmScoreBlue")) $("cmScoreBlue").value = "0";
+  if ($("cmScoreRed")) $("cmScoreRed").value = "0";
+  await cmScorePatch({ blue: 0, red: 0 });
+};
+function cmFillTeams() {
+  const sel = $("cmBannerTeam");
+  if (!sel) return;
+  const cur = cmBanner().team || "";
+  sel.innerHTML = "";
+  sel.appendChild(new Option("— 选择队伍 —", ""));
+  ivTeams.forEach((t) => sel.appendChild(new Option(t.name, t.name)));
+  if (cur) sel.value = cur;
+}
+function paintCmPeopleFields() {
+  const count = Number(cmSettings().count || 3);
+  const left = document.querySelector(".cm-left");
+  const center = document.querySelector(".cm-center");
+  const right = document.querySelector(".cm-right");
+  if (left) left.classList.toggle("off", count === 1);
+  if (center) center.classList.toggle("off", count === 2);
+  if (right) right.classList.toggle("off", count === 1);
+}
+function paintCmBannerFields() {
+  const b = cmBanner();
+  const on = !!b.visible;
+  const sub = $("cmBannerSub"), ach = $("cmBannerAch");
+  if (sub) sub.classList.toggle("off", !on || b.type !== "substitution");
+  if (ach) ach.classList.toggle("off", !on || b.type !== "achievement");
+  const onEl = $("cmBannerOn");
+  if (onEl && document.activeElement !== onEl) onEl.checked = on;
+  const typeEl = $("cmBannerType");
+  if (typeEl) typeEl.value = b.type || "substitution";
+}
+const cmCountEl = $("cmCount");
+if (cmCountEl) cmCountEl.onchange = () => {
+  cmPatch({ count: Number(cmCountEl.value) || 3 });
+  paintCmPeopleFields();
+};
+const cmBannerOnEl = $("cmBannerOn");
+if (cmBannerOnEl) cmBannerOnEl.onchange = () => {
+  cmBannerPatch({ visible: cmBannerOnEl.checked });
+  paintCmBannerFields();
+};
+const cmBannerTypeEl = $("cmBannerType");
+if (cmBannerTypeEl) cmBannerTypeEl.onchange = () => {
+  cmBannerPatch({ type: cmBannerTypeEl.value });
+  paintCmBannerFields();
+};
+const cmBannerTeamEl = $("cmBannerTeam");
+if (cmBannerTeamEl) cmBannerTeamEl.onchange = () => cmBannerPatch({ team: cmBannerTeamEl.value });
+const cmBannerLaneEl = $("cmBannerLane");
+if (cmBannerLaneEl) cmBannerLaneEl.onchange = () => cmBannerPatch({ lane: cmBannerLaneEl.value });
+const cmStageEl = $("cmStage");
+if (cmStageEl) cmStageEl.onchange = () => {
+  if (cmStageEl.value === "__custom__") {
+    const sub = $("cmSubtitle");
+    if (sub) sub.focus();
+    return;
+  }
+  cmPatch({ subtitle: cmStageEl.value });
+};
+[["cmBannerOut", "outPlayer"], ["cmBannerIn", "inPlayer"], ["cmAchTitle", "title"], ["cmAchContent", "content"], ["cmAchPlayer", "player"]].forEach(([id, key]) => {
+  const el = $(id);
+  if (el) el.addEventListener("input", () => cmBannerPatch({ [key]: el.value }));
+});
+function syncCmForm() {
+  const s = cmSettings();
+  const map = {
+    cmTitle: "title", cmSubtitle: "subtitle",
+    cmLeftName: "leftName", cmLeftRole: "leftRole",
+    cmCenterName: "centerName", cmCenterRole: "centerRole",
+    cmRightName: "rightName", cmRightRole: "rightRole",
+  };
+  for (const [id, key] of Object.entries(map)) {
+    const el = $(id);
+    if (el && document.activeElement !== el) el.value = s[key] || "";
+  }
+  const count = $("cmCount");
+  if (count) count.value = String(s.count || 3);
+  const stage = $("cmStage");
+  if (stage) stage.value = ["赛前解说", "局间解说", "赛后解说"].includes(s.subtitle) ? s.subtitle : "__custom__";
+  const sc = cmScore();
+  const scBlue = $("cmScoreBlue"), scRed = $("cmScoreRed"), scBo = $("cmBo");
+  if (scBlue && document.activeElement !== scBlue) scBlue.value = String(sc.blue == null || sc.blue === "" ? 0 : sc.blue);
+  if (scRed && document.activeElement !== scRed) scRed.value = String(sc.red == null || sc.red === "" ? 0 : sc.red);
+  if (scBo) scBo.value = String(sc.bo == null ? "auto" : sc.bo);
+  const b = cmBanner();
+  if (!$("cmBannerTeam")?.options.length) cmFillTeams();
+  const setVal = (id, v) => {
+    const el = $(id);
+    if (el && document.activeElement !== el) el.value = v == null ? "" : v;
+  };
+  setVal("cmBannerTeam", b.team || "");
+  setVal("cmBannerLane", b.lane || "打野");
+  setVal("cmBannerOut", b.outPlayer || "");
+  setVal("cmBannerIn", b.inPlayer || "");
+  setVal("cmAchTitle", b.title || "");
+  setVal("cmAchContent", b.content || "");
+  setVal("cmAchPlayer", b.player || "");
+  paintCmPeopleFields();
+  paintCmBannerFields();
+}
+$("btnCopyObs").onclick = async () => {
+  try {
+    await navigator.clipboard.writeText($("obsUrl").textContent);
+    $("btnCopyObs").textContent = "已复制";
+    setTimeout(() => { $("btnCopyObs").textContent = "复制地址"; }, 1200);
+  } catch {
+    $("btnCopyObs").textContent = "复制失败";
+  }
+};
+
+/* ================= 队伍库 ================= */
+let teams = [];
+
+function teamMsg(text, ok) {
+  const el = $("teamMsg");
+  el.className = "msg " + (ok ? "ok" : "bad");
+  el.textContent = text;
+  if (ok) setTimeout(() => { el.className = "msg"; }, 2400);
+}
+
+function paintTeams() {
+  const grid = $("teamGrid");
+  if (!grid) return;
+  grid.replaceChildren();
+  $("teamEmpty").style.display = teams.length ? "none" : "block";
+  $("teamBadge").textContent = String(teams.length);
+
+  for (const t of teams) {
+    const card = document.createElement("div");
+    card.className = "team";
+
+    const head = document.createElement("div");
+    head.className = "name";
+    if (t.logo) {
+      const img = document.createElement("img");
+      img.className = "logo";
+      img.src = t.logo;
+      img.alt = "";
+      img.onerror = () => img.remove();
+      head.append(img);
+    }
+    const nm = document.createElement("span");
+    nm.textContent = t.name;
+    head.append(nm);
+    card.append(head);
+
+    for (const p of t.players || []) {
+      const row = document.createElement("div");
+      row.className = "p";
+      const lane = document.createElement("span");
+      lane.className = "lane";
+      lane.textContent = p.lane || "";
+      const name = document.createElement("span");
+      name.textContent = p.name || "—";
+      const rn = document.createElement("span");
+      rn.className = "rn";
+      rn.textContent = p.realName || "";
+      row.append(lane, name, rn);
+      card.append(row);
+    }
+    grid.append(card);
+  }
+}
+
+async function loadTeams() {
+  if (!$("teamGrid")) return;
+  try {
+    const r = await fetch("/api/director/teams");
+    const d = await r.json();
+    teams = Array.isArray(d.teams) ? d.teams : [];
+    paintTeams();
+    if (teams.length && $("teamJson") && !$("teamJson").value.trim()) {
+      $("teamJson").value = JSON.stringify(teams, null, 2);
+    }
+  } catch {
+    teamMsg("读取队伍名单失败", false);
+  }
+}
+
+function parseTeams(text) {
+  const data = JSON.parse(text);
+  const list = Array.isArray(data) ? data : (Array.isArray(data.teams) ? data.teams : null);
+  if (!list) throw new Error("应为数组，或含 teams 数组的对象");
+  if (!list.length) throw new Error("名单为空");
+  return list;
+}
+
+/* 统一外壳里队伍录入口由生成器「队伍库」面板承担；这些元素不存在时跳过绑定，
+   否则会抛错并中断后续的连接与渲染逻辑。 */
+if (!$("btnTeamSave")) { /* 无独立队伍页，跳过 */ } else {
+$("btnTeamSave").onclick = async () => {
+  let list;
+  try {
+    list = parseTeams($("teamJson").value.trim());
+  } catch (e) {
+    return teamMsg("解析失败：" + e.message, false);
+  }
+  try {
+    const res = await fetch("/api/director/teams", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ teams: list }),
+    });
+    const d = await res.json();
+    if (!res.ok) throw new Error(d.message || d.error);
+    teams = d.teams || [];
+    paintTeams();
+    teamMsg("已保存 " + teams.length + " 支队伍", true);
+  } catch (e) {
+    teamMsg("保存失败：" + e.message, false);
+  }
+};
+
+$("btnTeamClear").onclick = () => { $("teamJson").value = ""; teamMsg("已清空输入框（未保存）", true); };
+
+$("teamFile").onchange = async (e) => {
+  const f = e.target.files && e.target.files[0];
+  if (!f) return;
+  $("teamJson").value = await f.text();
+  teamMsg("已读入 " + f.name + "，点「保存名单」生效", true);
+  e.target.value = "";
+};
+
+$("btnTeamSample").onclick = () => {
+  $("teamJson").value = JSON.stringify([
+    { name: "成都AG超玩会", logo: "", players: [
+      { name: "轩染", realName: "刘明", lane: "对抗路" },
+      { name: "钟意", realName: "陈家豪", lane: "打野" },
+      { name: "长生", realName: "谢承峻", lane: "中路" },
+      { name: "一诺", realName: "徐必成", lane: "发育路" },
+      { name: "大帅", realName: "孟家俊", lane: "游走" },
+    ] },
+  ], null, 2);
+  teamMsg("已填入示例，可直接保存", true);
+};
+}
+
+/* ================= BP 操作台 ================= */
+let bpSel = null;
+let heroes = [];
+
+async function loadHeroes() {
+  try {
+    const d = await (await fetch("/api/heroes")).json();
+    heroes = Object.keys(d.heroes || {}).sort((a, b) => a.localeCompare(b, "zh"));
+    const py = {};
+    for (const [name, list] of Object.entries(d.heroes || {})) {
+      const rec = (list || [])[0] || {};
+      py[name] = (rec.hero || "").toLowerCase();
+    }
+    window.__heroIndex = d.heroes || {};
+    window.__heroPinyin = py;
+    paintGrid();
+  } catch { /* 素材索引不可用时静默降级 */ }
+}
+
+function heroThumbOf(name) {
+  const list = (window.__heroIndex || {})[name];
+  const rec = list && list.find((x) => x.thumb || x.opt);
+  return rec ? "/thumb/" + (rec.thumb || rec.opt) : "";
+}
+
+function paintGrid() {
+  const box = $("bpGrid");
+  if (!box) return;
+  const q = ($("bpSearch").value || "").trim().toLowerCase();
+  const used = new Set();
+  const b = state && state.live && state.live.bp;
+  if (b) {
+    (b.bans.blue || []).concat(b.bans.red || [], b.picks.blue || [], b.picks.red || []).forEach((h) => h && used.add(h));
+    // 一步多人时，本步已锁定但尚未提交的英雄同样要标为不可用
+    ((b.pending && b.pending.heroes) || []).forEach((h) => h && used.add(h));
+  }
+  box.replaceChildren();
+  for (const name of heroes) {
+    if (q && !name.toLowerCase().includes(q) && !(window.__heroPinyin && window.__heroPinyin[name] || "").includes(q)) continue;
+    const btn = document.createElement("button");
+    btn.className = "bp-hero" + (bpSel === name ? " on" : "") + (used.has(name) ? " used" : "");
+    const src = heroThumbOf(name);
+    if (src) { const img = document.createElement("img"); img.src = src; img.alt = name; btn.append(img); }
+    const lb = document.createElement("span");
+    lb.textContent = name;
+    btn.append(lb);
+    if (!used.has(name)) btn.onclick = () => { bpSel = bpSel === name ? null : name; paintGrid(); paintBpOps(); };
+    box.append(btn);
+  }
+}
+
+function paintBpOps() {
+  const ops = $("bpOps");
+  if (!ops || !state) return;
+  const active = state.preview.scene === "bp";
+  ops.classList.toggle("on", active);
+  if (!active) return;
+  const b = state.live.bp;
+  if (!b) {
+    $("bpStat").textContent = "未开始";
+    $("bpPicked").textContent = "未选英雄";
+    $("bpLock").disabled = true;
+  } else {
+    const pend = b.pending || { filled: 0, size: 1 };
+    const multi = pend.size > 1;
+    $("bpStat").innerHTML = "阶段 <b>" + b.phaseLabel + "</b> · 计步 <b>" + b.step.current + " / " + b.step.total + "</b> · " +
+      (b.finished ? "本局结束" : (b.activeParty === "blue" ? "蓝方行动" : "红方行动")) +
+      (multi ? " · <b>本步还需 " + (pend.size - pend.filled) + " 个</b>" : "");
+    $("bpPicked").innerHTML = (multi
+      ? "本步已锁 <b>" + pend.filled + " / " + pend.size + "</b>" + (pend.heroes.length ? "：" + pend.heroes.join("、") : "")
+      : "") + (bpSel ? "　待锁：<b>" + bpSel + "</b>" : (multi ? "" : "未选英雄"));
+    $("bpLock").disabled = !bpSel || b.finished;
+    $("bpLock").textContent = b.phaseLabel === "禁用" ? "锁定禁用" : (multi ? "锁定选择" : "锁定");
+  }
+  $("bpUndo").disabled = !(b && b.canUndo);
+  $("bpRedo").disabled = !(b && b.canRedo);
+  $("bpStart").disabled = !!(b && !b.finished);
+}
+
+async function bpPost(action, body) {
+  const r = await fetch("/api/director/" + action, {
+    method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body || {}),
+  });
+  const d = await r.json();
+  if (d && d.live !== undefined) state = d;
+  else if (d && d.error) {
+    if (window.__pkSay) window.__pkSay("操作失败：" + (d.message || d.error));
+  }
+  return d;
+}
+
+function bindBp() {
+  $("bpStart").onclick = async () => {
+    /* 两队优先用「赛间板」里选好的，没选就退回队伍库前两支 */
+    if (!ivTeams.length){
+      const d = await (await fetch("/api/director/teams")).json().catch(() => ({ teams: [] }));
+      ivTeams = d.teams || [];
+    }
+    const iv = ivSettings();
+    const ctx = state && state.live && state.live.context;
+    const blue = (ctx && ctx.blueTeam) || iv.blueTeam || (ivTeams[0] && ivTeams[0].name) || "蓝方";
+    const red  = (ctx && ctx.redTeam)  || iv.redTeam  || (ivTeams[1] && ivTeams[1].name) || "红方";
+    await bpPost("bp/start", { teams: { blue, red } });
+    bpSel = null; paint(); paintGrid(); paintBpOps();
+  };
+  $("bpLock").onclick = async () => { await bpPost("bp/lock", { heroId: bpSel }); bpSel = null; paint(); paintGrid(); paintBpOps(); };
+  $("bpEmpty").onclick = async () => { await bpPost("bp/lock", { heroId: null }); bpSel = null; paint(); paintGrid(); paintBpOps(); };
+  $("bpUndo").onclick = async () => { await bpPost("bp/undo"); paint(); paintGrid(); paintBpOps(); };
+  $("bpRedo").onclick = async () => { await bpPost("bp/redo"); paint(); paintGrid(); paintBpOps(); };
+  $("bpResetAll").onclick = async () => {
+    if (!window.confirm("重置本局？将清空全部禁选与历史。")) return;
+    await bpPost("bp/reset"); bpSel = null; paint(); paintGrid(); paintBpOps();
+  };
+  $("bpSearch").oninput = () => paintGrid();
+  loadHeroes();
+}
+if ($("bpStart")) bindBp();
+loadIvTeams();
+
+/* ================= 连接 ================= */
+const source = new EventSource("/api/director/stream");
+const setConn = (t) => { const el = $("connLabel"); if (el) el.textContent = t; };
+source.addEventListener("hello", (e) => {
+  setConn("已连接");
+  state = JSON.parse(e.data);
+  window.__pkDirectorReady = true;
+  paint();
+  syncFrame();
+  applyContextToInterval().catch(() => {});
+});
+source.addEventListener("preview", (e) => { state = JSON.parse(e.data); paint(); syncFrame(); });
+source.addEventListener("onAir", (e) => { state = JSON.parse(e.data); paint(); syncFrame(); });
+source.addEventListener("live", (e) => {
+  state = JSON.parse(e.data);
+  paint();
+  syncFrame();
+  applyContextToInterval().catch(() => {});
+});
+source.addEventListener("error", () => { setConn("已断开，重连中…"); });
+
+const portEl = $("portLabel"); if (portEl) portEl.textContent = location.port || "80";
+fetch("/api/director/state").then(r => r.json()).then(s => {
+  state = s;
+  window.__pkDirectorReady = true;
+  paint();
+  syncFrame();
+  applyContextToInterval().catch(() => {});
+}).catch((err) => {
+  // 不再静默吞错：失败时显示在自诊断条里
+  console.error("状态接口失败", err);
+});
+loadTeams();
+})();
+
+</script>
+<script src="/assets/shell.js"></script>
+</body>
+</html>
