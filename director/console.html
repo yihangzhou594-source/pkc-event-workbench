@@ -81,7 +81,19 @@
   /* ---------- 导播台三栏 ---------- */
   .pk .director{display:grid;grid-template-columns:118px minmax(0,1fr) 292px;gap:14px;height:100%;min-height:0}
   @media (max-width:1100px){
-    .pk .director{grid-template-columns:110px minmax(0,1fr)}
+    /* 非全屏：场景栏改成顶部横向条，画面在中间，操作面板在下面 */
+    .pk .director{
+      grid-template-columns:1fr;
+      grid-template-rows:auto minmax(300px,1fr) auto;
+      height:auto;
+      gap:12px;
+    }
+    .pk .director .scenes{
+      flex-direction:row;flex-wrap:nowrap;align-items:center;
+      overflow-x:auto;overflow-y:hidden;padding:8px;gap:6px;
+    }
+    .pk .director .scenes .cap{display:none}
+    .pk .director .scene{flex:0 0 auto;min-width:78px;padding:8px 14px;text-align:center}
     .pk .director .ops{grid-column:1 / -1}
   }
   .pk .scenes{display:flex;flex-direction:column;gap:9px;padding:11px;overflow:auto}
@@ -218,19 +230,19 @@
     </a>
     <nav class="wk-nav">
       <div class="wk-cap">工作</div>
-      <button class="wk-item on" data-view="overview" data-icon="overview"><span class="wk-ico"></span><span>概览</span></button>
+      <button class="wk-item on" data-view="overview" data-icon="overview" title="概览"><span class="wk-ico"></span><span>概览</span></button>
       <div class="wk-cap">直播</div>
-      <button class="wk-item" data-view="director" data-icon="live"><span class="wk-ico"></span><span>导播台</span></button>
+      <button class="wk-item" data-view="director" data-icon="live" title="导播台"><span class="wk-ico"></span><span>导播台</span></button>
       <div class="wk-cap">数据</div>
-      <button class="wk-item" data-view="data" data-icon="data"><span class="wk-ico"></span><span>对局数据</span></button>
-      <button class="wk-item" data-view="bracket" data-icon="bracket"><span class="wk-ico"></span><span>淘汰赛赛程</span></button>
+      <button class="wk-item" data-view="data" data-icon="data" title="对局数据"><span class="wk-ico"></span><span>对局数据</span></button>
+      <button class="wk-item" data-view="bracket" data-icon="bracket" title="淘汰赛赛程"><span class="wk-ico"></span><span>淘汰赛赛程</span></button>
       <div class="wk-cap">资料</div>
-      <button class="wk-item" data-view="teams" data-icon="teams"><span class="wk-ico"></span><span>队伍库</span></button>
-      <button class="wk-item" data-view="hero" data-icon="hero"><span class="wk-ico"></span><span>英雄图</span></button>
+      <button class="wk-item" data-view="teams" data-icon="teams" title="队伍库"><span class="wk-ico"></span><span>队伍库</span></button>
+      <button class="wk-item" data-view="hero" data-icon="hero" title="英雄图"><span class="wk-ico"></span><span>英雄图</span></button>
       <div class="wk-cap">输出</div>
-      <button class="wk-item" data-view="out" data-icon="out"><span class="wk-ico"></span><span>多局与导出</span></button>
+      <button class="wk-item" data-view="out" data-icon="out" title="多局与导出"><span class="wk-ico"></span><span>多局与导出</span></button>
       <div class="wk-grow"></div>
-      <button class="wk-item" data-view="help" data-icon="help"><span class="wk-ico"></span><span>说明</span></button>
+      <button class="wk-item" data-view="help" data-icon="help" title="说明"><span class="wk-ico"></span><span>说明</span></button>
     </nav>
     <div class="wk-rail-foot"><span class="wk-dot" id="wkDot"></span><span id="wkService">本地服务</span></div>
   </aside>
@@ -239,9 +251,9 @@
       <div class="wk-top-title"><h1 id="wkTitle">概览</h1><p id="wkSub">当前工作、OBS 源与赛事状态</p></div>
       <div class="wk-ctx">
         <span class="wk-ctx-series" id="wkCtxSeries">未选择系列赛</span>
-        <span class="wk-ctx-sep">›</span>
+        <span class="wk-ctx-sep s1">›</span>
         <span class="wk-ctx-match" id="wkCtxMatch">未关联赛程</span>
-        <span class="wk-ctx-sep">›</span>
+        <span class="wk-ctx-sep s2">›</span>
         <span class="wk-ctx-game" id="wkCtxGame">—</span>
         <span class="wk-ctx-teams"><b class="blue" id="wkBlue">蓝方</b><i>VS</i><b class="red" id="wkRed">红方</b></span>
         <span class="wk-ctx-score" id="wkScore" title="本局击杀比分">- : -</span>
@@ -602,8 +614,8 @@ function paintScenes() {
   }
   const tip = document.createElement("div");
   tip.className = "cap";
-  tip.style.marginTop = "auto";
-  tip.style.paddingTop = "12px";
+  tip.style.marginTop = "10px";
+  tip.style.paddingTop = "8px";
   tip.style.lineHeight = "1.7";
   tip.textContent = "1-5 切场景 · 空格推送 · B 空白";
   box.append(tip);
