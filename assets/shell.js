@@ -80,8 +80,15 @@
 
   /* ---------- 生成器 iframe ---------- */
   let engineTarget = "";
+  let engineLoaded = false;
+  function ensureEngine() {
+    if (engineLoaded || !frame) return;
+    engineLoaded = true;
+    frame.src = "/generator?bare=1";
+  }
   function switchEngine(tab) {
     engineTarget = tab;
+    ensureEngine();
     let left = 30;
     const tick = () => {
       const w = frame && frame.contentWindow;
@@ -205,13 +212,58 @@
     set("#ovScoreHint", bo + "大场比分");
   }
 
+  const escHtml = (v) => String(v == null ? "" : v).replace(/[&<>"']/g, (c) => (
+    { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]
+  ));
+
+  /** 开播前检查：把最容易翻车的几项直接标出来。 */
+  function renderChecks(st, teams, games) {
+    const box = $("#ovChecks");
+    if (!box) return;
+    const ctx = (st && st.live && st.live.context) || {};
+    const rows = [];
+    const add = (ok, label, value) => rows.push({ ok, label, value });
+
+    add(!!ctx.matchKey, "场次已关联赛程",
+      ctx.matchKey ? (String(ctx.matchLabel || "").split("·")[0].trim() || ctx.matchKey) : "未关联");
+
+    const roster = (name) => {
+      const t = (teams || []).find((x) => x.name === name);
+      return t ? (t.players || []).filter((p) => p && p.name).length : 0;
+    };
+    const bn = roster(ctx.blueTeam);
+    const rn = roster(ctx.redTeam);
+    const rosterText = (n) => (n >= 5 ? n + " 人" : n + " / 5");
+    add(bn >= 5, "蓝方名单", rosterText(bn));
+    add(rn >= 5, "红方名单", rosterText(rn));
+
+    const g = (games || []).find((x) => x.id === ctx.gameId);
+    const filled = g ? (g.rows || []).filter((r) =>
+      (r.our && (r.our.name || r.our.hero)) || (r.opp && (r.opp.name || r.opp.hero))).length : 0;
+    add(filled >= 5, "本局数据", filled + " / 5");
+
+    const sc = pickCommentaryScore(st);
+    const hasScore = !!(sc && ((Number(sc.blue) || 0) + (Number(sc.red) || 0) > 0));
+    add(hasScore, "大场比分", sc ? (Number(sc.blue) || 0) + " : " + (Number(sc.red) || 0) : "未填");
+
+    const scene = (st && (st.scenes || []).find((s) => s.id === (st.onAir && st.onAir.scene)));
+    add(!!scene && scene.id !== "blank", "直播画面", scene ? scene.label : "—");
+
+    box.innerHTML = rows.map((r) =>
+      '<div class="wk-check-row ' + (r.ok ? "ok" : "warn") + '"><i></i><span>'
+      + escHtml(r.label) + '</span><b>' + escHtml(r.value) + "</b></div>").join("");
+    const sum = $("#wkCheckSum");
+    if (sum) sum.textContent = rows.filter((r) => r.ok).length + " / " + rows.length + " 就绪";
+  }
+
   function loadOverview() {
     return Promise.all([
       fetch("/api/store/library", { cache: "no-store" }).then((r) => r.json()).catch(() => null),
       fetch("/api/store/matches", { cache: "no-store" }).then((r) => r.json()).catch(() => null),
       fetch("/api/director/state", { cache: "no-store" }).then((r) => r.json()).catch(() => null),
+      fetch("/api/director/teams", { cache: "no-store" }).then((r) => r.json()).catch(() => null),
       fetch("/api/ping", { cache: "no-store" }).then((r) => r.json()).catch(() => null),
-    ]).then(([lib, matches, st, ping]) => {
+    ]).then(([lib, matches, st, teamData, ping]) => {
       matchCache = matches;
       const series = lib && lib.series ? (lib.series.find((s) => s.id === lib.currentId) || lib.series[0]) : null;
       const games = (matches && matches.games && series && matches.games[series.id]) || [];
@@ -233,6 +285,7 @@
       if (svc) svc.textContent = ping && ping.ok ? "本地服务 · " + (ping.port || "") : "服务未连接";
 
       if (st) applyTopbar(st);
+      renderChecks(st, (teamData && teamData.teams) || [], games);
     });
   }
 

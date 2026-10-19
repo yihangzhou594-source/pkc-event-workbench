@@ -104,7 +104,7 @@
   .pk .seg button{border:0;background:transparent;padding:5px 14px;border-radius:7px;color:var(--muted);font-size:12.5px;transition:background-color .18s ease,color .18s ease}
   .pk .seg button.on{background:var(--surface);color:var(--text);font-weight:700;box-shadow:0 1px 3px rgba(24,33,47,.12)}
   .pk .stage-canvas{flex:1;min-height:0;position:relative;background:repeating-conic-gradient(#eef1f6 0 25%,#fff 0 50%) 0 0/22px 22px}
-  .pk .stage-canvas iframe{position:absolute;inset:0;width:100%;height:100%;border:0;transition:opacity .28s ease}
+  .pk .stage-canvas iframe{position:absolute;inset:0;width:100%;height:100%;border:0;transition:opacity .28s ease;pointer-events:none}
   .pk .stage-canvas iframe.fading{opacity:0}
 
   .pk .ops{display:flex;flex-direction:column;gap:12px;padding:12px;overflow:auto}
@@ -296,7 +296,11 @@
               </div>
               <div class="wk-note">概览每 30 秒刷新一次；顶栏的场次与在播状态走实时通道。</div>
             </div>
-            <div class="wk-card wk-span2">
+            <div class="wk-card">
+              <h3>开播前检查 <em id="wkCheckSum">—</em></h3>
+              <div class="wk-checks" id="ovChecks"></div>
+            </div>
+            <div class="wk-card">
               <h3>第一次用</h3>
               <ol class="wk-steps">
                 <li><b>队伍库</b>建队、录选手名单；<b>赛程</b>填分组和抽签。</li>
@@ -518,7 +522,7 @@
     </section>
       </section>
       <section class="wk-pane" id="pane-engine">
-        <iframe id="genFrame" src="/generator?bare=1" title="数据图生成器"></iframe>
+        <iframe id="genFrame" title="数据图生成器"></iframe>
       </section>
     </div>
   </div>
@@ -596,6 +600,13 @@ function paintScenes() {
     };
     box.append(b);
   }
+  const tip = document.createElement("div");
+  tip.className = "cap";
+  tip.style.marginTop = "auto";
+  tip.style.paddingTop = "12px";
+  tip.style.lineHeight = "1.7";
+  tip.textContent = "1-5 切场景 · 空格推送 · B 空白";
+  box.append(tip);
 }
 
 function paint() {
@@ -743,6 +754,44 @@ document.querySelectorAll(".seg button").forEach(b => {
 
 $("btnPush").onclick = async () => { state = await post("push"); paint(); syncFrame(); };
 $("btnDiscard").onclick = async () => { state = await post("discard"); paint(); syncFrame(); };
+
+/* ---------- 现场快捷键 ----------
+   1-5 切场景 / 空格推送 / B 一键切空白（panic）。
+   只在「导播台」视图生效，输入框里打字时不拦截。 */
+const HOTKEY_SCENES = ["commentary", "interval", "bracket", "chart", "blank"];
+function hotkeyTyping(el) {
+  if (!el) return false;
+  const tag = String(el.tagName || "").toUpperCase();
+  return tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || el.isContentEditable;
+}
+document.addEventListener("keydown", async (e) => {
+  if (e.ctrlKey || e.metaKey || e.altKey) return;
+  if (window.__wkView !== "director") return;
+  if (hotkeyTyping(e.target)) return;
+
+  if (e.key === " ") {
+    e.preventDefault();
+    state = await post("push");
+    paint();
+    syncFrame();
+    return;
+  }
+  if (e.key === "b" || e.key === "B") {
+    e.preventDefault();
+    state = await post("scene", { id: "blank" });
+    state = await post("push");
+    paint();
+    syncFrame();
+    return;
+  }
+  const n = Number(e.key);
+  if (n >= 1 && n <= HOTKEY_SCENES.length) {
+    e.preventDefault();
+    state = await post("scene", { id: HOTKEY_SCENES[n - 1] });
+    paint();
+    syncFrame();
+  }
+});
 const bkReplayBtn = $("btnBkReplay");
 if (bkReplayBtn) bkReplayBtn.onclick = async () => { await post("bracket/replay"); };
 
