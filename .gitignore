@@ -3,18 +3,20 @@ node_modules/
 tmp/
 *.log
 
-# 体积大的素材 / 第三方运行时（本地留存，不进版本库）
+# 音频素材（本地留存，不上传、不打包）
 音乐素材/
 音乐素材_web/
+*.wav
+*.mp3
+*.m4a
+*.flac
+*.aac
+*.ogg
+*.wma
+*.aiff
+
+# 旧 BP 分析留下的浏览器缓存与截图证据（体积大，本地留存）
 bp-analysis/
-英雄半身像/
-英雄缩略图/
-英雄优化/
-直播素材/
-素材/
-预览/
-assets/tesseract/
-assets/lang/
 
 # 旧备份
 _备份-*/
