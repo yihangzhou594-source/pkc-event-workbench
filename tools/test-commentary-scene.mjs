@@ -18,6 +18,8 @@ async function post(pathname, body) {
 const before = await (await fetch(API + "/api/director/state")).json();
 const prevOnAir = before.onAir.scene;
 const prevPreview = before.preview.scene;
+/* 测试会改解说画面（含大场比分）；跑完必须原样还原，别把测试数据留在现场。 */
+const prevCm = before.preview.settings.commentary || {};
 
 await post("/api/director/settings", {
   id: "commentary",
@@ -62,6 +64,7 @@ try {
   }));
 } finally {
   await browser.close();
+  await post("/api/director/settings", { id: "commentary", patch: prevCm });
   await post("/api/director/scene", { id: prevOnAir });
   await post("/api/director/push");
   await post("/api/director/scene", { id: prevPreview });
