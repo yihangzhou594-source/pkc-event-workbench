@@ -18,6 +18,7 @@ assets/lang/
 
 # 旧备份
 _备份-*/
+数据/_backup/
 
 # 含本机加密密钥，不进版本库
 数据/ai-config.json

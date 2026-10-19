@@ -8,9 +8,11 @@
 import http from "node:http";
 import fs from "node:fs";
 import path from "node:path";
+import crypto from "node:crypto";
 import { spawn, spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { handleDirector, closeDirectorStreams } from "./director/routes.mjs";
+import { writeJsonAtomic } from "./lib/json-store.mjs";
 
 const ROOT = path.dirname(fileURLToPath(import.meta.url));
 const PORT = Number(process.env.PKC_PORT || 8971);
@@ -258,6 +260,18 @@ function serveFile(res, file, extra = {}) {
 }
 
 const STORE_KEYS = new Set(["library", "matches", "prefs", "heroPick", "bracket", "context"]);
+/* 这些是真正的赛事数据：多标签页同时写时要拦住，避免互相覆盖。
+   context 只是“当前选中哪一局”的现场指针，按后写覆盖即可。 */
+const STORE_CONFLICT_KEYS = new Set(["library", "matches", "bracket", "heroPick"]);
+
+/** 用文件内容哈希当版本号：服务重启后依然有效，不需要额外状态。 */
+function storeRev(file) {
+  try {
+    return crypto.createHash("sha1").update(fs.readFileSync(file)).digest("hex").slice(0, 12);
+  } catch {
+    return "";
+  }
+}
 const storeFile = key => path.join(DIR_DATA, key + ".json");
 
 /* ---------------- 路由 ---------------- */
@@ -289,7 +303,7 @@ const server = http.createServer(async (req, res) => {
       cfg.maxTokens = Number(body.maxTokens || cfg.maxTokens || 8000);
       cfg.apiKeyEnc = protectAISecret(apiKey);
       delete cfg.apiKey;
-      fs.writeFileSync(AI_CONFIG_FILE, JSON.stringify(cfg, null, 2), "utf8");
+      writeJsonAtomic(AI_CONFIG_FILE, JSON.stringify(cfg, null, 2), { backup: false });
       return sendJSON(res, { ok:true, configured:true, model:cfg.model, baseUrl:cfg.baseUrl });
     }
     if (p === "/api/ai-ocr" && req.method === "POST") {
@@ -315,14 +329,30 @@ const server = http.createServer(async (req, res) => {
     if (p.startsWith("/api/store/")) {
       const key = p.slice("/api/store/".length);
       if (!STORE_KEYS.has(key)) return sendJSON(res, { error: "unknown key" }, 400);
+      const file = storeFile(key);
       if (req.method === "GET") {
-        try { return sendJSON(res, JSON.parse(fs.readFileSync(storeFile(key), "utf8"))); }
-        catch { return sendJSON(res, null); }
+        try {
+          const raw = fs.readFileSync(file, "utf8");
+          res.setHeader("X-PKC-Rev", storeRev(file));
+          return sendJSON(res, JSON.parse(raw));
+        } catch {
+          return sendJSON(res, null);
+        }
       }
       if (req.method === "POST") {
         const raw = await readBody(req);
         JSON.parse(raw);                                   // 校验 JSON
-        fs.writeFileSync(storeFile(key), raw, "utf8");
+        const base = String(req.headers["x-pkc-base-rev"] || "");
+        const cur = storeRev(file);
+        if (STORE_CONFLICT_KEYS.has(key) && base && cur && base !== cur) {
+          res.setHeader("X-PKC-Rev", cur);
+          return sendJSON(res, { error: "conflict", key, rev: cur }, 409);
+        }
+        writeJsonAtomic(file, raw, {
+          backupDir: path.join(DIR_DATA, "_backup"),
+          key,
+        });
+        res.setHeader("X-PKC-Rev", storeRev(file));
         return sendJSON(res, { ok: true, key, bytes: raw.length });
       }
     }

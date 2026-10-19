@@ -33,6 +33,7 @@ import {
 } from '../bp-core/src/machine.js';
 import { buildSequence } from '../bp-core/src/sequence.js';
 import { resolveRuleLines, ruleTitle } from '../bp-core/src/rulesText.js';
+import { writeJsonAtomic } from '../lib/json-store.mjs';
 
 const DIR = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.dirname(DIR);
@@ -136,7 +137,11 @@ function readLibraryTeams() {
 
 function writeTeams(teams) {
   fs.mkdirSync(path.dirname(TEAMS_FILE), { recursive: true });
-  fs.writeFileSync(TEAMS_FILE, JSON.stringify({ teams, updatedAt: new Date().toISOString() }, null, 2), 'utf8');
+  writeJsonAtomic(
+    TEAMS_FILE,
+    JSON.stringify({ teams, updatedAt: new Date().toISOString() }, null, 2),
+    { backupDir: path.join(ROOT, '数据', '_backup'), key: 'teams' },
+  );
 }
 
 /** 规范化一支队伍：保留名称、队徽与五名选手；分路缺省时按位置补齐。 */

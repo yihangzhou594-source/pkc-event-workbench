@@ -274,6 +274,27 @@ function defaultSeries(){
 /* ============================================================
    二、存储（有服务端存文件，没有则退回浏览器本地存储）
    ============================================================ */
+/* 多标签页保护：每个 key 记住服务端内容哈希，保存时带上；冲突就停下并提示。 */
+const STORE_REV = new Map();
+const STORE_CONFLICT_KEYS = new Set(["library", "matches", "bracket", "heroPick"]);
+let storeWriteBlocked = false;
+
+function showStoreConflict(){
+  storeWriteBlocked = true;
+  if (document.getElementById("pkcConflict")) return;
+  const el = document.createElement("div");
+  el.id = "pkcConflict";
+  el.className = "pkc-conflict";
+  const span = document.createElement("span");
+  span.textContent = "另一个标签页刚刚改过数据，本页的改动没有保存。";
+  const btn = document.createElement("button");
+  btn.type = "button";
+  btn.textContent = "重新加载本页";
+  btn.onclick = () => location.reload();
+  el.append(span, btn);
+  document.body.appendChild(el);
+}
+
 const STORE = {
   mode: "local",
   async init(){
@@ -285,12 +306,28 @@ const STORE = {
     return false;
   },
   async load(key){
-    if (this.mode === "api"){ try { return await (await fetch("/api/store/"+key, {cache:"no-store"})).json(); } catch(e){ return null; } }
+    if (this.mode === "api"){
+      try {
+        const r = await fetch("/api/store/"+key, {cache:"no-store"});
+        const rev = r.headers.get("X-PKC-Rev");
+        if (rev) STORE_REV.set(key, rev);
+        return await r.json();
+      } catch(e){ return null; }
+    }
     try { const s = localStorage.getItem("pkc2_"+key); return s ? JSON.parse(s) : null; } catch(e){ return null; }
   },
   async save(key, data){
     if (this.mode === "api"){
-      try { await fetch("/api/store/"+key, { method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(data) }); }
+      if (storeWriteBlocked) return;
+      try {
+        const headers = { "Content-Type":"application/json" };
+        const base = STORE_REV.get(key);
+        if (STORE_CONFLICT_KEYS.has(key) && base) headers["X-PKC-Base-Rev"] = base;
+        const r = await fetch("/api/store/"+key, { method:"POST", headers, body:JSON.stringify(data) });
+        if (r.status === 409){ showStoreConflict(); return; }
+        const rev = r.headers.get("X-PKC-Rev");
+        if (rev) STORE_REV.set(key, rev);
+      }
       catch(e){ console.warn("保存失败", key, e); }
       return;
     }
@@ -304,6 +341,7 @@ function scheduleSave(){
   saveTimer = setTimeout(saveAll, 500);
 }
 async function saveAll(){
+  if (storeWriteBlocked) return;
   await STORE.save("library", {
     currentId: DB.currentId,
     series: DB.series.map(s => ({ id:s.id, name:s.name, teams:s.teams }))
