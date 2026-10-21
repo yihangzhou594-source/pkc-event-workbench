@@ -18,6 +18,8 @@
     bracket: '<svg viewBox="0 0 24 24"><path d="M4 5h5v5H4zM4 14h5v5H4zM15 9.5h5v5h-5z"/><path d="M9 7.5h3v9.5h3M9 16.5h3"/></svg>',
     teams: '<svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3"/><path d="M3.5 19a5.5 5.5 0 0 1 11 0"/><circle cx="17.5" cy="9.5" r="2.5"/><path d="M16 15.4a4.6 4.6 0 0 1 4.5 3.6"/></svg>',
     hero: '<svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="4"/><circle cx="9" cy="9.5" r="1.4"/><path d="m5 17 4.5-4 3 2.5 2.5-2.5L19 17"/></svg>',
+    herostats: '<svg viewBox="0 0 24 24"><path d="M4 20V9"/><path d="M10 20V4"/><path d="M16 20v-7"/><path d="M22 20H2"/></svg>',
+    promo: '<svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="14" rx="2"/><path d="M7 21h10"/><path d="m6 14 3.5-3 3 2.5 2.5-2.5L18 14"/></svg>',
     out: '<svg viewBox="0 0 24 24"><path d="M12 3v11"/><path d="m7.5 10 4.5 4 4.5-4"/><path d="M4 18.5h16"/></svg>',
     help: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M9.6 9.3a2.5 2.5 0 1 1 3.4 2.3c-.7.3-1 .9-1 1.6v.3"/><path d="M12 17h.01"/></svg>',
   };
@@ -30,7 +32,10 @@
   const VIEWS = {
     overview: { title: "概览", sub: "当前工作、OBS 源与赛事状态", pane: "overview", nav: "overview" },
     director: { title: "导播台", sub: "预览、推送与现场操作", pane: "director", nav: "director" },
+    spotlight: { title: "宣传轮播", sub: "编辑选手名单、预览并控制直播轮播", pane: "director", nav: "spotlight" },
     data:     { title: "对局数据", sub: "截图识别、五路数据与本局信息", pane: "engine", tab: "data", nav: "data" },
+    herostats:{ title: "英雄胜率", sub: "小组赛英雄池、出场与胜率", pane: "herostats", nav: "herostats" },
+    promo:    { title: "赛前宣传图", sub: "群发海报与主视觉", pane: "promo", nav: "promo" },
     bracket:  { title: "淘汰赛赛程", sub: "分组、抽签、赛果与赛程图", pane: "engine", tab: "bracket", nav: "bracket" },
     teams:    { title: "队伍库", sub: "队伍、选手名单与状态", pane: "engine", tab: "teams", nav: "teams" },
     hero:     { title: "英雄图", sub: "英雄素材与识别索引", pane: "engine", tab: "hero", nav: "hero" },
@@ -40,10 +45,64 @@
   const ALIAS = { gen: "overview" };
 
   const railItems = $$(".wk-item");
-  const panes = { overview: $("#pane-overview"), director: $("#pane-director"), engine: $("#pane-engine") };
+  const shellRoot = $(".wk-shell");
+  const navToggle = $("#wkNavToggle");
+  const contextDisclosure = $("#wkContextDisclosure");
+  const contextSummary = $("#wkContextDisclosure > summary");
+  const contextSummaryText = $("#wkCtxSummary");
+  const compactNavMedia = window.matchMedia("(max-width: 1150px)");
+  const compactContextMedia = window.matchMedia("(max-width: 1220px)");
+  function setNavExpanded(expanded) {
+    if (!shellRoot || !navToggle) return;
+    shellRoot.classList.toggle("nav-expanded", !!expanded && compactNavMedia.matches);
+    navToggle.setAttribute("aria-expanded", String(!compactNavMedia.matches || shellRoot.classList.contains("nav-expanded")));
+  }
+  function syncResponsiveShell() {
+    if (!compactNavMedia.matches && shellRoot) shellRoot.classList.remove("nav-expanded");
+    if (navToggle) navToggle.setAttribute("aria-expanded", String(!compactNavMedia.matches || !!(shellRoot && shellRoot.classList.contains("nav-expanded"))));
+    if (contextDisclosure) contextDisclosure.open = !compactContextMedia.matches;
+  }
+  if (navToggle) navToggle.addEventListener("click", () => setNavExpanded(!shellRoot.classList.contains("nav-expanded")));
+  if (contextDisclosure) contextDisclosure.addEventListener("toggle", () => {
+    const summary = $("summary", contextDisclosure);
+    if (summary) summary.setAttribute("aria-expanded", String(contextDisclosure.open));
+  });
+  window.addEventListener("keydown", (event) => {
+    if (event.key !== "Escape") return;
+    if (contextDisclosure && compactContextMedia.matches && contextDisclosure.open) {
+      contextDisclosure.open = false;
+      contextSummary && contextSummary.focus();
+    }
+    if (shellRoot && compactNavMedia.matches && shellRoot.classList.contains("nav-expanded")) {
+      setNavExpanded(false);
+      navToggle && navToggle.focus();
+    }
+  });
+  if (compactNavMedia.addEventListener) compactNavMedia.addEventListener("change", syncResponsiveShell);
+  else compactNavMedia.addListener(syncResponsiveShell);
+  if (compactContextMedia.addEventListener) compactContextMedia.addEventListener("change", syncResponsiveShell);
+  else compactContextMedia.addListener(syncResponsiveShell);
+  syncResponsiveShell();
+  const panes = {
+    overview: $("#pane-overview"), director: $("#pane-director"),
+    engine: $("#pane-engine"), herostats: $("#pane-herostats"), promo: $("#pane-promo"),
+  };
   const frame = $("#genFrame");
   const titleEl = $("#wkTitle");
   const subEl = $("#wkSub");
+  let navigationContext = null;
+
+  function viewUrl(name) {
+    const params = new URLSearchParams();
+    if (name !== "overview") params.set("view", name);
+    const ctx = navigationContext || {};
+    ["seriesId", "matchKey", "gameId"].forEach((key) => {
+      const value = ctx[key] || new URLSearchParams(location.search).get(key) || "";
+      if (value) params.set(key, value);
+    });
+    const query = params.toString();
+    return "/" + (query ? "?" + query : "");
+  }
 
   function showPane(name) {
     Object.entries(panes).forEach(([k, el]) => {
@@ -53,7 +112,12 @@
   }
 
   function paintNav(nav) {
-    railItems.forEach((b) => b.classList.toggle("on", b.dataset.view === nav));
+    railItems.forEach((b) => {
+      const current = b.dataset.view === nav;
+      b.classList.toggle("on", current);
+      if (current) b.setAttribute("aria-current", "page");
+      else b.removeAttribute("aria-current");
+    });
   }
 
   function setView(name, push) {
@@ -72,8 +136,9 @@
     if (pv) pv.hidden = v.pane !== "engine" || name === "help" || name === "bracket";
     document.title = v.title + " · PKC 赛事工作台";
     window.__wkView = name;
+    window.dispatchEvent(new CustomEvent("pkc:view", { detail: { name } }));
     if (push !== false) {
-      const url = name === "overview" ? "/" : "/?view=" + name;
+      const url = viewUrl(name);
       try { history.pushState({ view: name }, "", url); } catch {}
     }
   }
@@ -133,7 +198,10 @@
   });
 
   railItems.forEach((b) => {
-    b.addEventListener("click", () => setView(b.dataset.view, true));
+    b.addEventListener("click", () => {
+      setView(b.dataset.view, true);
+      if (compactNavMedia.matches) setNavExpanded(false);
+    });
   });
 
   /* 数据引擎的右侧预览很占宽，外壳给一个收起 / 显示入口 */
@@ -149,6 +217,8 @@
       pvToggle.textContent = focused ? "显示预览" : "收起预览";
     });
   }
+  const ctxChoose = $("#wkCtxChoose");
+  if (ctxChoose) ctxChoose.addEventListener("click", () => setView("data", true));
   window.addEventListener("popstate", () => {
     const v = new URLSearchParams(location.search).get("view") || "overview";
     setView(v, false);
@@ -156,6 +226,7 @@
 
   /* ---------- 顶栏当前场次 ---------- */
   let matchCache = null;
+  let navigationBracketData = null;
   let stateCache = null;
 
   function pickCommentaryScore(st) {
@@ -174,6 +245,9 @@
     if (!st) return;
     stateCache = st;
     const ctx = (st.live && st.live.context) || {};
+    navigationContext = { seriesId: ctx.seriesId || "", matchKey: ctx.matchKey || "", gameId: ctx.gameId || "" };
+    const choose = $("#wkCtxChoose");
+    if (choose) choose.hidden = !!(ctx.seriesId && ctx.matchKey && ctx.gameId);
     const set = (sel, text) => { const el = $(sel); if (el) el.textContent = text; };
     set("#wkCtxSeries", ctx.seriesName || "未选择系列赛");
     const shortMatch = ctx.matchLabel ? String(ctx.matchLabel).split("·")[0].trim() : "";
@@ -193,6 +267,15 @@
     if (liveEl) {
       liveEl.classList.toggle("on", !!scene && scene.id !== "blank");
       liveEl.innerHTML = "<i></i>在播：<b>" + (scene ? scene.label : "—") + "</b>";
+    }
+    if (contextSummaryText) {
+      const seriesName = ctx.seriesName || "未选择系列赛";
+      const matchName = shortMatch || ctx.matchRound || "未关联赛程";
+      const gameName = ctx.gameLabel || "";
+      const teamsName = (ctx.blueTeam || "蓝方") + " VS " + (ctx.redTeam || "红方");
+      const scoreName = (bs === "" || bs === undefined ? "-" : bs) + " : " + (rs === "" || rs === undefined ? "-" : rs);
+      const liveName = scene && scene.id !== "blank" ? "在播 " + scene.label : "未推送";
+      contextSummaryText.textContent = [seriesName, matchName, gameName, teamsName, scoreName, liveName].join(" · ");
     }
     paintOverview(st);
   }
@@ -231,7 +314,7 @@
 
     const roster = (name) => {
       const t = (teams || []).find((x) => x.name === name);
-      return t ? (t.players || []).filter((p) => p && p.name).length : 0;
+      return t ? (t.players || []).filter((p) => typeof p === "string" ? !!p : p && p.name).length : 0;
     };
     const bn = roster(ctx.blueTeam);
     const rn = roster(ctx.redTeam);
@@ -253,9 +336,37 @@
 
     box.innerHTML = rows.map((r) =>
       '<div class="wk-check-row ' + (r.ok ? "ok" : "warn") + '"><i></i><span>'
-      + escHtml(r.label) + '</span><b>' + escHtml(r.value) + "</b></div>").join("");
+      + escHtml(r.label) + '</span><b>' + escHtml(r.value) + '</b><em>' + (r.ok ? "已就绪" : "待处理") + "</em></div>").join("");
     const sum = $("#wkCheckSum");
     if (sum) sum.textContent = rows.filter((r) => r.ok).length + " / " + rows.length + " 就绪";
+  }
+
+  function renderWorkflow(series, teams, games, st) {
+    const host = $("#wkWorkflow");
+    if (!host) return;
+    const ctx = (st && st.live && st.live.context) || {};
+    navigationContext = {
+      seriesId: ctx.seriesId || (series && series.id) || "",
+      matchKey: ctx.matchKey || "",
+      gameId: ctx.gameId || "",
+    };
+    const rosterReady = (teams || []).length > 0 && teams.every((team) => (team.players || []).filter(Boolean).length >= 5);
+    const bracketData = series && series.id && navigationBracketData && navigationBracketData[series.id] || {};
+    const draw = Array.isArray(bracketData.draw) ? bracketData.draw : [];
+    const drawReady = draw.length >= 8 && draw.slice(0, 8).every((match) => match && match.a && match.b);
+    const selectedGame = (games || []).find((game) => game.id === ctx.gameId);
+    const gameReady = !!selectedGame && (selectedGame.rows || []).filter((row) =>
+      (row.our && (row.our.name || row.our.hero)) || (row.opp && (row.opp.name || row.opp.hero))).length >= 5;
+    const steps = [
+      { title:"赛前准备", text:!rosterReady ? "补齐参赛队伍与至少 5 名选手名单。" : (!drawReady ? "检查分组并完成淘汰赛对阵。" : "队伍名单和首轮对阵已就绪。"), view:!rosterReady ? "teams" : "bracket", ready:rosterReady && drawReady, label:!rosterReady ? "完善队伍库" : (!drawReady ? "检查赛程" : "查看赛程") },
+      { title:"赛中执行", text:ctx.matchKey ? `当前 ${ctx.matchLabel || ctx.matchKey} · ${ctx.gameLabel || "尚未选择局次"}` : "先从赛程选择场次，再核对队伍和局次。", view:ctx.matchKey ? "data" : "bracket", ready:!!ctx.matchKey && !!ctx.gameId, label:ctx.matchKey ? "打开当前对局" : "选择比赛场次" },
+      { title:"赛后整理", text:gameReady ? "当前局数据已录入，可核对赛果并导出图表。" : "录完五路数据后，回填赛果并整理输出。", view:gameReady ? "out" : "data", ready:gameReady, label:gameReady ? "核对并导出" : "继续录入数据" },
+    ];
+    const nextIndex = ctx.gameId ? (gameReady ? 2 : 1) : (!rosterReady || !drawReady ? 0 : 1);
+    host.innerHTML = steps.map((step, index) =>
+      '<div class="wk-flow-step' + (index === nextIndex ? ' next' : '') + '"><b>' + escHtml(step.title) + (step.ready ? ' · 已就绪' : ' · 待处理') + (index === nextIndex ? ' <em class="wk-flow-next">建议下一步</em>' : '') + '</b><p>' + escHtml(step.text) + '</p><button class="wk-btn' + (index === nextIndex ? ' primary' : '') + '" data-workflow-go="' + step.view + '">' + escHtml(step.label) + '</button></div>'
+    ).join("");
+    $$('[data-workflow-go]', host).forEach((button) => button.addEventListener("click", () => setView(button.dataset.workflowGo, true)));
   }
 
   function loadOverview() {
@@ -263,11 +374,15 @@
       fetch("/api/store/library", { cache: "no-store" }).then((r) => r.json()).catch(() => null),
       fetch("/api/store/matches", { cache: "no-store" }).then((r) => r.json()).catch(() => null),
       fetch("/api/director/state", { cache: "no-store" }).then((r) => r.json()).catch(() => null),
-      fetch("/api/director/teams", { cache: "no-store" }).then((r) => r.json()).catch(() => null),
       fetch("/api/ping", { cache: "no-store" }).then((r) => r.json()).catch(() => null),
-    ]).then(([lib, matches, st, teamData, ping]) => {
+      fetch("/api/store/bracket", { cache: "no-store" }).then((r) => r.json()).catch(() => null),
+    ]).then(async ([lib, matches, st, ping, brackets]) => {
       matchCache = matches;
+      navigationBracketData = brackets || {};
       const series = lib && lib.series ? (lib.series.find((s) => s.id === lib.currentId) || lib.series[0]) : null;
+      const teamData = series
+        ? await fetch("/api/competition/teams?seriesId=" + encodeURIComponent(series.id), { cache: "no-store" }).then((r) => r.json()).catch(() => null)
+        : null;
       const games = (matches && matches.games && series && matches.games[series.id]) || [];
       const filled = games.filter((g) => (g.rows || []).some((r) =>
         (r.our && (r.our.name || r.our.hero)) || (r.opp && (r.opp.name || r.opp.hero))));
@@ -288,6 +403,7 @@
 
       if (st) applyTopbar(st);
       renderChecks(st, (teamData && teamData.teams) || [], games);
+      renderWorkflow(series, (teamData && teamData.teams) || [], games, st);
     });
   }
 

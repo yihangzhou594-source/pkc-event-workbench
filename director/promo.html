@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>赛前宣传图 · PKC 赛事工作台</title>
+<style>
+  :root{--bg:#f4f6fb;--card:#fff;--ink:#17203a;--sub:#6b7690;--line:#e6eaf2;--blue:#2f6bff;--gold:#d9a441;--shadow:0 10px 30px rgba(31,42,68,.08)}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.55 "Microsoft YaHei","PingFang SC",system-ui,sans-serif}
+  .wrap{padding:18px 22px 36px;max-width:1500px;margin:0 auto}
+  h1{margin:0;font-size:24px}
+  .sub{color:var(--sub);margin-top:4px}
+  .layout{display:grid;grid-template-columns:420px 1fr;gap:16px;margin-top:16px}
+  .panel{background:var(--card);border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow);padding:16px}
+  .form h3{margin:0 0 12px;font-size:15px}
+  .row{display:flex;align-items:center;gap:8px;margin:7px 0}
+  .row label{width:58px;flex:0 0 58px;color:var(--sub);font-size:12px}
+  .row input,.row select{flex:1;min-width:0;border:1px solid var(--line);border-radius:8px;padding:7px 9px;font:inherit;background:#fff}
+  .team-box{border:1px solid var(--line);border-radius:12px;padding:10px;margin-top:10px}
+  .team-box h4{margin:0 0 8px;font-size:13px}
+  .optional-sub{margin-top:7px}
+  .optional-sub>summary,.optional-section>summary{cursor:pointer;color:var(--sub);font-size:12px;font-weight:700;padding:7px 9px;border:1px dashed var(--line);border-radius:8px;background:#fafbfe}
+  .optional-sub[open]>summary,.optional-section[open]>summary{margin-bottom:6px}
+  .optional-section{margin-top:16px}
+  .optional-content{padding:4px 2px}
+  .player{display:flex;gap:6px;margin:5px 0;align-items:center}
+  .player select{width:72px;flex:0 0 72px;border:1px solid var(--line);border-radius:7px;padding:5px 4px;font:inherit;background:#fff;color:var(--ink)}
+  .player input{flex:1;min-width:0;border:1px solid var(--line);border-radius:7px;padding:5px 7px;font:inherit}
+  .actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}
+  .btn{border:1px solid var(--line);background:#fff;border-radius:9px;padding:8px 13px;cursor:pointer;font:inherit}
+  .btn.primary{background:var(--blue);border-color:var(--blue);color:#fff}
+  .btn:disabled{opacity:.45;cursor:not-allowed}
+  :focus-visible{outline:2px solid var(--blue);outline-offset:2px;box-shadow:0 0 0 3px rgba(47,107,255,.14)}
+  .action-status{min-height:1.5em}
+  .action-status.error{color:#b42318}
+  .preview{display:flex;flex-direction:column;align-items:center;gap:12px}
+  canvas{width:100%;max-width:1120px;height:auto;border-radius:12px;box-shadow:0 18px 50px rgba(10,18,36,.25);background:#0b1222}
+  .hint{color:var(--sub);font-size:12px}
+  .art-preview{max-width:100%;max-height:90px;border-radius:8px;display:none;margin-top:6px}
+  body{-webkit-font-smoothing:antialiased}
+  .wrap{max-width:1640px;padding:22px clamp(14px,2.3vw,34px) 44px}
+  header{margin-bottom:14px}
+  h1{font-size:26px;letter-spacing:-.02em}
+  .sub{max-width:850px;line-height:1.7}
+  .layout{grid-template-columns:minmax(360px,440px) minmax(0,1fr);gap:18px;align-items:start;margin-top:0}
+  .panel{border-radius:14px;box-shadow:0 2px 8px rgba(31,42,68,.045),0 12px 28px rgba(31,42,68,.035)}
+  .form{border-top:3px solid var(--blue)}
+  .form h3{display:flex;align-items:center;gap:8px}
+  .team-box{padding:12px;border-radius:11px;background:linear-gradient(180deg,#fff,#fbfcff)}
+  .team-box h4{display:flex;align-items:center;gap:7px}
+  .team-box h4:before{content:"";width:7px;height:7px;border-radius:50%;background:var(--gold)}
+  .row input,.row select,.player input,.player select{min-height:36px}
+  .actions{position:sticky;bottom:0;padding:10px 0 2px;background:rgba(255,255,255,.94);backdrop-filter:blur(8px);z-index:2}
+  .actions .btn{min-height:38px}
+  .preview{position:sticky;top:16px;min-height:420px;justify-content:center;background:radial-gradient(ellipse at 50% 35%,#fff 0%,#f8faff 70%)}
+  .preview canvas{aspect-ratio:16/9;max-width:1120px;border:1px solid rgba(201,154,46,.22)}
+  .preview canvas{max-height:calc(100vh - 110px);object-fit:contain}
+  @media(max-width:1000px){.layout{grid-template-columns:minmax(0,1fr)}.preview{position:static;min-height:0}.preview canvas{max-height:none}}
+  @media(max-width:600px){.wrap{padding:14px 12px 28px}.panel{padding:13px}.row{align-items:stretch;flex-wrap:wrap}.row label{width:100%;flex-basis:100%}.actions{position:static}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>赛前宣传图</h1>
+    <div class="sub">赛事横版主视觉 · 1920×1080（16:9），适合直播预告与横屏发布。可叠加一张额外美术素材。</div>
+  </header>
+  <div class="layout">
+    <section class="panel form">
+      <h3>比赛信息</h3>
+      <div class="row"><label for="pEvent">赛事</label><input id="pEvent" value="2026PKC秋季赛"></div>
+      <div class="row"><label for="pStage">阶段</label><input id="pStage" value="16进8"></div>
+      <div class="row"><label for="pDate">日期</label><input id="pDate" value="10月20日"></div>
+      <div class="row"><label for="pTime">时间</label><input id="pTime" value="20:00"></div>
+      <div class="row"><label for="pBo">赛制</label><select id="pBo"><option>BO3</option><option selected>BO5</option><option>BO7</option></select></div>
+      <div class="row"><label for="pSub">副标题</label><input id="pSub" placeholder="如：胜者晋级八强"></div>
+      <div class="row"><label for="pFooter">底部</label><input id="pFooter" placeholder="如：直播间 / 观赛群"></div>
+
+      <div class="team-box">
+        <h4>左队</h4>
+        <div class="row"><label for="pTeamLeft">队名</label><input id="pTeamLeft" list="pTeamNames" placeholder="搜索或输入队名"></div>
+        <div id="pPlayersLeft"></div>
+        <details class="optional-sub" id="pSubOptionsLeft"><summary id="pSubLeftSummary">添加替补选手（可选）</summary>
+          <div class="row"><label for="pSubLeft">替补选手</label><input id="pSubLeft" list="pSubsLeft" placeholder="搜索或输入替补选手"><select id="pSubLaneLeft" aria-label="左队替补主选分路"><option value="">主选分路</option><option>上单</option><option>对抗路</option><option>打野</option><option>中路</option><option>发育路</option><option>游走</option><option>补位</option></select></div>
+        </details>
+        <datalist id="pSubsLeft"></datalist>
+      </div>
+      <div class="team-box">
+        <h4>右队</h4>
+        <div class="row"><label for="pTeamRight">队名</label><input id="pTeamRight" list="pTeamNames" placeholder="搜索或输入队名"></div>
+        <div id="pPlayersRight"></div>
+        <details class="optional-sub" id="pSubOptionsRight"><summary id="pSubRightSummary">添加替补选手（可选）</summary>
+          <div class="row"><label for="pSubRight">替补选手</label><input id="pSubRight" list="pSubsRight" placeholder="搜索或输入替补选手"><select id="pSubLaneRight" aria-label="右队替补主选分路"><option value="">主选分路</option><option>上单</option><option>对抗路</option><option>打野</option><option>中路</option><option>发育路</option><option>游走</option><option>补位</option></select></div>
+        </details>
+        <datalist id="pSubsRight"></datalist>
+      </div>
+
+      <details class="optional-section"><summary>额外美术素材（可选）</summary>
+        <div class="optional-content">
+          <div class="row"><label for="pArt">图片</label><input id="pArt" type="file" accept="image/png,image/jpeg,image/webp"></div>
+          <div class="row"><label for="pArtOpacity">透明度</label><input id="pArtOpacity" type="range" min="0" max="100" value="55"></div>
+          <img class="art-preview" id="pArtPreview" alt="">
+          <div class="hint">建议透明背景 PNG，会居中叠在对阵卡片之间；不选则只出面板。</div>
+        </div>
+      </details>
+
+      <div class="actions">
+        <button class="btn primary" id="btnDraw">生成预览</button>
+        <button class="btn" id="btnDownload">下载 PNG</button>
+      </div>
+      <div class="hint action-status" id="pActionStatus" role="status" aria-live="polite" aria-atomic="true"></div>
+      <datalist id="pTeamNames"></datalist>
+      <datalist id="heroNames"></datalist>
+    </section>
+
+    <section class="panel preview">
+      <canvas id="poster" width="1920" height="1080" aria-label="16:9 赛前宣传图预览"></canvas>
+      <div class="hint" id="pMsg">选队后会自动带出队伍库里的 5 名选手，也可以手动改。</div>
+      <h2>选手宣传轮播 · 直播画面</h2>
+      <canvas id="spotlightPreview" width="1920" height="1080" aria-label="宣传轮播直播画面"></canvas>
+      <div class="row" style="display:flex;gap:8px;margin-top:8px"><button class="btn primary" id="spotlightPush">推送并切到直播</button><button class="btn" id="spotlightPrev">上一位</button><button class="btn" id="spotlightToggle">开始轮播</button><button class="btn" id="spotlightNext">下一位</button><button class="btn" id="spotlightExport">导出当前轮播画面 PNG</button><select id="spotlightInterval"><option value="5000">5 秒</option><option value="8000" selected>8 秒</option><option value="10000">10 秒</option><option value="15000">15 秒</option><option value="30000">30 秒</option></select></div>
+    </section>
+  </div>
+</div>
+<script src="/assets/pkc-spotlight.js"></script><script src="/assets/pkc-promo.js"></script>
+</body>
+</html>

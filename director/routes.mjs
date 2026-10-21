@@ -33,13 +33,16 @@ import {
 } from '../bp-core/src/machine.js';
 import { buildSequence } from '../bp-core/src/sequence.js';
 import { resolveRuleLines, ruleTitle } from '../bp-core/src/rulesText.js';
-import { writeJsonAtomic } from '../lib/json-store.mjs';
+import {
+  currentSeriesId, listCompetitionTeams, replaceCompetitionTeams,
+  toDirectorTeams, fromDirectorTeams, previewLegacyTeams, importLegacyTeams,
+} from '../lib/competition-teams.mjs';
+import { readCompetitionContext, saveCompetitionContext } from '../lib/competition-context.mjs';
 
 const DIR = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.dirname(DIR);
 const DIRECTOR_PAGE = path.join(DIR, 'console.html');
 const OBS_PAGE = path.join(DIR, 'obs.html');
-const TEAMS_FILE = path.join(ROOT, '数据', 'teams.json');
 const GENERATOR_PAGE = path.join(ROOT, 'PKC赛后数据图生成器.html');
 
 const store = createStore();
@@ -66,6 +69,23 @@ setInterval(() => {
   if (Date.now() - (p.startedAt || 0) >= p.intervalMs) store.stepChartPlaylist(1);
 }, 500).unref?.();
 
+setInterval(() => {
+  const p = store.snapshot().live.spotlightPlaylist;
+  if (!p?.running || !Array.isArray(p.items) || p.items.filter((x) => x.blue?.player && x.red?.player).length < 2) return;
+  if (Date.now() - (p.startedAt || 0) >= p.intervalMs) store.stepSpotlightPlaylist(1);
+}, 500).unref?.();
+
+let tencentHeroesCache = { expires: 0, heroes: null };
+async function getTencentHeroes() {
+  if (tencentHeroesCache.heroes && Date.now() < tencentHeroesCache.expires) return tencentHeroesCache.heroes;
+  const response = await fetch('https://pvp.qq.com/web201605/js/herolist.json', { signal: AbortSignal.timeout(8000) });
+  if (!response.ok) throw new Error('腾讯英雄目录暂不可用');
+  const raw = await response.json();
+  const heroes = raw.map((h) => ({ id: String(h.ename), name: String(h.cname || '') })).filter((h) => /^\d+$/.test(h.id) && h.name);
+  tencentHeroesCache = { heroes, expires: Date.now() + 6 * 60 * 60 * 1000 };
+  return heroes;
+}
+
 /* ---------- BP 现场会话（服务端权威状态） ---------- */
 
 let bpGame = null;
@@ -84,84 +104,6 @@ function syncBp() {
     ...bpSnapshot(bpGame),
   });
   return null;
-}
-
-/* ---------- 队伍名单持久化 ---------- */
-
-function readTeams() {
-  const stored = readStoredTeams();
-  /* 生成器的队伍库里另有一整套战队与名单。这里把它并进来兜底，
-     省得同一份名单要在两处各录一遍；`数据/teams.json` 里已有的队优先
-     （那份带真实姓名与队徽，是给板面用的精细版）。 */
-  const names = new Set(stored.map((t) => t.name));
-  for (const t of readLibraryTeams()) {
-    if (!t.name || names.has(t.name)) continue;
-    names.add(t.name);
-    stored.push({
-      id: String(t.id || `lib_${stored.length}`),
-      name: String(t.name),
-      logo: "",
-      players: (t.players || []).slice(0, 12).map((p, i) => ({
-        name: String(p == null ? "" : p).trim(),
-        realName: "",
-        lane: LANE_ORDER[i] || "",
-      })),
-    });
-  }
-  return stored;
-}
-
-function readStoredTeams() {
-  try {
-    const raw = fs.readFileSync(TEAMS_FILE, 'utf8');
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed?.teams) ? parsed.teams : [];
-  } catch {
-    return [];
-  }
-}
-
-/** 生成器队伍库（数据/library.json）里当前系列赛的战队，只取队名与名单。 */
-function readLibraryTeams() {
-  try {
-    const raw = fs.readFileSync(path.join(ROOT, '数据', 'library.json'), 'utf8');
-    const parsed = JSON.parse(raw);
-    const series = (parsed?.series || []);
-    if (!series.length) return [];
-    const cur = series.find((s) => s.id === parsed.currentId) || series[0];
-    return (cur?.teams || []).map((t) => ({ id: t.id, name: t.name, logo: t.logo, players: t.players || [] }));
-  } catch {
-    return [];
-  }
-}
-
-function writeTeams(teams) {
-  fs.mkdirSync(path.dirname(TEAMS_FILE), { recursive: true });
-  writeJsonAtomic(
-    TEAMS_FILE,
-    JSON.stringify({ teams, updatedAt: new Date().toISOString() }, null, 2),
-    { backupDir: path.join(ROOT, '数据', '_backup'), key: 'teams' },
-  );
-}
-
-/** 规范化一支队伍：保留名称、队徽与五名选手；分路缺省时按位置补齐。 */
-const LANE_ORDER = ['对抗路', '打野', '中路', '发育路', '游走'];
-
-function normalizeTeam(input) {
-  const name = String(input?.name ?? '').trim();
-  if (!name) throw new Error('队伍名称不能为空');
-  const raw = Array.isArray(input?.players) ? input.players : [];
-  const players = raw.slice(0, 5).map((p, i) => ({
-    name: String(p?.name ?? '').trim(),
-    realName: String(p?.realName ?? '').trim(),
-    lane: LANE_ORDER.includes(p?.lane) ? p.lane : LANE_ORDER[i] ?? '',
-  }));
-  return {
-    id: String(input?.id ?? '').trim() || `t_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`,
-    name,
-    logo: String(input?.logo ?? '').trim(),
-    players,
-  };
 }
 
 /** SSE 订阅者 */
@@ -212,6 +154,73 @@ function stateBody() {
   };
 }
 
+function bracketEliminatedIds(bracket) {
+  const eliminated = new Set();
+  if (!bracket || typeof bracket !== 'object') return eliminated;
+  const wins = bracket.win || {};
+  const matches = new Map();
+  const winner = (key) => {
+    const match = matches.get(key), side = wins[key];
+    return match && (side === 'a' || side === 'b') ? match[side] : '';
+  };
+  const loser = (key) => {
+    const match = matches.get(key), side = wins[key];
+    return match && (side === 'a' || side === 'b') ? match[side === 'a' ? 'b' : 'a'] : '';
+  };
+  const add = (key, round, a, b) => matches.set(key, { key, round, a, b });
+  const draw = Array.isArray(bracket.draw) ? bracket.draw : [];
+  for (let i = 0; i < 8; i++) add(`R16-${i + 1}`, 'r16', draw[i]?.a || '', draw[i]?.b || '');
+  add('WB1-1', 'wb1', winner('R16-1'), winner('R16-2'));
+  add('WB1-2', 'wb1', winner('R16-3'), winner('R16-4'));
+  add('WB1-3', 'wb1', winner('R16-5'), winner('R16-6'));
+  add('WB1-4', 'wb1', winner('R16-7'), winner('R16-8'));
+  add('WB2-1', 'wb2', winner('WB1-1'), winner('WB1-2'));
+  add('WB2-2', 'wb2', winner('WB1-3'), winner('WB1-4'));
+  add('WBF', 'wbf', winner('WB2-1'), winner('WB2-2'));
+  add('LB1-1', 'lb1', loser('WB1-1'), loser('WB1-2'));
+  add('LB1-2', 'lb1', loser('WB1-3'), loser('WB1-4'));
+  add('LB2-1', 'lb2', winner('LB1-1'), loser('WB2-1'));
+  add('LB2-2', 'lb2', winner('LB1-2'), loser('WB2-2'));
+  add('LB3', 'lb3', winner('LB2-1'), winner('LB2-2'));
+  add('LBF', 'lbf', winner('LB3'), loser('WBF'));
+  add('GF', 'gf', winner('WBF'), winner('LBF'));
+  add('GF2', 'gf2', winner('GF'), loser('GF'));
+  const losses = new Map();
+  const reset = wins.GF === 'b';
+  for (const match of matches.values()) {
+    const side = wins[match.key];
+    if (!match.a || !match.b || (side !== 'a' && side !== 'b')) continue;
+    const defeated = match[side === 'a' ? 'b' : 'a'];
+    if (!defeated) continue;
+    losses.set(defeated, (losses.get(defeated) || 0) + 1);
+    if (match.round === 'r16' || match.round === 'lbf' || match.round === 'gf2'
+      || (match.round === 'gf' && !reset)) eliminated.add(defeated);
+  }
+  for (const [teamId, count] of losses) if (count >= 2) eliminated.add(teamId);
+  return eliminated;
+}
+
+function withTeamAvailability(teams, seriesId) {
+  const snapshot = store.snapshot();
+  let bracket = snapshot.live.bracket?.seriesId === seriesId ? snapshot.live.bracket : null;
+  if (!bracket) {
+    const saved = readJsonSafe(path.join(ROOT, '数据', 'bracket.json'));
+    bracket = saved && (saved[seriesId] || null);
+  }
+  const out = bracketEliminatedIds(bracket);
+  return teams.map((team) => ({
+    ...team,
+    eliminatedByResults: out.has(team.id),
+    availableForSelection: !team.eliminated && !out.has(team.id),
+  }));
+}
+
+function persistContext(candidate, revision, opts) {
+  const result = saveCompetitionContext(candidate, revision, opts);
+  if (!result.conflict) store.setContext(result.context);
+  return result;
+}
+
 /**
  * @returns {Promise<boolean>} 是否已处理该请求
  */
@@ -226,15 +235,17 @@ export async function handleDirector(req, res, url, helpers) {
 
   /**
    * 生成器原样提供（iframe 内嵌用），不修改其任何脚本。
-   * bare=1 时仅注入一条样式隐藏它自带的标签栏 —— 那部分已由外壳侧栏取代。
+   * bare=1 时只隐藏外壳已接管的主导航与预览按钮，保留数据工具栏和状态提示。
    */
   if (p === '/generator') {
     try {
       let html = fs.readFileSync(GENERATOR_PAGE, 'utf8');
       if (url.searchParams.get('bare') === '1') {
+        html = html.replace('<body>', '<body class="pkc-embed-mode">');
         html = html.replace('</head>',
-          '<style>.tabs{display:none !important}.topbar{display:none !important}'
-          + '.contextbar{top:0 !important}.subnav{top:96px !important}</style>'
+          '<style id="pkcEmbedMode">.pkc-embed-mode .tabs{display:none !important}'
+          + '.pkc-embed-mode .topbar .brand,.pkc-embed-mode .topbar .appnav,'
+          + '.pkc-embed-mode #btnPreviewToggle{display:none !important}</style>'
           + '<link rel="stylesheet" href="/assets/embed-theme.css" /></head>');
       }
       res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' });
@@ -249,6 +260,22 @@ export async function handleDirector(req, res, url, helpers) {
   if (p === '/api/director/state' && req.method === 'GET') {
     return sendJSON(res, stateBody()), true;
   }
+  if (p === '/api/tencent-heroes' && req.method === 'GET') {
+    try { return sendJSON(res, { heroes: await getTencentHeroes() }), true; }
+    catch (err) { return sendJSON(res, { error: 'tencent_catalog_unavailable', message: err.message }, 503), true; }
+  }
+  const heroImageMatch = p.match(/^\/tencent-hero\/(\d+)$/);
+  if (heroImageMatch && req.method === 'GET') {
+    try {
+      const id = heroImageMatch[1];
+      if (!(await getTencentHeroes()).some((h) => h.id === id)) return sendJSON(res, { error: 'unknown_hero' }, 404), true;
+      const upstream = await fetch(`https://game.gtimg.cn/images/yxzj/img201606/skin/hero-info/${id}/${id}-mobileskin-1.jpg`, { signal: AbortSignal.timeout(8000) });
+      if (!upstream.ok) return sendJSON(res, { error: 'hero_image_unavailable' }, 502), true;
+      const bytes = Buffer.from(await upstream.arrayBuffer());
+      res.writeHead(200, { 'Content-Type': upstream.headers.get('content-type') || 'image/jpeg', 'Cache-Control': 'public, max-age=3600' }); res.end(bytes);
+    } catch { sendJSON(res, { error: 'hero_image_unavailable' }, 502); }
+    return true;
+  }
 
   /* ---------- SSE ---------- */
   if (p === '/api/director/stream' && req.method === 'GET') {
@@ -256,18 +283,96 @@ export async function handleDirector(req, res, url, helpers) {
     return true;
   }
 
-  /* ---------- 队伍名单 ---------- */
+  /* ---------- 规范队伍 API 与显式迁移 ---------- */
+  if (p === '/api/competition/teams' && (req.method === 'GET' || req.method === 'PUT')) {
+    try {
+      const seriesId = url.searchParams.get('seriesId');
+      if (req.method === 'GET') {
+        const result = listCompetitionTeams(seriesId);
+        return sendJSON(res, { ...result, teams: withTeamAvailability(result.teams, seriesId) }), true;
+      }
+      const body = JSON.parse((await readBody(req)) || '{}');
+      return sendJSON(res, replaceCompetitionTeams(seriesId, body.teams, body.revision)), true;
+    } catch (err) {
+      if (err.code === 'team_revision_conflict') {
+        return sendJSON(res, { error: err.code, message: err.message, revision: err.revision }, 409), true;
+      }
+      const status = err.code === 'series_not_found' ? 404
+        : ['series_id_required', 'team_revision_required', 'invalid_teams', 'duplicate_team_id'].includes(err.code) ? 400 : 500;
+      return sendJSON(res, { error: err.code || 'invalid_teams', message: err.message }, status), true;
+    }
+  }
+  if (p === '/api/competition/teams/migration-preview' && req.method === 'GET') {
+    try { return sendJSON(res, previewLegacyTeams()), true; }
+    catch (err) { return sendJSON(res, { error: err.code || 'migration_preview_failed', message: err.message }, 500), true; }
+  }
+  if (p === '/api/competition/teams/import' && req.method === 'POST') {
+    try {
+      const body = JSON.parse((await readBody(req)) || '{}');
+      return sendJSON(res, importLegacyTeams(body)), true;
+    } catch (err) {
+      const status = err.code === 'series_not_found' ? 404
+        : ['confirmation_required', 'series_id_required'].includes(err.code) ? 400 : 500;
+      return sendJSON(res, { error: err.code || 'migration_failed', message: err.message }, status), true;
+    }
+  }
+
+  /* ---------- 规范上下文 API ---------- */
+  if (p === '/api/competition/context' && req.method === 'GET') {
+    return sendJSON(res, readCompetitionContext()), true;
+  }
+  if (p === '/api/competition/context' && req.method === 'POST') {
+    try {
+      const body = JSON.parse((await readBody(req)) || '{}');
+      const result = persistContext(body.context, body.revision);
+      if (result.conflict) return sendJSON(res, { error: 'context_conflict', context: result.context, revision: result.revision }, 409), true;
+      return sendJSON(res, result), true;
+    } catch (err) {
+      const status = ['series_not_found', 'game_not_found', 'match_not_found', 'team_not_found'].includes(err.code) ? 404
+        : ['revision_required', 'series_id_required', 'invalid_context', 'invalid_teams'].includes(err.code) ? 400 : 500;
+      return sendJSON(res, { error: err.code || 'context_save_failed', message: err.message }, status), true;
+    }
+  }
+  /* 旧通用 context URL 也必须经过同一服务，避免绕开 revision、落盘和 SSE。 */
+  if (p === '/api/store/context' && req.method === 'GET') {
+    return sendJSON(res, readCompetitionContext().context), true;
+  }
+  if (p === '/api/store/context' && req.method === 'POST') {
+    try {
+      const body = JSON.parse((await readBody(req)) || 'null');
+      const revision = body && typeof body === 'object' ? body.revision : undefined;
+      const result = persistContext(body, revision, { allowLegacy: !Number.isFinite(Number(revision)) });
+      if (result.conflict) return sendJSON(res, { error: 'context_conflict', context: result.context, revision: result.revision }, 409), true;
+      return sendJSON(res, { ok: true, context: result.context, revision: result.revision }), true;
+    } catch (err) {
+      const status = ['series_not_found', 'game_not_found', 'match_not_found', 'team_not_found'].includes(err.code) ? 404
+        : ['revision_required', 'series_id_required', 'invalid_context', 'invalid_teams'].includes(err.code) ? 400 : 500;
+      return sendJSON(res, { error: err.code || 'context_save_failed', message: err.message }, status), true;
+    }
+  }
+
+  /* ---------- 旧队伍 API 适配器：library.json 仍是唯一写入来源 ---------- */
   if (p === '/api/director/teams') {
-    if (req.method === 'GET') return sendJSON(res, { teams: readTeams() }), true;
+    const contextSeriesId = store.snapshot().live.context?.seriesId;
+    const seriesId = contextSeriesId || currentSeriesId();
+    if (req.method === 'GET') {
+      const result = listCompetitionTeams(seriesId);
+      return sendJSON(res, { teams: toDirectorTeams(withTeamAvailability(result.teams, seriesId)), seriesId, revision: result.revision }), true;
+    }
     if (req.method === 'POST') {
       try {
         const body = JSON.parse((await readBody(req)) || '{}');
         const incoming = Array.isArray(body?.teams) ? body.teams : [];
-        const teams = incoming.map(normalizeTeam);
-        writeTeams(teams);
-        return sendJSON(res, { teams }), true;
+        const result = replaceCompetitionTeams(seriesId, fromDirectorTeams(incoming), body.revision);
+        const teams = toDirectorTeams(result.teams);
+        return sendJSON(res, { teams, seriesId, revision: result.revision }), true;
       } catch (err) {
-        return sendJSON(res, { error: 'invalid_teams', message: err.message }, 400), true;
+        if (err.code === 'team_revision_conflict') {
+          return sendJSON(res, { error: err.code, message: err.message, revision: err.revision }, 409), true;
+        }
+        const status = ['series_not_found', 'game_not_found', 'match_not_found', 'team_not_found'].includes(err.code) ? 404
+          : ['series_id_required', 'team_revision_required', 'invalid_teams', 'duplicate_team_id'].includes(err.code) ? 400 : 500;
+        return sendJSON(res, { error: err.code || 'invalid_teams', message: err.message }, status), true;
       }
     }
   }
@@ -316,8 +421,19 @@ export async function handleDirector(req, res, url, helpers) {
       case 'chart/step':
         store.stepChartPlaylist(Number(body.dir) || 1);
         break;
+      case 'spotlight/playlist':
+        store.setSpotlightPlaylist(body.patch ?? body);
+        break;
+      case 'spotlight/step':
+        store.stepSpotlightPlaylist(Number(body.dir) || 1);
+        break;
       case 'context':
-        store.setContext(body.context || body);
+        {
+          const context = body.context || body;
+          const revision = body.revision ?? context.revision;
+          const result = persistContext(context, revision, { allowLegacy: !Number.isFinite(Number(revision)) });
+          if (result.conflict) return sendJSON(res, { error: 'context_conflict', context: result.context, revision: result.revision }, 409), true;
+        }
         break;
       case 'bracket':
         store.setBracket(body ?? {});
@@ -363,7 +479,9 @@ export async function handleDirector(req, res, url, helpers) {
         return sendJSON(res, { error: 'unknown_action', action }, 404), true;
     }
   } catch (err) {
-    return sendJSON(res, { error: err.code || 'error', message: err.message }, 400), true;
+    const status = ['series_not_found', 'game_not_found', 'match_not_found', 'team_not_found'].includes(err.code) ? 404
+      : ['revision_required', 'series_id_required', 'invalid_context', 'invalid_teams', 'unknown_scene'].includes(err.code) ? 400 : 500;
+    return sendJSON(res, { error: err.code || 'error', message: err.message }, status), true;
   }
 
   return sendJSON(res, stateBody()), true;
@@ -406,7 +524,7 @@ function seedBracketFromDisk() {
 seedBracketFromDisk();
 
 function seedContextFromDisk() {
-  const ctx = readJsonSafe(path.join(ROOT, '数据', 'context.json'));
+  const ctx = readCompetitionContext().context;
   if (ctx && ctx.seriesId) store.setContext(ctx);
 }
 seedContextFromDisk();

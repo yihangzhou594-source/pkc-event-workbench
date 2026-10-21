@@ -13,6 +13,11 @@ import { spawn, spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { handleDirector, closeDirectorStreams } from "./director/routes.mjs";
 import { writeJsonAtomic } from "./lib/json-store.mjs";
+import { aggregateHeroStats, applyLabels, toCSV, addManualGame } from "./lib/hero-stats.mjs";
+import {
+  readHeroStats, writeHeroStats, startCapture, captureStatus,
+  pauseCapture, resumeCapture, stopCapture, ingestSession, listSessions,
+} from "./lib/saibao-capture.mjs";
 
 const ROOT = path.dirname(fileURLToPath(import.meta.url));
 const PORT = Number(process.env.PKC_PORT || 8971);
@@ -317,6 +322,118 @@ const server = http.createServer(async (req, res) => {
         return sendJSON(res, { ok: false, error: String(e && e.message || e) }, 502);
       }
     }
+    /* ---------------- 英雄胜率 / 赛宝抓取 ---------------- */
+    if (p === "/herostats") {
+      return serveFile(res, path.join(ROOT, "director", "herostats.html"), { "Cache-Control": "no-store" });
+    }
+    if (p === "/promo") {
+      return serveFile(res, path.join(ROOT, "director", "promo.html"), { "Cache-Control": "no-store" });
+    }
+    if (p === "/api/hero-stats" && req.method === "GET") {
+      const data = readHeroStats();
+      const q = url.searchParams;
+      const stage = q.get("stage") || data.stage || "循环赛";
+      return sendJSON(res, {
+        ok: true,
+        ...aggregateHeroStats(data, {
+          stage,
+          group: q.get("group") || "all",
+          team: q.get("team") || "all",
+          player: q.get("player") || "all",
+          minPicks: Number(q.get("minPicks") || 0),
+        }),
+      });
+    }
+    if (p === "/api/hero-stats/raw" && req.method === "GET") {
+      const data = readHeroStats();
+      return sendJSON(res, {
+        ok: true,
+        ...data,
+        sessions: listSessions().map((s) => ({ name: s.name, mtime: s.mtime })),
+      });
+    }
+    if (p === "/api/hero-stats/labels" && req.method === "POST") {
+      const body = JSON.parse(await readBody(req));
+      const labels = body && body.labels && typeof body.labels === "object" ? body.labels : {};
+      const data = applyLabels(readHeroStats(), labels);
+      writeHeroStats(data);
+      return sendJSON(res, { ok: true, clusters: data.clusters });
+    }
+    if (p === "/api/hero-stats/manual" && req.method === "POST") {
+      const body = JSON.parse(await readBody(req));
+      try {
+        const out = addManualGame(readHeroStats(), body);
+        writeHeroStats(out.data);
+        return sendJSON(res, {
+          ok: true, seriesId: out.seriesId, gameNo: out.gameNo,
+          replaced: out.replaced, mergedInto: out.mergedInto,
+        });
+      } catch (e) {
+        return sendJSON(res, { ok: false, error: String(e && e.message || e) }, 400);
+      }
+    }
+    if (p === "/api/hero-stats/reset" && req.method === "POST") {
+      const body = JSON.parse(await readBody(req) || "{}");
+      if (String(body.confirm || "") !== "清除") {
+        return sendJSON(res, { ok: false, error: "需要确认：confirm 必须是「清除」" }, 400);
+      }
+      writeHeroStats(null);
+      return sendJSON(res, { ok: true, cleared: true });
+    }
+    if (p === "/api/hero-stats/ingest" && req.method === "POST") {
+      const body = JSON.parse(await readBody(req) || "{}");
+      const sessions = listSessions();
+      const dir = body.session
+        ? (sessions.find((s) => s.name === body.session) || {}).dir
+        : (sessions[0] || {}).dir;
+      if (!dir) return sendJSON(res, { ok: false, error: "没有可用的抓取会话" }, 400);
+      const out = ingestSession(dir);
+      return sendJSON(res, out, out.ok ? 200 : 400);
+    }
+    if (p === "/api/hero-stats/export.csv" && req.method === "GET") {
+      const data = readHeroStats();
+      const q = url.searchParams;
+      const agg = aggregateHeroStats(data, {
+        stage: q.get("stage") || data.stage || "循环赛",
+        group: q.get("group") || "all",
+        team: q.get("team") || "all",
+        player: q.get("player") || "all",
+        minPicks: Number(q.get("minPicks") || 0),
+      });
+      const csv = toCSV(agg);
+      res.writeHead(200, {
+        "Content-Type": "text/csv; charset=utf-8",
+        "Content-Disposition": 'attachment; filename="hero-stats.csv"',
+        "Cache-Control": "no-store",
+      });
+      return res.end(csv);
+    }
+    if (p === "/api/saibao/capture/start" && req.method === "POST") {
+      const body = JSON.parse(await readBody(req) || "{}");
+      return sendJSON(res, startCapture({ groups: body.groups, maxSeries: body.maxSeries, quiet: !!body.quiet }));
+    }
+    if (p === "/api/saibao/capture/status" && req.method === "GET") {
+      return sendJSON(res, captureStatus());
+    }
+    if (p === "/api/saibao/capture/pause" && req.method === "POST") {
+      return sendJSON(res, pauseCapture());
+    }
+    if (p === "/api/saibao/capture/resume" && req.method === "POST") {
+      return sendJSON(res, resumeCapture());
+    }
+    if (p === "/api/saibao/capture/stop" && req.method === "POST") {
+      return sendJSON(res, stopCapture());
+    }
+    if (p.startsWith("/capture/")) {
+      const rest = p.slice("/capture/".length).split("/");
+      const session = decodeURIComponent(rest.shift() || "");
+      const rel = rest.map(decodeURIComponent).join("/");
+      if (!session || !rel) return send(res, 404, "Not Found");
+      const base = path.join(ROOT, "tmp", session);
+      const file = safeJoin(base, rel);
+      if (!file) return send(res, 403, "Forbidden");
+      return serveFile(res, file, { "Cache-Control": "no-store" });
+    }
 
     // 导播台 / OBS 场景页 / 状态 API（实现见 director/routes.mjs）
     if (await handleDirector(req, res, url, { sendJSON, send, readBody, serveFile, ROOT })) return;
@@ -340,8 +457,17 @@ const server = http.createServer(async (req, res) => {
         }
       }
       if (req.method === "POST") {
-        const raw = await readBody(req);
-        JSON.parse(raw);                                   // 校验 JSON
+        let raw = await readBody(req);
+        const incoming = JSON.parse(raw);                  // 校验 JSON
+        if (key === "library" && incoming && typeof incoming === "object" && !Array.isArray(incoming)) {
+          try {
+            const current = JSON.parse(fs.readFileSync(file, "utf8"));
+            if (Array.isArray(current.migrationAudit)) {
+              incoming.migrationAudit = current.migrationAudit;
+              raw = JSON.stringify(incoming, null, 2);
+            }
+          } catch { /* 首次写入或旧文件损坏时按请求体处理 */ }
+        }
         const base = String(req.headers["x-pkc-base-rev"] || "");
         const cur = storeRev(file);
         if (STORE_CONFLICT_KEYS.has(key) && base && cur && base !== cur) {

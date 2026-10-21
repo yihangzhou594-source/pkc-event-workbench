@@ -18,6 +18,7 @@ export const SceneId = Object.freeze({
   PEAK: 'peak',
   CHART: 'chart',
   COMMENTARY: 'commentary',
+  SPOTLIGHT: 'spotlight',
 });
 
 /**
@@ -30,6 +31,7 @@ export const SCENES = Object.freeze([
   { id: SceneId.INTERVAL, label: '赛间', kind: 'pushed', obsPath: '/obs/interval' },
   { id: SceneId.BRACKET, label: '赛程图', kind: 'immediate', obsPath: '/obs/bracket' },
   { id: SceneId.CHART, label: '赛后数据图', kind: 'pushed', obsPath: '/obs/chart' },
+  { id: SceneId.SPOTLIGHT, label: '宣传轮播', kind: 'pushed', obsPath: '/obs/spotlight' },
   { id: SceneId.BLANK, label: '空白', kind: 'pushed', obsPath: '/obs/blank' },
 ]);
 

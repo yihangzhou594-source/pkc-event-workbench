@@ -165,9 +165,17 @@ function normTeam(t){
   // 前 5 个固定是 上单/打野/中路/发育路/游走，第 6 个起是替补（名单可以多带几个人，最多 12 个）
   const src = Array.isArray(t.players) ? t.players.slice(0, 12).map(x => String(x == null ? "" : x)) : [];
   while (src.length < 5) src.push("");
+  const rawLanes = Array.isArray(t.playerLanes) ? t.playerLanes.slice(0, 12) : [];
+  const rawMeta = Array.isArray(t.playerMeta) ? t.playerMeta.slice(0, 12) : [];
+  const laneOf = v => {
+    const s = String(v == null ? "" : v).trim();
+    return s === "对抗路" ? "上单" : s;
+  };
+  const lanes = src.map((_, i) => laneOf(rawLanes[i]) || (i < 5 ? POSITIONS[i] : ""));
   return { id:t.id||uid(), name:t.name||"", color:t.color||PALETTE[0],
            eliminated:!!t.eliminated, note:t.note||"", group:t.group||"",
-           players:src };
+           players:src, playerLanes:lanes, logo:String(t.logo||""),
+           playerMeta:src.map((_, i) => ({ realName:String(rawMeta[i] && rawMeta[i].realName || ""), lane:lanes[i] })) };
 }
 const ROSTER_MAX = 12;                       // 5 个位置 + 最多 7 个替补
 function normPlayer(p){
@@ -277,11 +285,13 @@ function defaultSeries(){
 }
 
 /* ============================================================
-   二、存储（有服务端存文件，没有则退回浏览器本地存储）
+   二、服务端存储（不可用时停止写入，不创建第二份浏览器数据）
    ============================================================ */
 /* 多标签页保护：每个 key 记住服务端内容哈希，保存时带上；冲突就停下并提示。 */
 const STORE_REV = new Map();
 const STORE_CONFLICT_KEYS = new Set(["library", "matches", "bracket", "heroPick"]);
+const STORE_QUEUES = new Map();
+let contextRevision = 0;
 let storeWriteBlocked = false;
 
 function showStoreConflict(){
@@ -300,43 +310,175 @@ function showStoreConflict(){
   document.body.appendChild(el);
 }
 
+function showStoreUnavailable(){
+  if (document.getElementById("pkcStoreUnavailable")) return;
+  const el = document.createElement("div");
+  el.id = "pkcStoreUnavailable";
+  el.className = "pkc-conflict";
+  const span = document.createElement("span");
+  span.textContent = "本地服务未连接，数据没有保存。请重新连接服务后重试。";
+  const btn = document.createElement("button");
+  btn.type = "button";
+  btn.textContent = "重试连接";
+  btn.onclick = () => location.reload();
+  el.append(span, btn);
+  document.body.appendChild(el);
+}
+
+const LEGACY_STORAGE_KEYS = ["library", "matches", "prefs", "heroPick", "bracket", "context"];
+function readLegacyStorage(){
+  const out = {};
+  for (const key of LEGACY_STORAGE_KEYS) {
+    try {
+      const raw = localStorage.getItem("pkc2_" + key);
+      if (raw) {
+        const value = JSON.parse(raw);
+        if (value !== null) out[key] = value;
+      }
+    } catch(e) { /* malformed legacy values stay untouched */ }
+  }
+  return out;
+}
+function showLegacyStorageNotice(){
+  const legacy = readLegacyStorage();
+  const keys = Object.keys(legacy);
+  if (!keys.length || document.getElementById("pkcLegacyStorageNotice")) return;
+  const el = document.createElement("div");
+  el.id = "pkcLegacyStorageNotice";
+  el.className = "pkc-conflict";
+  const text = document.createElement("span");
+  text.textContent = "发现旧浏览器数据（" + keys.length + " 项），尚未导入服务器。";
+  const preview = document.createElement("button");
+  preview.type = "button";
+  preview.textContent = "预览差异";
+  preview.onclick = () => openLegacyStoragePreview(legacy);
+  el.append(text, preview);
+  document.body.appendChild(el);
+}
+async function openLegacyStoragePreview(legacy){
+  let panel = document.getElementById("pkcLegacyStoragePanel");
+  if (!panel) {
+    panel = document.createElement("section");
+    panel.id = "pkcLegacyStoragePanel";
+    panel.style.cssText = "position:fixed;z-index:10001;top:68px;left:50%;transform:translateX(-50%);width:min(760px,94vw);max-height:76vh;overflow:auto;padding:16px;border:1px solid #cbd4e0;border-radius:14px;background:#fff;color:#243044;box-shadow:0 18px 50px rgba(20,30,45,.25);font:13px system-ui";
+    document.body.appendChild(panel);
+  }
+  panel.replaceChildren();
+  const title = document.createElement("b");
+  title.textContent = "旧浏览器数据迁移预览";
+  panel.appendChild(title);
+  const note = document.createElement("p");
+  note.textContent = "逐项选择保留服务器数据或采用浏览器旧数据。预览不会写入；导入会对所选项逐项备份并保存。";
+  panel.appendChild(note);
+  const rows = document.createElement("div");
+  panel.appendChild(rows);
+  const choices = new Map();
+  for (const key of LEGACY_STORAGE_KEYS) {
+    if (!(key in legacy)) continue;
+    const serverResponse = await fetch("/api/store/" + key, { cache:"no-store" });
+    const serverRev = serverResponse.headers.get("X-PKC-Rev");
+    if (serverRev) STORE_REV.set(key, serverRev);
+    const current = serverResponse.ok ? await serverResponse.json().catch(() => null) : null;
+    const same = JSON.stringify(current) === JSON.stringify(legacy[key]);
+    const row = document.createElement("div");
+    row.style.cssText = "display:flex;align-items:center;gap:10px;padding:8px 0;border-top:1px solid #e6eaf0";
+    const label = document.createElement("span");
+    label.style.cssText = "flex:1";
+    label.textContent = key + (same ? " · 内容一致" : " · 与服务器内容不同");
+    const select = document.createElement("select");
+    select.style.cssText = "width:180px;padding:6px;border:1px solid #cbd4e0;border-radius:7px";
+    select.append(new Option("保留服务器", "server"), new Option("采用浏览器旧数据", "browser"));
+    choices.set(key, select);
+    row.append(label, select);
+    rows.appendChild(row);
+  }
+  const status = document.createElement("div");
+  status.style.cssText = "margin:8px 0;color:#8b3f28";
+  const actions = document.createElement("div");
+  actions.style.cssText = "display:flex;justify-content:flex-end;gap:8px";
+  const close = document.createElement("button");
+  close.textContent = "关闭";
+  close.onclick = () => panel.remove();
+  const apply = document.createElement("button");
+  apply.textContent = "导入所选旧数据";
+  apply.style.cssText = "border:0;border-radius:8px;padding:7px 11px;background:#ffd76a;color:#3a2b05;font-weight:700;cursor:pointer";
+  apply.onclick = async () => {
+    const selected = [...choices].filter(([, select]) => select.value === "browser").map(([key]) => key);
+    if (!selected.length) { status.textContent = "没有选择要导入的旧数据。"; return; }
+    apply.disabled = true;
+    try {
+      for (const key of selected) {
+        if (key === "context") {
+          const currentResponse = await fetch("/api/competition/context", { cache:"no-store" });
+          const currentState = await currentResponse.json().catch(() => ({}));
+          if (!currentResponse.ok) throw new Error("context：无法读取当前 revision");
+          contextRevision = Number(currentState.revision) || 0;
+          const response = await fetch("/api/competition/context", {
+            method:"POST", headers:{ "Content-Type":"application/json" },
+            body:JSON.stringify({ context:legacy[key], revision:contextRevision }),
+          });
+          const result = await response.json().catch(() => ({}));
+          if (!response.ok) throw new Error(key + "：" + (result.message || result.error || response.status));
+          contextRevision = Number(result.revision) || contextRevision;
+        } else if (!await STORE.save(key, legacy[key])) {
+          throw new Error(key + "：服务端未接受写入");
+        }
+      }
+      status.textContent = "导入完成，正在重新读取服务器数据…";
+      setTimeout(() => location.reload(), 700);
+    } catch (error) {
+      status.textContent = "导入未全部完成：" + error.message + "。已成功的项目保留在服务器，可重新预览。";
+      apply.disabled = false;
+    }
+  };
+  actions.append(close, apply);
+  panel.append(status, actions);
+}
+
 const STORE = {
-  mode: "local",
+  mode: "unavailable",
   async init(){
     try {
       const r = await fetch("/api/ping", { cache:"no-store" });
-      if (r.ok){ this.mode = "api"; return true; }
+      if (r.ok){ this.mode = "api"; showLegacyStorageNotice(); return true; }
     } catch(e){}
-    this.mode = "local";
+    this.mode = "unavailable";
+    showStoreUnavailable();
     return false;
   },
   async load(key){
     if (this.mode === "api"){
       try {
         const r = await fetch("/api/store/"+key, {cache:"no-store"});
+        if (!r.ok) { showStoreUnavailable(); return null; }
         const rev = r.headers.get("X-PKC-Rev");
         if (rev) STORE_REV.set(key, rev);
         return await r.json();
-      } catch(e){ return null; }
+      } catch(e){ showStoreUnavailable(); return null; }
     }
-    try { const s = localStorage.getItem("pkc2_"+key); return s ? JSON.parse(s) : null; } catch(e){ return null; }
+    return null;
   },
   async save(key, data){
-    if (this.mode === "api"){
-      if (storeWriteBlocked) return;
+    const previous = STORE_QUEUES.get(key) || Promise.resolve(true);
+    const task = previous.catch(() => false).then(async () => {
+      if (this.mode !== "api") { showStoreUnavailable(); return false; }
+      if (storeWriteBlocked) return false;
       try {
         const headers = { "Content-Type":"application/json" };
         const base = STORE_REV.get(key);
         if (STORE_CONFLICT_KEYS.has(key) && base) headers["X-PKC-Base-Rev"] = base;
         const r = await fetch("/api/store/"+key, { method:"POST", headers, body:JSON.stringify(data) });
-        if (r.status === 409){ showStoreConflict(); return; }
+        const result = await r.json().catch(() => ({}));
+        if (r.status === 409){ showStoreConflict(); return false; }
+        if (!r.ok) throw new Error(result.message || result.error || ("HTTP " + r.status));
         const rev = r.headers.get("X-PKC-Rev");
         if (rev) STORE_REV.set(key, rev);
+        return true;
       }
-      catch(e){ console.warn("保存失败", key, e); }
-      return;
-    }
-    try { localStorage.setItem("pkc2_"+key, JSON.stringify(data)); } catch(e){ console.warn("本地存储已满", e); }
+      catch(e){ console.warn("保存失败", key, e); showStoreUnavailable(); return false; }
+    });
+    STORE_QUEUES.set(key, task);
+    return task;
   }
 };
 
@@ -345,21 +487,25 @@ function scheduleSave(){
   clearTimeout(saveTimer);
   saveTimer = setTimeout(saveAll, 500);
 }
-async function saveAll(){
-  if (storeWriteBlocked) return;
-  await STORE.save("library", {
+async function saveCoreData(){
+  if (storeWriteBlocked || STORE.mode !== "api") return false;
+  const librarySaved = await STORE.save("library", {
     currentId: DB.currentId,
     series: DB.series.map(s => ({ id:s.id, name:s.name, teams:s.teams }))
   });
   const games = {};
   DB.series.forEach(s => { games[s.id] = s.games; });
-  await STORE.save("matches", { games });
+  const matchesSaved = await STORE.save("matches", { games });
   const brackets = {};
   DB.series.forEach(s => { brackets[s.id] = s.bracket || emptyBracket(); });
-  await STORE.save("bracket", brackets);
-  await STORE.save("prefs", DB.prefs);
-  await STORE.save("heroPick", DB.heroPick);
-  await STORE.save("context", contextSnapshot());
+  const bracketSaved = await STORE.save("bracket", brackets);
+  return librarySaved && matchesSaved && bracketSaved;
+}
+async function saveAll(){
+  if (!await saveCoreData()) return false;
+  const prefsSaved = await STORE.save("prefs", DB.prefs);
+  const heroSaved = await STORE.save("heroPick", DB.heroPick);
+  return prefsSaved && heroSaved;
 }
 
 /* ---------- 当前场次上下文（生成器 → 导播台 / OBS） ---------- */
@@ -439,17 +585,79 @@ function contextSnapshot(){
 }
 
 let ctxTimer = null;
+let pendingContext = null;
+let contextRequestBusy = false;
+let contextConflictPending = false;
+function showContextStatus(message, actions){
+  let el = document.getElementById("pkcContextStatus");
+  if (!el) {
+    el = document.createElement("div");
+    el.id = "pkcContextStatus";
+    el.className = "pkc-conflict";
+    el.setAttribute("role", "alert");
+    el.setAttribute("aria-live", "assertive");
+    el.setAttribute("aria-atomic", "true");
+    document.body.appendChild(el);
+  }
+  el.replaceChildren();
+  const text = document.createElement("span");
+  text.textContent = message;
+  el.appendChild(text);
+  (actions || []).forEach(({ label, run }) => {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.textContent = label;
+    btn.onclick = run;
+    el.appendChild(btn);
+  });
+}
+function submitPendingContext(){
+  if (contextRequestBusy || !pendingContext) return;
+  const context = pendingContext;
+  contextRequestBusy = true;
+  fetch("/api/competition/context", {
+    method:"POST",
+    headers:{ "Content-Type":"application/json" },
+    body:JSON.stringify({ context, revision:contextRevision }),
+  }).then(async response => {
+    const result = await response.json().catch(() => ({}));
+    if (response.status === 409) {
+      contextConflictPending = true;
+      showContextStatus("当前场次已被其他页面更新。", [
+        { label:"采用最新场次", run:() => location.reload() },
+        { label:"继续使用此页选择", run:() => { contextRevision = Number(result.revision) || 0; contextConflictPending = false; submitPendingContext(); } },
+      ]);
+      return;
+    }
+    if (!response.ok) throw new Error(result.message || result.error || ("HTTP " + response.status));
+    contextRevision = Number(result.revision) || contextRevision;
+    if (pendingContext === context) pendingContext = null;
+    contextConflictPending = false;
+    const status = document.getElementById("pkcContextStatus");
+    if (status) status.remove();
+  }).catch(error => {
+    showContextStatus("当前场次没有同步成功：" + error.message, [
+      { label:"重试", run:() => submitPendingContext() },
+    ]);
+  }).finally(() => {
+    contextRequestBusy = false;
+    if (pendingContext && !contextConflictPending) submitPendingContext();
+  });
+}
 function publishContext(delay){
   clearTimeout(ctxTimer);
-  const send = () => {
+  const send = async () => {
     const ctx = contextSnapshot();
     if (!ctx) return;
-    STORE.save("context", ctx);
-    fetch("/api/director/context", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(ctx),
-    }).catch(() => {});
+    if (STORE.mode !== "api") return showStoreUnavailable();
+    if (!await saveCoreData()) {
+      showContextStatus("场次尚未同步：赛事数据保存失败。", [
+        { label:"重试", run:() => publishContext(0) },
+      ]);
+      return;
+    }
+    pendingContext = ctx;
+    submitPendingContext();
   };
   if (delay) ctxTimer = setTimeout(send, delay);
   else send();

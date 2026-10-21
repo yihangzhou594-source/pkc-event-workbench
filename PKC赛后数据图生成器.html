@@ -69,6 +69,7 @@
     font-family:inherit;font-size:13px;color:var(--text);background:var(--surface);
     border:1px solid var(--line);border-radius:8px;padding:6px 9px;width:100%;outline:none;transition:.14s}
   input:focus,select:focus,textarea:focus{border-color:var(--primary);box-shadow:0 0 0 3px var(--primary-soft)}
+  :focus-visible{outline:2px solid var(--primary);outline-offset:2px}
   input[type=color]{width:100%;max-width:120px;height:32px;padding:2px;border:1px solid var(--line);border-radius:8px;background:var(--surface);cursor:pointer}
   .fld{display:flex;flex-direction:column;gap:4px;min-width:0}
   .fld>label{font-size:11.5px;color:var(--muted);font-weight:500}
@@ -483,6 +484,39 @@
     .hp-obs td:nth-child(2){white-space:normal}
     .hp-obs td:nth-child(2) code{word-break:break-all}
   }
+  /* Page-wide usability pass: clearer hierarchy, stronger control affordance, compact screens. */
+  .topbar{box-shadow:0 4px 18px rgba(22,32,46,.045)}
+  .contextbar{box-shadow:0 3px 14px rgba(22,32,46,.035)}
+  .ctx-k{color:#60718a}
+  .ctx-row>button,.ctx-row>select{min-height:34px}
+  .tabs{gap:6px;padding-top:12px}
+  .tab{min-height:38px}
+  .panel.on{padding-top:14px}
+  .panel.on>.card,.panel.on>.bk-layout>.bk-ctrl>.card{overflow:hidden}
+  .card-h{flex-wrap:wrap}
+  .card-h .sub{line-height:1.5}
+  .card-h button{margin-left:auto}
+  .card-b>.row{row-gap:10px}
+  .tbl-wrap:focus-within{outline:2px solid var(--primary-line);outline-offset:2px}
+  .bk-layout{align-items:start}
+  .bk-ctrl>.card{scroll-margin-top:132px}
+  .subnav{padding:7px;gap:5px}
+  .subnav button{min-height:34px}
+  @media(max-width:760px){
+    .wrap{padding:0 10px}
+    .topbar-in{gap:7px;padding:8px 10px}
+    .contextbar .ctx-row{padding:8px 10px;gap:6px}
+    .ctx-k{font-size:10.5px}
+    .ctx-series,.ctx-match{min-width:0;flex:1 1 150px}
+    .ctx-sep{display:none}
+    .ctx-hint{flex-basis:100%}
+    .tabs{padding-left:4px;padding-right:4px;overflow-x:auto;flex-wrap:nowrap}
+    .tab{flex:none;padding:7px 10px}
+    .card-b{padding:12px}
+    .card-h{padding:11px 12px}
+    .bk-layout{grid-template-columns:minmax(0,1fr)}
+    .bk-m{grid-template-columns:38px minmax(0,1fr) 30px 8px 30px minmax(0,1fr) 24px;gap:3px}
+  }
 </style>
 </head>
 <body>
@@ -503,7 +537,7 @@
     <button class="mini" id="btnStyle">🏆 KPL 风格</button>
     <button class="mini" id="btnPreviewToggle" title="显示 / 收起右侧预览">👁 预览</button>
     <button class="primary" id="btnZip">导出当前局</button>
-    <span class="hint" id="status"></span>
+    <span class="hint" id="status" role="status" aria-live="polite" aria-atomic="true"></span>
   </div>
 </div>
 
@@ -530,7 +564,7 @@
 
 <nav class="tabs">
   <div class="tab-group"><span class="tab-cap">数据</span>
-    <button class="tab on" data-tab="data">📝 对局</button>
+    <button class="tab on" data-tab="data" aria-pressed="true">📝 对局</button>
     <button class="tab" data-tab="bracket">🏆 赛程</button>
   </div>
   <div class="tab-group"><span class="tab-cap">资料</span>
@@ -589,7 +623,7 @@
           <div class="card-b">
             <div class="drop" id="drop">
               <div style="font-size:24px;line-height:1">🖼️</div>
-              <div style="margin-top:6px"><b>把赛宝战绩截图拖进来</b>，或点击选择图片</div>
+              <div style="margin-top:6px"><b>上传王者荣耀对局「战绩」页和「输出」页截图</b>，或点击选择图片</div>
               <div class="hint" style="margin-top:4px">支持多张；识别后先核对，再一键填入表格</div>
               <input type="file" id="fileShot" accept="image/*" multiple style="display:none">
             </div>
@@ -646,6 +680,19 @@
               <button class="primary mini" id="btnTeamAdd">＋ 添加队伍</button>
               <button class="mini" id="btnTeamBulk">批量粘贴名单</button>
               <button class="mini" id="btnTeamImport">📥 导入名单（Excel）</button>
+              <button class="mini" id="btnLegacyTeamMigration">迁移旧队伍名单</button>
+            </div>
+            <div id="legacyTeamMigration" style="display:none;margin-bottom:12px">
+              <div class="hint" id="legacyMigrationSummary">读取旧名单差异中…</div>
+              <div class="hint" id="legacyMigrationAudit" style="margin-top:5px"></div>
+              <div class="row" style="margin:8px 0">
+                <div class="fld" style="width:260px"><label>未匹配队伍的目标系列赛</label><select id="legacyMigrationSeries"></select></div>
+                <button class="mini" id="btnLegacyMigrationRefresh">重新预览</button>
+                <button class="primary mini" id="btnLegacyMigrationApply">按选择导入</button>
+                <button class="mini" id="btnLegacyMigrationClose">关闭</button>
+              </div>
+              <div id="legacyMigrationRows" class="hint"></div>
+              <div class="hint" style="margin-top:8px">预览只读；导入前会备份 library.json 并保留 teams.json。匹配冲突默认保留队伍库内容，只有明确选择“采用旧名单”才会更新对应字段。</div>
             </div>
             <div id="teamBulk" style="display:none;margin-bottom:12px">
               <textarea id="bulkBox" rows="4" placeholder="每行一支队伍：队名,主色（主色可省略）
@@ -828,7 +875,7 @@
   </div>
 </div>
 
-<div class="toast" id="toast"></div>
+<div class="toast" id="toast" role="status" aria-live="polite" aria-atomic="true"></div>
 <datalist id="heroDL"></datalist>
 
 <script src="/assets/ocr-tools.js"></script>

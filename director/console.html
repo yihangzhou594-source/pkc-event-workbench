@@ -115,8 +115,19 @@
   .pk .seg{display:flex;background:var(--surface2);border:1px solid var(--line);border-radius:9px;padding:2px}
   .pk .seg button{border:0;background:transparent;padding:5px 14px;border-radius:7px;color:var(--muted);font-size:12.5px;transition:background-color .18s ease,color .18s ease}
   .pk .seg button.on{background:var(--surface);color:var(--text);font-weight:700;box-shadow:0 1px 3px rgba(24,33,47,.12)}
-  .pk .stage-canvas{flex:1;min-height:0;position:relative;background:repeating-conic-gradient(#eef1f6 0 25%,#fff 0 50%) 0 0/22px 22px}
-  .pk .stage-canvas iframe{position:absolute;inset:0;width:100%;height:100%;border:0;transition:opacity .28s ease;pointer-events:none}
+  .pk .stage-canvas{
+    flex:1;min-height:0;position:relative;overflow:hidden;
+    background:
+      repeating-linear-gradient(0deg,rgba(180,199,230,.045) 0 1px,transparent 1px 52px),
+      repeating-linear-gradient(90deg,rgba(180,199,230,.035) 0 1px,transparent 1px 52px),
+      radial-gradient(ellipse at 18% 8%,rgba(59,91,151,.38),transparent 48%),
+      linear-gradient(155deg,#0b1321 0%,#13213a 54%,#0b1423 100%);
+  }
+  .pk .stage-canvas::after{
+    content:"";position:absolute;inset:0;pointer-events:none;
+    background:radial-gradient(ellipse at center,transparent 38%,rgba(3,8,16,.22) 100%);
+  }
+  .pk .stage-canvas iframe{position:absolute;z-index:1;inset:0;width:100%;height:100%;border:0;transition:opacity .28s ease;pointer-events:none}
   .pk .stage-canvas iframe.fading{opacity:0}
 
   .pk .ops{display:flex;flex-direction:column;gap:12px;padding:12px;overflow:auto}
@@ -223,48 +234,60 @@
 })();
 </script>
 <div class="pk wk-shell">
-  <aside class="wk-rail">
+  <aside class="wk-rail" id="wkRail">
     <a class="wk-brand" href="/" title="回到工作台">
       <img src="/assets/pkc-emblem.png" alt="" />
       <div><b>薄扶林王者杯</b><span>赛事工作台</span></div>
     </a>
-    <nav class="wk-nav">
+    <nav class="wk-nav" aria-label="赛事工作台主导航">
       <div class="wk-cap">工作</div>
-      <button class="wk-item on" data-view="overview" data-icon="overview" title="概览"><span class="wk-ico"></span><span>概览</span></button>
+      <button class="wk-item on" data-view="overview" data-icon="overview" title="概览" aria-current="page"><span class="wk-ico"></span><span>概览</span></button>
       <div class="wk-cap">直播</div>
       <button class="wk-item" data-view="director" data-icon="live" title="导播台"><span class="wk-ico"></span><span>导播台</span></button>
+      <button class="wk-item" data-view="spotlight" data-icon="promo" title="宣传轮播"><span class="wk-ico"></span><span>宣传轮播</span></button>
       <div class="wk-cap">数据</div>
       <button class="wk-item" data-view="data" data-icon="data" title="对局数据"><span class="wk-ico"></span><span>对局数据</span></button>
+      <button class="wk-item" data-view="herostats" data-icon="herostats" title="英雄胜率"><span class="wk-ico"></span><span>英雄胜率</span></button>
       <button class="wk-item" data-view="bracket" data-icon="bracket" title="淘汰赛赛程"><span class="wk-ico"></span><span>淘汰赛赛程</span></button>
       <div class="wk-cap">资料</div>
       <button class="wk-item" data-view="teams" data-icon="teams" title="队伍库"><span class="wk-ico"></span><span>队伍库</span></button>
       <button class="wk-item" data-view="hero" data-icon="hero" title="英雄图"><span class="wk-ico"></span><span>英雄图</span></button>
       <div class="wk-cap">输出</div>
+      <button class="wk-item" data-view="promo" data-icon="promo" title="赛前宣传图"><span class="wk-ico"></span><span>宣传图</span></button>
       <button class="wk-item" data-view="out" data-icon="out" title="多局与导出"><span class="wk-ico"></span><span>多局与导出</span></button>
       <div class="wk-grow"></div>
       <button class="wk-item" data-view="help" data-icon="help" title="说明"><span class="wk-ico"></span><span>说明</span></button>
     </nav>
-    <div class="wk-rail-foot"><span class="wk-dot" id="wkDot"></span><span id="wkService">本地服务</span></div>
+    <div class="wk-rail-foot"><span class="wk-dot" id="wkDot"></span><span id="wkService" role="status" aria-live="polite" aria-atomic="true">本地服务</span></div>
   </aside>
-  <div class="wk-main">
+  <div class="wk-main" role="main" aria-label="赛事工作台内容">
     <header class="wk-top">
+      <button class="wk-btn ghost wk-nav-toggle" id="wkNavToggle" type="button" aria-controls="wkRail" aria-expanded="true" title="展开或收起导航"><span aria-hidden="true">☰</span><span>导航</span></button>
       <div class="wk-top-title"><h1 id="wkTitle">概览</h1><p id="wkSub">当前工作、OBS 源与赛事状态</p></div>
-      <div class="wk-ctx">
-        <span class="wk-ctx-series" id="wkCtxSeries">未选择系列赛</span>
-        <span class="wk-ctx-sep s1">›</span>
-        <span class="wk-ctx-match" id="wkCtxMatch">未关联赛程</span>
-        <span class="wk-ctx-sep s2">›</span>
-        <span class="wk-ctx-game" id="wkCtxGame">—</span>
-        <span class="wk-ctx-teams"><b class="blue" id="wkBlue">蓝方</b><i>VS</i><b class="red" id="wkRed">红方</b></span>
-        <span class="wk-ctx-score" id="wkScore" title="本局击杀比分">- : -</span>
-      </div>
+      <details class="wk-context-disclosure" id="wkContextDisclosure" open>
+        <summary class="wk-context-summary" id="wkContextSummary" aria-controls="wkContextDetails" aria-expanded="true">
+          <span class="wk-context-label">当前赛事</span><span class="wk-context-short" id="wkCtxSummary">未选择系列赛</span><span aria-hidden="true">⌄</span>
+        </summary>
+        <div class="wk-context-details" id="wkContextDetails">
+          <div class="wk-ctx" title="当前场次来自服务端统一上下文；在对局数据中切换后会同步到导播台与 OBS">
+            <span class="wk-ctx-series" id="wkCtxSeries">未选择系列赛</span>
+            <span class="wk-ctx-sep s1">›</span>
+            <span class="wk-ctx-match" id="wkCtxMatch">未关联赛程</span>
+            <span class="wk-ctx-sep s2">›</span>
+            <span class="wk-ctx-game" id="wkCtxGame">—</span>
+            <span class="wk-ctx-teams"><b class="blue" id="wkBlue">蓝方</b><i>VS</i><b class="red" id="wkRed">红方</b></span>
+            <span class="wk-ctx-score" id="wkScore" title="本局击杀比分">- : -</span>
+            <span class="wk-live" id="wkLive" aria-label="当前播出场景"><i></i>在播：<b>—</b></span>
+            <button class="wk-btn ghost" id="wkCtxChoose" hidden>去对局数据选择</button>
+          </div>
+        </div>
+      </details>
       <div class="wk-top-right">
-        <span class="wk-live" id="wkLive"><i></i>在播：<b>—</b></span>
         <button class="wk-btn ghost" id="wkPreviewToggle" hidden>收起预览</button>
         <a class="wk-btn ghost" href="/obs/commentary" target="_blank" rel="noopener">OBS 预览</a>
       </div>
     </header>
-    <div class="pk-diag" id="pkDiag"></div>
+    <div class="pk-diag" id="pkDiag" role="alert" aria-live="assertive" aria-atomic="true"></div>
     <div class="wk-panes">
       <section class="wk-pane on" id="pane-overview">
         <div class="wk-ov">
@@ -289,6 +312,10 @@
           </div>
 
           <div class="wk-grid">
+            <div class="wk-card wk-span2">
+              <h3>建议下一步 <em>按赛事进度提示，可自由切换</em></h3>
+              <div class="wk-workflow" id="wkWorkflow"></div>
+            </div>
             <div class="wk-card">
               <h3>OBS 浏览器源 <em>1920 × 1080</em></h3>
               <div class="wk-obs">
@@ -296,6 +323,7 @@
                 <div class="wk-obs-row"><span class="nm">赛间板</span><code>/obs/interval</code><button class="wk-copy" data-copy="/obs/interval">复制</button></div>
                 <div class="wk-obs-row"><span class="nm">赛程图</span><code>/obs/bracket</code><button class="wk-copy" data-copy="/obs/bracket">复制</button></div>
                 <div class="wk-obs-row"><span class="nm">数据图</span><code>/obs/chart</code><button class="wk-copy" data-copy="/obs/chart">复制</button></div>
+                <div class="wk-obs-row"><span class="nm">宣传轮播</span><code>/obs/spotlight</code><button class="wk-copy" data-copy="/obs/spotlight">复制</button></div>
               </div>
             </div>
             <div class="wk-card">
@@ -326,7 +354,7 @@
       <section class="wk-pane" id="pane-director">
 <section class="view on" id="view-director" style="padding:14px 16px">
       <div class="view-head" style="margin-bottom:10px">
-        <span class="dirty" id="dirtyTag">● 预览有未推送改动</span>
+        <span class="dirty" id="dirtyTag" role="status" aria-live="polite" aria-atomic="true">● 预览有未推送改动</span>
         <span class="ctx-chip" id="ctxChip">未选择场次</span>
         <span class="grow"></span>
         <button class="btn ghost" id="btnDiscard">丢弃预览</button>
@@ -338,15 +366,15 @@
 
         <div class="card stage">
           <div class="stage-top">
-            <div class="seg">
-              <button class="on" data-mode="preview">预览</button>
-              <button data-mode="live">实时</button>
+            <div class="seg" role="group" aria-label="画面显示模式">
+              <button class="on" type="button" data-mode="preview" aria-pressed="true">预览</button>
+              <button type="button" data-mode="live" aria-pressed="false">实时</button>
             </div>
             <span class="grow"></span>
-            <span class="kv" id="stageHint" style="color:var(--muted);font-size:12.5px"></span>
+            <span class="kv" id="stageHint" role="status" aria-live="polite" style="color:var(--muted);font-size:12.5px"></span>
           </div>
           <div class="stage-canvas">
-            <iframe id="stageFrame" src="about:blank"></iframe>
+            <iframe id="stageFrame" src="about:blank" title="导播台画面预览"></iframe>
           </div>
         </div>
 
@@ -371,9 +399,21 @@
             <div class="row">
               <select id="ivBlue" style="flex:1"></select> <span class="kv">蓝方</span>
             </div>
+            <div class="row" id="ivBlueLanes" style="margin-top:5px"></div>
             <div class="row" style="margin-top:5px">
               <select id="ivRed" style="flex:1"></select> <span class="kv">红方</span>
             </div>
+            <div class="row" id="ivRedLanes" style="margin-top:5px"></div>
+            <div class="row" style="margin-top:5px">
+              <input type="text" id="ivBlueSub" list="ivBlueSubs" placeholder="蓝方第6人（可选）" style="flex:1" />
+              <select id="ivBlueSubLane" style="width:92px"><option value="">主选分路</option><option>上单</option><option>对抗路</option><option>打野</option><option>中路</option><option>发育路</option><option>游走</option><option>补位</option></select>
+            </div>
+            <div class="row" style="margin-top:5px">
+              <input type="text" id="ivRedSub" list="ivRedSubs" placeholder="红方第6人（可选）" style="flex:1" />
+              <select id="ivRedSubLane" style="width:92px"><option value="">主选分路</option><option>上单</option><option>对抗路</option><option>打野</option><option>中路</option><option>发育路</option><option>游走</option><option>补位</option></select>
+            </div>
+            <datalist id="ivBlueSubs"></datalist>
+            <datalist id="ivRedSubs"></datalist>
             <input type="text" id="ivTitle" placeholder="底部标题，留空则不显示" style="width:100%;margin-top:7px" />
             <div class="row" style="margin-top:7px">
               <input type="text" id="ivCaption" placeholder="倒计时下方文案" style="flex:1" value="距离比赛开始还有" />
@@ -424,9 +464,20 @@
             <div class="kv" style="margin-top:5px;color:var(--muted)">先在「① 对局数据」选好本局；推送后按 上单 → 打野 → 中路 → 发育路 → 游走 → 五路总览 循环播放。点上方任意一张可直接跳转。</div>
           </div>
 
+          <div class="chart-ops" id="spotlightOps">
+            <h2>选手宣传轮播</h2>
+            <div class="kv" id="spotlightStatus">填写名单后可直接推送。</div>
+            <details style="margin-top:8px"><summary class="kv">当前画面预览</summary><canvas id="spotlightDraftPreview" width="1920" height="1080" style="display:block;width:100%;aspect-ratio:16/9;margin-top:6px;border:1px solid var(--line);border-radius:8px"></canvas></details>
+            <details style="margin-top:8px" id="spotlightEditorDetails"><summary class="kv">编辑双方名单与代表英雄</summary><div id="spotlightRoster" style="margin-top:8px"></div></details>
+            <div class="row" style="margin-top:8px"><button class="btn primary" id="btnSpotlightPush">推送名单并切到直播</button><button class="btn" id="btnSpotlightExport">导出当前画面 PNG</button></div>
+            <div class="row" style="margin-top:8px"><button class="btn" id="spotlightPrev">上一位</button><button class="btn" id="spotlightToggle">开始轮播</button><button class="btn" id="spotlightNext">下一位</button></div>
+            <div class="row" style="margin-top:6px"><span class="kv">轮播间隔</span><select id="spotlightInterval"><option value="5000">5 秒</option><option value="8000">8 秒</option><option value="10000">10 秒</option><option value="15000">15 秒</option><option value="30000">30 秒</option></select></div>
+            <div class="kv" style="margin-top:5px">编辑、推送、切位、播放与导出都可在导播台完成。</div>
+          </div>
+
           <div>
             <h2>推送</h2>
-            <div class="kv" id="pushState">—</div>
+            <div class="kv" id="pushState" role="status" aria-live="polite" aria-atomic="true">—</div>
           </div>
 
           <div id="opsGeneric" class="scene-ops">
@@ -511,9 +562,37 @@
                 <input type="text" id="cmBannerIn" placeholder="上场选手" style="margin-top:6px" />
               </div>
               <div id="cmBannerAch">
+                <select id="cmAchPreset" aria-label="赛事成就文案模板" style="margin-top:6px">
+                  <option value="">选择成就模板，自动填写下方文案</option>
+                  <optgroup label="赛事纪录">
+                    <option value="first_win">本届赛事首胜</option>
+                    <option value="series_3">系列赛 3 胜</option>
+                    <option value="series_5">系列赛 5 胜</option>
+                    <option value="streak_3">三连胜</option>
+                    <option value="streak_5">五连胜</option>
+                  </optgroup>
+                  <optgroup label="选手 / 英雄纪录">
+                    <option value="hero_debut">英雄赛事首秀</option>
+                    <option value="hero_10">英雄出场 10 场</option>
+                    <option value="hero_25">英雄出场 25 场</option>
+                    <option value="hero_rate">英雄胜率数据</option>
+                  </optgroup>
+                  <option value="custom">自定义成就（不填模板）</option>
+                </select>
                 <input type="text" id="cmAchTitle" placeholder="成就名，如 联赛 100 胜" style="margin-top:6px" />
                 <input type="text" id="cmAchContent" placeholder="成就内容 / 说明" style="margin-top:6px" />
-                <input type="text" id="cmAchPlayer" placeholder="选手名（可选）" style="margin-top:6px" />
+                <input type="text" id="cmAchPlayer" list="cmPlayerList" placeholder="选手名（可选，可搜索）" style="margin-top:6px" />
+                <div class="row" style="margin-top:6px">
+                  <input type="text" id="cmAchHero" list="cmHeroList" placeholder="英雄（可选）" style="flex:1" />
+                  <button class="btn" id="cmAchLookup" style="padding:6px 10px">查胜率</button>
+                </div>
+                <div class="row" style="margin-top:6px">
+                  <input type="text" id="cmAchRate" placeholder="胜率 %（自动或手填）" style="flex:1" />
+                  <input type="text" id="cmAchGames" placeholder="场次" style="width:74px" />
+                </div>
+                <datalist id="cmHeroList"></datalist>
+                <datalist id="cmPlayerList"></datalist>
+                <div class="kv" style="margin-top:5px;color:var(--muted)">选择模板会填入可编辑文案。战绩类内容请先核对实际成绩，再推送到直播端。</div>
               </div>
             </div>
             <div class="kv" style="margin-top:6px;color:var(--muted)">头像先用首字圆形占位；改完点右上角「推送到直播端」上线。</div>
@@ -536,9 +615,16 @@
       <section class="wk-pane" id="pane-engine">
         <iframe id="genFrame" title="数据图生成器"></iframe>
       </section>
+      <section class="wk-pane" id="pane-herostats">
+        <iframe id="herostatsFrame" src="/herostats" title="英雄胜率"></iframe>
+      </section>
+      <section class="wk-pane" id="pane-promo">
+        <iframe id="promoFrame" src="/promo" title="赛前宣传图"></iframe>
+      </section>
     </div>
   </div>
 </div>
+<script src="/assets/pkc-spotlight.js"></script>
 <script>
 
 "use strict";
@@ -547,6 +633,8 @@
    导致整块脚本语法错误、一行都不执行。 */
 (function () {
 const $ = (id) => document.getElementById(id);
+const $$ = (sel, root) => Array.from((root || document).querySelectorAll(sel));
+const LANES = ["上单", "打野", "中路", "发育路", "游走"];
 
 /* ================= 视图切换 ================= */
 function showView(name) {
@@ -562,6 +650,7 @@ document.querySelectorAll(".nav-item").forEach(b => {
 let state = null;
 let stageMode = "preview";
 let framedScene = null;
+let framedMode = null;
 
 async function post(action, body) {
   const res = await fetch("/api/director/" + action, {
@@ -569,7 +658,16 @@ async function post(action, body) {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body || {}),
   });
-  return res.json();
+  const data = await res.json();
+  if (action === "push") {
+    stageMode = "live";
+    document.querySelectorAll(".seg button").forEach((button) => {
+      const selected = button.dataset.mode === "live";
+      button.classList.toggle("on", selected);
+      button.setAttribute("aria-pressed", String(selected));
+    });
+  }
+  return data;
 }
 
 function paintScenes() {
@@ -582,8 +680,8 @@ function paintScenes() {
   cap.textContent = "直播场景";
   box.append(cap);
 
-  const GROUP = { commentary: "赛前", interval: "赛前", bracket: "赛中", chart: "赛后", blank: "其他" };
-  const ORDER = { commentary: 0, interval: 1, bracket: 2, chart: 3, blank: 4 };
+  const GROUP = { commentary: "赛前", interval: "赛前", spotlight: "赛前", bracket: "赛中", chart: "赛后", blank: "其他" };
+  const ORDER = { commentary: 0, interval: 1, spotlight: 2, bracket: 3, chart: 4, blank: 5 };
   const sorted = scenes.slice().sort((a, b) => (ORDER[a.id] ?? 99) - (ORDER[b.id] ?? 99));
   let lastGroup = "";
   for (const s of sorted) {
@@ -597,7 +695,9 @@ function paintScenes() {
     }
     const b = document.createElement("button");
     b.className = "scene";
-    if (s.id === preview.scene) b.classList.add("on");
+    const selected = s.id === preview.scene;
+    if (selected) b.classList.add("on");
+    b.setAttribute("aria-pressed", String(selected));
     b.textContent = s.label;
     if (s.id === onAir.scene) {
       const tag = document.createElement("span");
@@ -649,6 +749,7 @@ function paint() {
   paintOps(preview, scenes);
   if ($("bracketOps")) $("bracketOps").classList.toggle("on", preview.scene === "bracket");
   paintChartOps();
+  paintSpotlightOps();
   syncIvForm();
   paintContext();
   syncCmForm();
@@ -659,7 +760,7 @@ function paintOps(preview, scenes) {
   const label = (scenes.find(s => s.id === scene) || {}).label || scene;
   const hint = $("opsSceneHint");
   if (hint) hint.textContent = "当前场景：" + label + " · 修改后点「推送到直播端」上线";
-  const specific = scene === "commentary" || scene === "interval" || scene === "bracket" || scene === "chart";
+  const specific = scene === "commentary" || scene === "interval" || scene === "bracket" || scene === "chart" || scene === "spotlight";
   ["opsTimer", "opsInterval"].forEach((id) => {
     const el = $(id);
     if (el) el.classList.toggle("on", scene === "interval");
@@ -733,14 +834,74 @@ function paintChartOps() {
   }
 }
 
+function paintSpotlightOps() {
+  const panel = $("spotlightOps"); if (!panel) return;
+  panel.classList.toggle("on", state?.preview?.scene === "spotlight");
+  const p = state?.live?.spotlightPlaylist;
+  $("spotlightStatus").textContent = !p ? "尚未配置宣传轮播" : `第 ${(p.index || 0) + 1} / 5 位 · ${(p.items?.[p.index]?.lane || "选手位")} · ${p.running ? "自动播放 " + Math.round(p.intervalMs / 1000) + " 秒" : "已暂停"}`;
+  $("spotlightToggle").textContent = p?.running ? "暂停" : "开始轮播";
+  const interval = $("spotlightInterval"); if (interval && p && document.activeElement !== interval) interval.value = String(p.intervalMs || 8000);
+  ensureSpotlightEditor();
+  if (p && $("spotlightRoster").dataset.dirty !== "true") writeSpotlightEditor(p);
+  const previewCanvas = $("spotlightDraftPreview");
+  const signature = JSON.stringify(p ? [p.index, p.items, p.teams] : null);
+  if (previewCanvas && previewCanvas.dataset.signature !== signature) {
+    previewCanvas.dataset.signature = signature;
+    if (p) window.PKCSpotlight?.draw(previewCanvas, p).catch(() => {});
+  }
+}
+
+function ensureSpotlightEditor() {
+  const host = $("spotlightRoster"); if (!host || host.dataset.ready) return;
+  host.dataset.ready = "true";
+  const teamRow = (side, label) => `<label class="kv" style="display:block;margin:5px 0">${label}队名<input type="text" data-team="${side}" placeholder="输入${label}方队名" style="width:100%;margin-top:4px"></label>`;
+  host.innerHTML = teamRow("blue", "蓝") + teamRow("red", "红")
+    + LANES.map((lane, i) => `<div style="display:grid;grid-template-columns:38px 1fr 1fr;gap:4px;align-items:center;margin:4px 0"><span class="kv">${lane}</span><input type="text" data-player="blue" data-index="${i}" placeholder="蓝方选手" aria-label="蓝方${lane}选手"><input type="text" data-hero="blue" data-index="${i}" placeholder="代表英雄（搜索或手填）" aria-label="蓝方${lane}代表英雄"></div><div style="display:grid;grid-template-columns:38px 1fr 1fr;gap:4px;align-items:center;margin:4px 0"><span class="kv"></span><input type="text" data-player="red" data-index="${i}" placeholder="红方选手" aria-label="红方${lane}选手"><input type="text" data-hero="red" data-index="${i}" placeholder="代表英雄（搜索或手填）" aria-label="红方${lane}代表英雄"></div>`).join("")
+    + '<datalist id="spotlightHeroNames"></datalist>';
+  host.addEventListener("input", () => { host.dataset.dirty = "true"; drawSpotlightEditorPreview(); });
+  window.PKCSpotlight?.loadHeroCatalog().then((heroes) => {
+    const list = $("spotlightHeroNames");
+    if (list) heroes.forEach((hero) => { const option = document.createElement("option"); option.value = hero.name; list.append(option); });
+    host.querySelectorAll("[data-hero]").forEach((input) => window.PKCSpotlight.attachHeroSearch(input, heroes));
+  });
+}
+
+function drawSpotlightEditorPreview() {
+  const canvas = $("spotlightDraftPreview"); if (!canvas || !window.PKCSpotlight) return;
+  try { window.PKCSpotlight.draw(canvas, readSpotlightEditor()).catch(() => {}); } catch { /* editor may still be mounting */ }
+}
+
+function writeSpotlightEditor(playlist) {
+  const host = $("spotlightRoster"); if (!host) return;
+  host.querySelector('[data-team="blue"]').value = playlist.teams?.blue?.name || "";
+  host.querySelector('[data-team="red"]').value = playlist.teams?.red?.name || "";
+  LANES.forEach((_, i) => ["blue", "red"].forEach((side) => {
+    const item = playlist.items?.[i]?.[side] || {};
+    host.querySelector(`[data-player="${side}"][data-index="${i}"]`).value = item.player || "";
+    host.querySelector(`[data-hero="${side}"][data-index="${i}"]`).value = item.heroName || "";
+  }));
+}
+
+function readSpotlightEditor() {
+  const host = $("spotlightRoster");
+  return {
+    teams: { blue: { name: host.querySelector('[data-team="blue"]').value.trim() }, red: { name: host.querySelector('[data-team="red"]').value.trim() } },
+    items: LANES.map((lane, i) => ({ lane, blue: { player: host.querySelector(`[data-player="blue"][data-index="${i}"]`).value.trim(), heroName: host.querySelector(`[data-hero="blue"][data-index="${i}"]`).value.trim(), heroId: null }, red: { player: host.querySelector(`[data-player="red"][data-index="${i}"]`).value.trim(), heroName: host.querySelector(`[data-hero="red"][data-index="${i}"]`).value.trim(), heroId: null } })),
+    index: state?.live?.spotlightPlaylist?.index || 0,
+    intervalMs: Number($("spotlightInterval").value) || 8000,
+    running: !!state?.live?.spotlightPlaylist?.running,
+  };
+}
+
 /* 预览窗跟随：切换时先淡出再换源，避免白闪 */
 function syncFrame() {
   if (!state) return;
   const want = stageMode === "live" ? state.onAir.scene : state.preview.scene;
   const f0 = $("stageFrame");
   const hint = $("stageHint");
-  if (framedScene === want) return;
+  if (framedScene === want && framedMode === stageMode) return;
   framedScene = want;
+  framedMode = stageMode;
   const f = f0;
   if (!f) { if (hint) hint.textContent = "预览 iframe 未找到"; return; }
   f.classList.add("fading");
@@ -759,7 +920,11 @@ function syncFrame() {
 document.querySelectorAll(".seg button").forEach(b => {
   b.onclick = () => {
     stageMode = b.dataset.mode;
-    document.querySelectorAll(".seg button").forEach(x => x.classList.toggle("on", x === b));
+    document.querySelectorAll(".seg button").forEach(x => {
+      const selected = x === b;
+      x.classList.toggle("on", selected);
+      x.setAttribute("aria-pressed", String(selected));
+    });
     syncFrame();
   };
 });
@@ -770,7 +935,7 @@ $("btnDiscard").onclick = async () => { state = await post("discard"); paint(); 
 /* ---------- 现场快捷键 ----------
    1-5 切场景 / 空格推送 / B 一键切空白（panic）。
    只在「导播台」视图生效，输入框里打字时不拦截。 */
-const HOTKEY_SCENES = ["commentary", "interval", "bracket", "chart", "blank"];
+const HOTKEY_SCENES = ["commentary", "interval", "spotlight", "bracket", "chart", "blank"];
 function hotkeyTyping(el) {
   if (!el) return false;
   const tag = String(el.tagName || "").toUpperCase();
@@ -851,6 +1016,31 @@ if (chartIntervalSel) chartIntervalSel.onchange = async () => {
   state = await post("chart/playlist", { patch: { intervalMs: Number(chartIntervalSel.value) } });
   paint();
 };
+$("spotlightPrev").onclick = async () => { state = await post("spotlight/step", { dir: -1 }); paint(); };
+$("spotlightNext").onclick = async () => { state = await post("spotlight/step", { dir: 1 }); paint(); };
+$("spotlightToggle").onclick = async () => {
+  const p = state?.live?.spotlightPlaylist;
+  if (!p) { if (window.__pkSay) window.__pkSay("先到宣传图页填写选手与代表英雄并推送"); return; }
+  if (!p.running && p.items.filter(x => x.blue?.player && x.red?.player).length < 2) { if (window.__pkSay) window.__pkSay("自动轮播至少需要两组完整的双方选手姓名"); return; }
+  state = await post("spotlight/playlist", { patch: { running: !p.running } }); paint();
+};
+$("spotlightInterval").onchange = async () => { state = await post("spotlight/playlist", { patch: { intervalMs: Number($("spotlightInterval").value) } }); paint(); };
+$("btnSpotlightPush").onclick = async () => {
+  const editor = $("spotlightRoster");
+  state = await post("spotlight/playlist", { patch: readSpotlightEditor() });
+  state = await post("scene", { id: "spotlight" });
+  state = await post("push");
+  editor.dataset.dirty = "false"; paint(); syncFrame();
+};
+$("btnSpotlightExport").onclick = async () => {
+  const canvas = document.createElement("canvas");
+  await window.PKCSpotlight.draw(canvas, state?.live?.spotlightPlaylist || readSpotlightEditor());
+  canvas.toBlob((blob) => {
+    if (!blob) return window.__pkSay?.("轮播画面导出失败");
+    const url = URL.createObjectURL(blob); const a = document.createElement("a");
+    a.href = url; a.download = "PKC-选手宣传轮播.png"; a.click(); setTimeout(() => URL.revokeObjectURL(url), 2000);
+  }, "image/png");
+};
 
 const durationMs = () => (Number($("mm").value) || 0) * 60000 + (Number($("ss").value) || 0) * 1000;
 $("btnStart").onclick = async () => {
@@ -868,25 +1058,83 @@ $("btnResetTimer").onclick = async () => {
 /* 赛间板设置：写进 preview.settings.interval，点「推送到直播端」才上线 */
 const ivSettings = () => ({
   follow: true,
+  blueSub: "", blueSubLane: "", redSub: "", redSubLane: "",
+  blueLanes: [], redLanes: [],
   ...((state && state.preview && state.preview.settings && state.preview.settings.interval) || {}),
 });
 let ivTeams = [];
+function ivBuildLaneSelects() {
+  const fill = (hostId, key) => {
+    const host = $(hostId);
+    if (!host || host.children.length) return;
+    LANES.forEach((lane) => {
+      const sel = document.createElement("select");
+      sel.style.width = "66px";
+      LANES.concat(["对抗路", "补位"]).forEach((l) => sel.appendChild(new Option(l, l)));
+      sel.value = lane;
+      sel.onchange = () => {
+        const vals = $$(`#${hostId} select`).map((e) => e.value);
+        ivPatch({ [key]: vals });
+      };
+      host.appendChild(sel);
+    });
+  };
+  fill("ivBlueLanes", "blueLanes");
+  fill("ivRedLanes", "redLanes");
+}
+function ivFillSubs() {
+  const fill = (selId, listId) => {
+    const sel = $(selId), list = $(listId);
+    if (!sel || !list) return;
+    const team = ivTeams.find((t) => t.name === sel.value);
+    const names = team ? (team.players || []).slice(5).map((p) => typeof p === "string" ? p : (p && p.name) || "") : [];
+    list.innerHTML = names.filter(Boolean).map((n) => `<option value="${String(n).replace(/"/g, "&quot;")}">`).join("");
+  };
+  fill("ivBlue", "ivBlueSubs");
+  fill("ivRed", "ivRedSubs");
+}
+function ivSubLaneFromTeam(side) {
+  const sub = $(side === "Blue" ? "ivBlueSub" : "ivRedSub");
+  const lane = $(side === "Blue" ? "ivBlueSubLane" : "ivRedSubLane");
+  const teamSel = $(side === "Blue" ? "ivBlue" : "ivRed");
+  if (!sub || !lane || !teamSel) return;
+  const team = ivTeams.find((t) => t.name === teamSel.value);
+  const p = ((team && team.players) || []).find((x) => (typeof x === "string" ? x : x.name) === sub.value.trim());
+  if (p && p.lane) lane.value = p.lane;
+}
 const ivFill = (sel, cur) => {
   if (!sel) return;
   sel.innerHTML = "";
   sel.appendChild(new Option("— 未选 —", ""));
-  ivTeams.forEach(t => sel.appendChild(new Option(t.name, t.name)));
+  ivTeams.filter(t => t.availableForSelection !== false || t.name === cur).forEach(t => {
+    const label = t.name + (t.eliminated ? "（已停用）" : (t.eliminatedByResults ? "（已淘汰）" : ""));
+    const option = new Option(label, t.name);
+    option.disabled = t.availableForSelection === false;
+    sel.appendChild(option);
+  });
   sel.value = cur || "";
 };
 async function loadIvTeams() {
+  ivBuildLaneSelects();
   if (!ivTeams.length){
-    const d = await (await fetch("/api/director/teams")).json().catch(() => ({ teams: [] }));
-    ivTeams = d.teams || [];
+    let seriesId = (state && state.live && state.live.context && state.live.context.seriesId) || "";
+    if (!seriesId) {
+      const lib = await fetch("/api/store/library", { cache: "no-store" }).then((r) => r.json()).catch(() => null);
+      seriesId = lib && (lib.currentId || (lib.series && lib.series[0] && lib.series[0].id)) || "";
+    }
+    const d = seriesId
+      ? await fetch("/api/competition/teams?seriesId=" + encodeURIComponent(seriesId), { cache: "no-store" }).then((r) => r.json()).catch(() => ({ teams: [] }))
+      : { teams: [] };
+    ivTeams = (d.teams || []).map((t) => ({
+      ...t,
+      players: (t.players || []).map((name, i) => ({ name, realName: t.playerMeta && t.playerMeta[i] && t.playerMeta[i].realName || "", lane: t.playerLanes && t.playerLanes[i] || "" })),
+    }));
     cmFillTeams();
   }
   const s = ivSettings();
   ivFill($("ivBlue"), s.blueTeam);
   ivFill($("ivRed"), s.redTeam);
+  ivFillSubs();
 }
 const ivPatch = async (patch) => { state = await post("settings", { id: "interval", patch }); paint(); syncFrame(); };
 const ivBind = (id, key, ev, read) => {
@@ -894,8 +1142,20 @@ const ivBind = (id, key, ev, read) => {
   if (el) el.addEventListener(ev, () => ivPatch({ [key]: read(el) }));
 };
 let ctxAppliedKey = "";
-ivBind("ivBlue", "blueTeam", "change", e => e.value);
-ivBind("ivRed", "redTeam", "change", e => e.value);
+ivBind("ivBlue", "blueTeam", "change", e => { ivFillSubs(); return e.value; });
+ivBind("ivRed", "redTeam", "change", e => { ivFillSubs(); return e.value; });
+ivBind("ivBlueSub", "blueSub", "input", e => e.value);
+ivBind("ivBlueSubLane", "blueSubLane", "change", e => e.value);
+ivBind("ivRedSub", "redSub", "input", e => e.value);
+ivBind("ivRedSubLane", "redSubLane", "change", e => e.value);
+if ($("ivBlueSub")) $("ivBlueSub").addEventListener("change", () => {
+  ivSubLaneFromTeam("Blue");
+  ivPatch({ blueSub: $("ivBlueSub").value, blueSubLane: $("ivBlueSubLane").value });
+});
+if ($("ivRedSub")) $("ivRedSub").addEventListener("change", () => {
+  ivSubLaneFromTeam("Red");
+  ivPatch({ redSub: $("ivRedSub").value, redSubLane: $("ivRedSubLane").value });
+});
 ivBind("ivTitle", "bottomTitle", "input", e => e.value.trim());
 ivBind("ivCaption", "caption", "input", e => e.value.trim());
 ivBind("ivReal", "showRealName", "change", e => e.checked);
@@ -906,6 +1166,14 @@ function syncIvForm() {
   const blue = $("ivBlue"), red = $("ivRed");
   if (blue && document.activeElement !== blue) blue.value = s.blueTeam || "";
   if (red && document.activeElement !== red) red.value = s.redTeam || "";
+  $$("#ivBlueLanes select").forEach((e, i) => { e.value = (s.blueLanes && s.blueLanes[i]) || LANES[i]; });
+  $$("#ivRedLanes select").forEach((e, i) => { e.value = (s.redLanes && s.redLanes[i]) || LANES[i]; });
+  const bs = $("ivBlueSub"), rs = $("ivRedSub"), bsl = $("ivBlueSubLane"), rsl = $("ivRedSubLane");
+  if (bs && document.activeElement !== bs) bs.value = s.blueSub || "";
+  if (rs && document.activeElement !== rs) rs.value = s.redSub || "";
+  if (bsl) bsl.value = s.blueSubLane || "";
+  if (rsl) rsl.value = s.redSubLane || "";
+  ivFillSubs();
   if (title && document.activeElement !== title) title.value = s.bottomTitle || "";
   if (cap && document.activeElement !== cap) cap.value = s.caption || "距离比赛开始还有";
   if (real) real.checked = s.showRealName !== false;
@@ -933,6 +1201,7 @@ const cmSettings = () => ({
 const cmBanner = () => ({
   visible: false, type: "substitution", team: "", lane: "打野",
   outPlayer: "", inPlayer: "", title: "", content: "", player: "",
+  hero: "", winRate: "", heroGames: "",
   ...(cmSettings().banner || {}),
 });
 const cmPatch = async (patch) => {
@@ -1001,8 +1270,60 @@ function cmFillTeams() {
   const cur = cmBanner().team || "";
   sel.innerHTML = "";
   sel.appendChild(new Option("— 选择队伍 —", ""));
-  ivTeams.forEach((t) => sel.appendChild(new Option(t.name, t.name)));
+  ivTeams.filter((t) => t.availableForSelection !== false || t.name === cur).forEach((t) => {
+    const label = t.name + (t.eliminated ? "（已停用）" : (t.eliminatedByResults ? "（已淘汰）" : ""));
+    const option = new Option(label, t.name);
+    option.disabled = t.availableForSelection === false;
+    sel.appendChild(option);
+  });
   if (cur) sel.value = cur;
+  const pl = $("cmPlayerList");
+  if (pl) {
+    const names = [];
+    ivTeams.forEach((t) => (t.players || []).forEach((p) => {
+      const n = typeof p === "string" ? p : (p && p.name) || "";
+      if (n) names.push(n);
+    }));
+    pl.innerHTML = Array.from(new Set(names)).map((n) => `<option value="${String(n).replace(/"/g, "&quot;")}">`).join("");
+  }
+}
+
+async function loadCmHeroes() {
+  const list = $("cmHeroList");
+  if (!list || list.children.length) return;
+  try {
+    const d = await (await fetch("/api/heroes", { cache: "no-store" })).json();
+    const names = d.official || [];
+    list.innerHTML = names.map((n) => `<option value="${String(n).replace(/"/g, "&quot;")}">`).join("");
+  } catch { /* 名单不可用时仍可手填 */ }
+}
+
+async function cmLookupHeroRate() {
+  const player = ($("cmAchPlayer") && $("cmAchPlayer").value || "").trim();
+  const hero = ($("cmAchHero") && $("cmAchHero").value || "").trim();
+  if (!player || !hero) return alert("先填选手名和英雄名");
+  try {
+    const q = new URLSearchParams({ stage: "all", player, minPicks: "0" });
+    const agg = await (await fetch("/api/hero-stats?" + q.toString(), { cache: "no-store" })).json();
+    const p = (agg.players || []).find((x) => x.name === player);
+    const h = p && (p.heroes || []).find((x) => x.hero === hero);
+    if (!h) return alert(`没有找到「${player} · ${hero}」的胜率数据`);
+    const rate = h.winRate == null ? "" : h.winRate.toFixed(1);
+    if ($("cmAchRate")) $("cmAchRate").value = rate;
+    if ($("cmAchGames")) $("cmAchGames").value = String(h.games);
+    const patch = { hero, winRate: rate, heroGames: h.games };
+    if (!$("cmAchTitle").value.trim()) {
+      $("cmAchTitle").value = `${hero} · 胜率 ${rate}%`;
+      patch.title = $("cmAchTitle").value;
+    }
+    if (!$("cmAchContent").value.trim()) {
+      $("cmAchContent").value = `${player} 使用 ${hero} 的赛事胜率`;
+      patch.content = $("cmAchContent").value;
+    }
+    await cmBannerPatch(patch);
+  } catch (e) {
+    alert("查胜率失败：" + e.message);
+  }
 }
 function paintCmPeopleFields() {
   const count = Number(cmSettings().count || 3);
@@ -1041,6 +1362,54 @@ if (cmBannerTypeEl) cmBannerTypeEl.onchange = () => {
 };
 const cmBannerTeamEl = $("cmBannerTeam");
 if (cmBannerTeamEl) cmBannerTeamEl.onchange = () => cmBannerPatch({ team: cmBannerTeamEl.value });
+const cmAchPresetEl = $("cmAchPreset");
+if (cmAchPresetEl) cmAchPresetEl.onchange = async () => {
+  const preset = cmAchPresetEl.value;
+  cmAchPresetEl.value = "";
+  if (!preset) return;
+  const team = ($("cmBannerTeam") && $("cmBannerTeam").value || "").trim() || "本队";
+  const player = ($("cmAchPlayer") && $("cmAchPlayer").value || "").trim() || "选手";
+  const hero = ($("cmAchHero") && $("cmAchHero").value || "").trim() || "英雄";
+  const templates = {
+    first_win: { title: "赛事首胜", content: `${team} 拿下本届赛事首场胜利！` },
+    series_3: { title: "系列赛 3 胜", content: `${team} 在本系列赛取得第 3 场胜利。` },
+    series_5: { title: "系列赛 5 胜", content: `${team} 在本系列赛取得第 5 场胜利。` },
+    streak_3: { title: "三连胜", content: `${team} 连续拿下 3 场胜利，状态正热！` },
+    streak_5: { title: "五连胜", content: `${team} 连续拿下 5 场胜利，势不可挡！` },
+    hero_debut: { title: `${hero} · 赛事首秀`, content: `${player} 使用 ${hero} 完成本届赛事首秀。`, player: $("cmAchPlayer").value, hero, heroGames: "1" },
+    hero_10: { title: `${hero} · 10 场登场`, content: `${player} 使用 ${hero} 达成本届赛事第 10 次登场。`, player: $("cmAchPlayer").value, hero, heroGames: "10" },
+    hero_25: { title: `${hero} · 25 场登场`, content: `${player} 使用 ${hero} 达成本届赛事第 25 次登场。`, player: $("cmAchPlayer").value, hero, heroGames: "25" },
+  };
+  if (preset === "custom") { $("cmAchTitle").focus(); return; }
+  if (preset === "hero_rate") {
+    $("cmAchTitle").value = "";
+    $("cmAchContent").value = "";
+    await cmBannerPatch({ title: "", content: "" });
+    const next = !$("cmAchPlayer").value.trim() ? $("cmAchPlayer")
+      : !$("cmAchHero").value.trim() ? $("cmAchHero") : $("cmAchLookup");
+    next && next.focus();
+    return;
+  }
+  const item = templates[preset];
+  if (!item) return;
+  $("cmAchTitle").value = item.title;
+  $("cmAchContent").value = item.content;
+  const isHeroRecord = preset.startsWith("hero_");
+  const patch = isHeroRecord
+    ? item
+    : { ...item, player: "", hero: "", winRate: "", heroGames: "" };
+  if (!isHeroRecord) {
+    $("cmAchPlayer").value = "";
+    $("cmAchHero").value = "";
+    $("cmAchRate").value = "";
+    $("cmAchGames").value = "";
+  } else {
+    $("cmAchGames").value = item.heroGames;
+    $("cmAchRate").value = "";
+  }
+  await cmBannerPatch(patch);
+  $("cmAchTitle").focus();
+};
 const cmBannerLaneEl = $("cmBannerLane");
 if (cmBannerLaneEl) cmBannerLaneEl.onchange = () => cmBannerPatch({ lane: cmBannerLaneEl.value });
 const cmStageEl = $("cmStage");
@@ -1052,10 +1421,12 @@ if (cmStageEl) cmStageEl.onchange = () => {
   }
   cmPatch({ subtitle: cmStageEl.value });
 };
-[["cmBannerOut", "outPlayer"], ["cmBannerIn", "inPlayer"], ["cmAchTitle", "title"], ["cmAchContent", "content"], ["cmAchPlayer", "player"]].forEach(([id, key]) => {
+[["cmBannerOut", "outPlayer"], ["cmBannerIn", "inPlayer"], ["cmAchTitle", "title"], ["cmAchContent", "content"], ["cmAchPlayer", "player"], ["cmAchHero", "hero"], ["cmAchRate", "winRate"], ["cmAchGames", "heroGames"]].forEach(([id, key]) => {
   const el = $(id);
   if (el) el.addEventListener("input", () => cmBannerPatch({ [key]: el.value }));
 });
+if ($("cmAchLookup")) $("cmAchLookup").onclick = cmLookupHeroRate;
+loadCmHeroes();
 function syncCmForm() {
   const s = cmSettings();
   const map = {
@@ -1090,6 +1461,9 @@ function syncCmForm() {
   setVal("cmAchTitle", b.title || "");
   setVal("cmAchContent", b.content || "");
   setVal("cmAchPlayer", b.player || "");
+  setVal("cmAchHero", b.hero || "");
+  setVal("cmAchRate", b.winRate == null ? "" : b.winRate);
+  setVal("cmAchGames", b.heroGames == null ? "" : b.heroGames);
   paintCmPeopleFields();
   paintCmBannerFields();
 }
@@ -1105,6 +1479,8 @@ $("btnCopyObs").onclick = async () => {
 
 /* ================= 队伍库 ================= */
 let teams = [];
+let teamSeriesId = "";
+let teamRevision = "";
 
 function teamMsg(text, ok) {
   const el = $("teamMsg");
@@ -1160,9 +1536,19 @@ function paintTeams() {
 async function loadTeams() {
   if (!$("teamGrid")) return;
   try {
-    const r = await fetch("/api/director/teams");
+    teamSeriesId = (state && state.live && state.live.context && state.live.context.seriesId) || "";
+    if (!teamSeriesId) {
+      const lib = await fetch("/api/store/library", { cache: "no-store" }).then((r) => r.json());
+      teamSeriesId = lib.currentId || (lib.series && lib.series[0] && lib.series[0].id) || "";
+    }
+    const r = await fetch("/api/competition/teams?seriesId=" + encodeURIComponent(teamSeriesId), { cache: "no-store" });
     const d = await r.json();
-    teams = Array.isArray(d.teams) ? d.teams : [];
+    if (!r.ok) throw new Error(d.message || d.error || "读取队伍失败");
+    teamRevision = d.revision || "";
+    teams = Array.isArray(d.teams) ? d.teams.map((t) => ({
+      ...t,
+      players: (t.players || []).map((name, i) => ({ name, realName: t.playerMeta && t.playerMeta[i] && t.playerMeta[i].realName || "", lane: t.playerLanes && t.playerLanes[i] || "" })),
+    })) : [];
     paintTeams();
     if (teams.length && $("teamJson") && !$("teamJson").value.trim()) {
       $("teamJson").value = JSON.stringify(teams, null, 2);
@@ -1191,13 +1577,17 @@ $("btnTeamSave").onclick = async () => {
     return teamMsg("解析失败：" + e.message, false);
   }
   try {
-    const res = await fetch("/api/director/teams", {
-      method: "POST",
+    const res = await fetch("/api/competition/teams?seriesId=" + encodeURIComponent(teamSeriesId), {
+      method: "PUT",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ teams: list }),
+      body: JSON.stringify({ teams: list, revision: teamRevision }),
     });
     const d = await res.json();
+    if (res.status === 409) {
+      return teamMsg("队伍资料已被其他页面修改。请刷新页面读取最新名单，再重新应用你的修改。", false);
+    }
     if (!res.ok) throw new Error(d.message || d.error);
+    teamRevision = d.revision || teamRevision;
     teams = d.teams || [];
     paintTeams();
     teamMsg("已保存 " + teams.length + " 支队伍", true);
@@ -1324,10 +1714,7 @@ async function bpPost(action, body) {
 function bindBp() {
   $("bpStart").onclick = async () => {
     /* 两队优先用「赛间板」里选好的，没选就退回队伍库前两支 */
-    if (!ivTeams.length){
-      const d = await (await fetch("/api/director/teams")).json().catch(() => ({ teams: [] }));
-      ivTeams = d.teams || [];
-    }
+    if (!ivTeams.length) await loadIvTeams();
     const iv = ivSettings();
     const ctx = state && state.live && state.live.context;
     const blue = (ctx && ctx.blueTeam) || iv.blueTeam || (ivTeams[0] && ivTeams[0].name) || "蓝方";
@@ -1369,6 +1756,12 @@ source.addEventListener("live", (e) => {
   applyContextToInterval().catch(() => {});
 });
 source.addEventListener("error", () => { setConn("已断开，重连中…"); });
+window.addEventListener("pkc:view", async (event) => {
+  if (event.detail?.name !== "spotlight" || !state) return;
+  document.querySelector('.seg button[data-mode="preview"]')?.click();
+  if (state.preview.scene !== "spotlight") state = await post("scene", { id: "spotlight" });
+  paint(); syncFrame();
+});
 
 const portEl = $("portLabel"); if (portEl) portEl.textContent = location.port || "80";
 fetch("/api/director/state").then(r => r.json()).then(s => {

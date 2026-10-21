@@ -34,6 +34,7 @@ function initialLive() {
     bp: null,        // 由 BP 状态机写入的快照
     chart: null,     // 赛后数据图的渲染数据（由生成器模块产出）
     chartPlaylist: null, // 赛后数据图轮播：items / index / intervalMs / running
+    spotlightPlaylist: null,
     bracket: null,   // 淘汰赛赛程图快照（由生成器实时推送）
     bracketChange: null, // 最近一次落位/改动，用于 OBS 端做强调动画
     context: null,   // 当前系列赛 / 场次 / 局（由生成器发布）
@@ -172,6 +173,30 @@ export function createStore(options = {}) {
     return snapshot();
   }
 
+  function setSpotlightPlaylist(patch) {
+    const cur = live.spotlightPlaylist || { teams: { blue: {}, red: {} }, items: [], index: 0, intervalMs: 8000, running: false, startedAt: Date.now() };
+    const next = { ...cur, ...(patch || {}) };
+    next.teams = JSON.parse(JSON.stringify(next.teams || cur.teams));
+    next.items = Array.from({ length: 5 }, (_, i) => {
+      const item = (Array.isArray(next.items) ? next.items[i] : null) || {};
+      return { lane: String(item.lane || ['上单', '打野', '中路', '发育路', '游走'][i]),
+        blue: { player: String(item.blue?.player || ''), heroName: String(item.blue?.heroName || ''), heroId: item.blue?.heroId || null },
+        red: { player: String(item.red?.player || ''), heroName: String(item.red?.heroName || ''), heroId: item.red?.heroId || null } };
+    });
+    next.intervalMs = Math.max(3000, Math.min(60000, Number(next.intervalMs) || 8000));
+    next.index = Math.max(0, Math.min(4, Number(next.index) || 0));
+    if (next.items.filter((item) => item.blue.player && item.red.player).length < 2) next.running = false;
+    next.startedAt = Date.now();
+    live.spotlightPlaylist = next; live.revision += 1; notify('live'); return snapshot();
+  }
+
+  function stepSpotlightPlaylist(dir = 1) {
+    const p = live.spotlightPlaylist;
+    if (!p?.items?.length) return snapshot();
+    p.index = (p.index + (dir >= 0 ? 1 : -1) + 5) % 5; p.startedAt = Date.now();
+    live.revision += 1; notify('live'); return snapshot();
+  }
+
   /**
    * 写入淘汰赛赛程图现场快照。
    * 导播在「淘汰赛赛程图」页改分组/抽签时，生成器直接把最新快照推过来，
@@ -223,6 +248,8 @@ export function createStore(options = {}) {
     setChart,
     setChartPlaylist,
     stepChartPlaylist,
+    setSpotlightPlaylist,
+    stepSpotlightPlaylist,
     setBracket,
     replayBracket,
     setContext,

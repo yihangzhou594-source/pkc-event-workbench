@@ -440,10 +440,19 @@ function bindFieldLabels(root){
    十四、初始化
    ============================================================ */
 async function loadAll(){
-  const [lib, mt, pf, hp, br, ctx] = await Promise.all([
+  const [lib, mt, pf, hp, br] = await Promise.all([
     STORE.load("library"), STORE.load("matches"), STORE.load("prefs"),
-    STORE.load("heroPick"), STORE.load("bracket"), STORE.load("context")
+    STORE.load("heroPick"), STORE.load("bracket")
   ]);
+  let ctx = null;
+  if (STORE.mode === "api") {
+    try {
+      const response = await fetch("/api/competition/context", { cache:"no-store" });
+      const saved = await response.json();
+      if (response.ok) { ctx = saved.context; contextRevision = Number(saved.revision) || 0; }
+      else showStoreUnavailable();
+    } catch(e) { showStoreUnavailable(); }
+  }
   DB.series = [];
   if (lib && Array.isArray(lib.series) && lib.series.length){
     DB.series = lib.series.map(s => ({ id:s.id||uid(), name:s.name||"系列赛",
@@ -601,6 +610,7 @@ async function init(){
   $("#btnTeamBulk").onclick = () => { const b = $("#teamBulk"); b.style.display = b.style.display === "none" ? "block" : "none"; };
   $("#btnBulkGo").onclick = bulkTeams;
   $("#btnTeamImport").onclick = () => impToggle();
+  $("#btnLegacyTeamMigration").onclick = () => openLegacyTeamMigration();
   const impDrop = $("#impDrop"), impFile = $("#impFile");
   impDrop.onclick = () => impFile.click();
   impFile.onchange = () => {
@@ -762,8 +772,6 @@ async function init(){
   }
   const tabParam = new URLSearchParams(location.search).get("tab");
   if (tabParam && document.getElementById("panel-" + tabParam)) switchTab(tabParam);
-
-  publishContext(0);
 
   window.PKC = {
     db: () => DB, heroes: () => HEROES, series: () => S.series, game: () => S.game,

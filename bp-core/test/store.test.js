@@ -3,14 +3,15 @@ import assert from 'node:assert/strict';
 import { createStore, StoreError } from '../src/store.js';
 import { SceneId, SCENES, sceneLabel, isSceneId } from '../src/scenes.js';
 
-test('场景注册表包含五个场景且标签正确', () => {
-  assert.equal(SCENES.length, 5);
+test('场景注册表包含六个场景且标签正确', () => {
+  assert.equal(SCENES.length, 6);
   assert.deepEqual(
     SCENES.map((s) => s.label),
-    ['解说', '赛间', '赛程图', '赛后数据图', '空白'],
+    ['解说', '赛间', '赛程图', '赛后数据图', '宣传轮播', '空白'],
   );
   assert.equal(sceneLabel(SceneId.CHART), '赛后数据图');
   assert.equal(sceneLabel(SceneId.BRACKET), '赛程图');
+  assert.equal(sceneLabel(SceneId.SPOTLIGHT), '宣传轮播');
   assert.equal(isSceneId('nope'), false);
 });
 

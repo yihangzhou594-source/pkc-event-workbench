@@ -412,10 +412,12 @@ function bkTeamOptions(cur){
   const list = S.series.teams.slice().sort((a,b) =>
     String(teamGroupOf(a.id)||a.group||"～").localeCompare(String(teamGroupOf(b.id)||b.group||"～"),"zh")
     || String(a.name||"").localeCompare(String(b.name||""),"zh"));
-  return '<option value="">（未选）</option>' + list.map(t =>
-    '<option value="'+t.id+'"'+(t.id === cur ? " selected" : "")+'>'
+  return '<option value="">（未选）</option>' + list
+    .filter(t => (!t.eliminated && bkTeamStatus(t.id).state !== "out") || t.id === cur)
+    .map(t => '<option value="'+t.id+'"'+(t.id === cur ? " selected" : "")
+      + ((!t.eliminated && bkTeamStatus(t.id).state !== "out") ? "" : " disabled")+'>'
       + esc(((teamGroupOf(t.id)||t.group) ? (teamGroupOf(t.id)||t.group) + " · " : "") + (t.name || "（没有名字）"))
-      + (t.eliminated ? "（停用）" : "") + '</option>').join("");
+      + (t.eliminated ? "（已停用）" : (bkTeamStatus(t.id).state === "out" ? "（已淘汰）" : "")) + '</option>').join("");
 }
 function renderBracket(){
   if (!$("#bkGroups")) return;
@@ -480,12 +482,15 @@ function bkDrawOptions(cur){
   (B().draw || []).forEach(d => { [d.a, d.b].forEach(id => { if (id) used[id] = (used[id] || 0) + 1; }); });
   const rank = id => { const s = bkTeamSeed(id); return s ? (BK_G.indexOf(s[0]) * 10 + (+s[1])) : 99; };
   const list = S.series.teams.slice().sort((x,y) => (rank(x.id) - rank(y.id)) || String(x.name||"").localeCompare(String(y.name||""), "zh"));
-  return '<option value="">（未选）</option>' + list.map(t => {
+  return '<option value="">（未选）</option>' + list
+    .filter(t => (!t.eliminated && bkTeamStatus(t.id).state !== "out") || t.id === cur)
+    .map(t => {
     const s = bkTeamSeed(t.id);
     const tag = s ? (s + " · ") : "";
     const dup = (used[t.id] > 1 && t.id !== cur) ? "（已排在别处）" : "";
-    return '<option value="'+t.id+'"'+(t.id === cur ? " selected" : "")+'>'
-      + esc(tag + (t.name || "（没有名字）") + dup) + '</option>';
+    const unavailable = t.eliminated || bkTeamStatus(t.id).state === "out";
+    return '<option value="'+t.id+'"'+(t.id === cur ? " selected" : "")+(unavailable ? " disabled" : "")+'>'
+      + esc(tag + (t.name || "（没有名字）") + (t.eliminated ? "（已停用）" : (unavailable ? "（已淘汰）" : "")) + dup) + '</option>';
   }).join("");
 }
 function renderBkDraw(){

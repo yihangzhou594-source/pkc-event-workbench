@@ -2,6 +2,8 @@
 node_modules/
 tmp/
 *.log
+__pycache__/
+*.pyc
 
 # 音频素材（本地留存，不上传、不打包）
 音乐素材/

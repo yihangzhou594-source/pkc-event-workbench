@@ -163,14 +163,16 @@ function matchTeamIds(){
 }
 function fillTeamSelects(){
   const allowed = matchTeamIds();
+  const g = S.game;
+  const selected = new Set([g && g.ourId, g && g.oppId].filter(Boolean));
   const opts = '<option value="">— 未选择 —</option>' + S.series.teams
-    .filter(t => t.name && (!allowed || allowed.includes(t.id)))
+    .filter(t => t.name && (!allowed || allowed.includes(t.id))
+      && (teamAvailableForSelection(t) || selected.has(t.id)))
     .slice()
     .sort((a, b) => String(a.name).localeCompare(String(b.name), "zh"))
-    .map(t => '<option value="' + esc(t.id) + '">' + esc(t.name)
-      + (t.eliminated ? "（停用）" : "") + '</option>')
+    .map(t => '<option value="' + esc(t.id) + '"' + (teamAvailableForSelection(t) ? "" : " disabled") + '>' + esc(t.name)
+      + (t.eliminated ? "（已停用）" : (bkTeamStatus(t.id).state === "out" ? "（已淘汰）" : "")) + '</option>')
     .join("");
-  const g = S.game;
   [["our", "#inOurTeam"], ["opp", "#inOppTeam"]].forEach(([side, sel]) => {
     const old = $(sel);
     if (!old) return;
@@ -258,6 +260,9 @@ function bkTeamStatus(id){
   if (wins > 0) return { state: "alive", wins, losses, label: "晋级中" };
   return { state: "idle", wins, losses, label: "" };
 }
+function teamAvailableForSelection(team){
+  return !!team && !team.eliminated && bkTeamStatus(team.id).state !== "out";
+}
 function bkTeamMatchKey(id){
   const T = bkTree();
   const mine = T.list.filter(m => m.a === id || m.b === id);
@@ -327,6 +332,88 @@ function renderTeamGrid(){
     + (stopped ? " · 停用 " + stopped : "");
 }
 
+let legacyMigrationReport = null;
+async function openLegacyTeamMigration(){
+  const panel = $("#legacyTeamMigration");
+  if (!panel) return;
+  panel.style.display = "block";
+  const seriesSelect = $("#legacyMigrationSeries");
+  seriesSelect.innerHTML = DB.series.map((series) => '<option value="' + esc(series.id) + '">' + esc(series.name) + '</option>').join("");
+  seriesSelect.value = DB.currentId;
+  $("#btnLegacyMigrationClose").onclick = () => { panel.style.display = "none"; };
+  $("#btnLegacyMigrationRefresh").onclick = () => loadLegacyTeamMigration();
+  $("#btnLegacyMigrationApply").onclick = () => applyLegacyTeamMigration();
+  await loadLegacyTeamMigration();
+}
+
+async function loadLegacyTeamMigration(){
+  const summary = $("#legacyMigrationSummary"), rows = $("#legacyMigrationRows");
+  const auditBox = $("#legacyMigrationAudit");
+  if (summary) summary.textContent = "正在生成只读差异预览…";
+  if (rows) rows.replaceChildren();
+  try {
+    const response = await fetch("/api/competition/teams/migration-preview", { cache:"no-store" });
+    const report = await response.json();
+    if (!response.ok) throw new Error(report.message || report.error || "预览失败");
+    legacyMigrationReport = report;
+    if (auditBox) {
+      const audit = (report.audit || []).slice(0, 5);
+      auditBox.innerHTML = audit.length
+        ? "最近迁移：" + audit.map((entry) => esc(new Date(entry.at).toLocaleString()) + "（新增 " + (entry.imported || []).length + "，更新 " + (entry.updated || []).length + "）").join("；")
+        : "暂无迁移记录";
+    }
+    const counts = { unmatched:0, conflict:0, matched:0, ambiguous_name:0 };
+    report.entries.forEach((entry) => { counts[entry.status] = (counts[entry.status] || 0) + 1; });
+    summary.textContent = "旧名单 " + report.sourceCount + " 支：未匹配 " + counts.unmatched + " · 有差异 " + counts.conflict + " · 已匹配 " + counts.matched + (counts.ambiguous_name ? " · 同名待确认 " + counts.ambiguous_name : "");
+    const fieldNames = { name:"队名", logo:"队徽", players:"选手名单", playerLanes:"分路", playerMeta:"实名信息" };
+    rows.innerHTML = (report.entries || []).map((entry) => {
+      const status = entry.status === "unmatched" ? "未匹配" : entry.status === "conflict" ? "存在差异" : entry.status === "ambiguous_name" ? "同名不唯一" : "完全匹配";
+      const start = entry.status === "unmatched" || entry.status === "ambiguous_name"
+        ? '<label><input type="checkbox" data-migration-include value="' + esc(entry.sourceId) + '"> ' + (entry.status === "ambiguous_name" ? "仍作为新队伍导入" : "选择导入") + '</label> '
+        : "";
+      const choices = entry.status === "conflict" ? (entry.differences || []).map((field) =>
+        '<label style="display:inline-flex;align-items:center;gap:5px;margin:5px 12px 0 0">' + esc(fieldNames[field] || field) + '<select data-migration-decision="' + esc(entry.sourceId) + '" data-field="' + esc(field) + '"><option value="library">保留队伍库</option><option value="legacy">采用旧名单</option></select></label>'
+      ).join("") : "";
+      const detail = entry.status === "ambiguous_name" ? " · 可能系列：" + (entry.possibleSeriesIds || []).join("、") : "";
+      return '<div style="padding:9px 10px;border:1px solid var(--line);border-radius:9px;margin-top:7px;background:var(--surface)">' + start + '<b>' + esc(entry.name || "未命名") + '</b><span class="hint"> · ' + status + detail + '</span><div>' + choices + '</div></div>';
+    }).join("") || '<div class="hint">没有旧队伍数据。</div>';
+  } catch (error) {
+    legacyMigrationReport = null;
+    if (summary) {
+      summary.textContent = "无法读取迁移预览：" + error.message;
+      summary.setAttribute("role", "alert");
+      summary.setAttribute("aria-live", "polite");
+    }
+  }
+}
+
+async function applyLegacyTeamMigration(){
+  if (!legacyMigrationReport) return toast("先读取差异预览");
+  const include = $$("[data-migration-include]").filter((input) => input.checked).map((input) => input.value);
+  const decisions = {};
+  $$("[data-migration-decision]").forEach((select) => {
+    if (select.value !== "legacy") return;
+    const id = select.dataset.migrationDecision;
+    decisions[id] = decisions[id] || {};
+    decisions[id][select.dataset.field] = "legacy";
+  });
+  if (!include.length && !Object.keys(decisions).length) return toast("请选择要导入的队伍或要采用的冲突字段");
+  const seriesId = $("#legacyMigrationSeries").value;
+  if (!seriesId) return toast("请选择未匹配队伍的目标系列赛");
+  try {
+    const response = await fetch("/api/competition/teams/import", {
+      method:"POST", headers:{ "Content-Type":"application/json" },
+      body:JSON.stringify({ confirm:true, seriesId, include, decisions }),
+    });
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.message || result.error || "导入失败");
+    toast("迁移完成：新增 " + result.imported + " 支，更新 " + result.updated + " 支；" + (result.auditId ? "操作已记入迁移记录" : "资料未变化，未新增迁移记录") + "，旧文件已保留");
+    setTimeout(() => location.reload(), 700);
+  } catch (error) {
+    toast("迁移失败：" + error.message);
+  }
+}
+
 function editTeam(t){
   const name = prompt("队名", t.name); if (name === null) return;
   const color = prompt("主色（如 #e8b100）", t.color); if (color === null) return;
@@ -336,9 +423,11 @@ function editTeam(t){
 /** 队伍选手名单：前 5 行按 上单/打野/中路/发育路/游走，第 6 行起是替补 */
 function editRoster(t){
   const all = (t.players || []);
+  const oldLane = {};
+  all.forEach((n, i) => { if (n) oldLane[n] = (t.playerLanes && t.playerLanes[i]) || ""; });
   const cur = POSITIONS.map((p,i) => p + " " + (all[i] || "")).join("\n")
     + all.slice(5).map((n,i) => "\n替补" + (i+1) + " " + n).join("");
-  const v = prompt("每行一名选手：前 5 行按 上单 / 打野 / 中路 / 发育路 / 游走 顺序，第 6 行起是替补（可留空）。可整段粘贴：", cur);
+  const v = prompt("每行一名选手：前 5 行按 上单 / 打野 / 中路 / 发育路 / 游走 顺序，第 6 行起是替补（可留空）。替补可在名字后写主选分路，例如：替补1 小明 中路。可整段粘贴：", cur);
   if (v === null) return;
   const arr = ["","","","",""], subs = [];
   let slot = 0;
@@ -346,13 +435,23 @@ function editRoster(t){
     const m = ln.match(/^(上单|打野|中路|发育路|游走)\s*[:：]?\s*(.*)$/);
     if (m){ const k = POSITIONS.indexOf(m[1]); if (k >= 0){ arr[k] = m[2].trim(); return; } }
     const s = ln.match(/^替补\s*\d*\s*[:：]?\s*(.*)$/);
-    if (s){ if (s[1].trim()) subs.push(s[1].trim()); return; }
+    if (s){
+      const parts = s[1].trim().split(/\s+/).filter(Boolean);
+      let lane = "";
+      if (parts.length > 1 && POSITIONS.includes(parts[parts.length-1])) lane = parts.pop();
+      const name = parts.join(" ").trim();
+      if (name) subs.push({ name, lane });
+      return;
+    }
     if (slot < 5){ arr[slot++] = ln; return; }
     subs.push(ln);
   });
-  t.players = arr.concat(subs.slice(0, ROSTER_MAX - 5));
+  const subPlayers = subs.slice(0, ROSTER_MAX - 5);
+  t.players = arr.concat(subPlayers.map((s) => typeof s === "string" ? s : s.name));
+  t.playerLanes = arr.map((n, i) => n ? (oldLane[n] || POSITIONS[i]) : POSITIONS[i])
+    .concat(subPlayers.map((s) => typeof s === "string" ? (oldLane[s] || "") : (s.lane || oldLane[s.name] || "")));
   renderTeamGrid(); renderTables(); scheduleSave();
-  toast("已保存 " + (t.name||"队伍") + " 的选手名单" + (subs.length ? "（含 " + Math.min(subs.length, ROSTER_MAX-5) + " 名替补）" : ""));
+  toast("已保存 " + (t.name||"队伍") + " 的选手名单" + (subPlayers.length ? "（含 " + subPlayers.length + " 名替补）" : ""));
 }
 function addTeam(){
   const t = normTeam({ name:"新队伍", color:PALETTE[S.series.teams.length % PALETTE.length] });
@@ -609,6 +708,11 @@ const impSubsOf = t => {
     seen[nm] = 1; return true;
   }).slice(0, ROSTER_MAX - 5);
 };
+const impMemberLane = (t, name) => {
+  const m = (t.members || []).find((x) => x.name === name);
+  return (m && (m.mainLane || impLaneOf(m.lane2) || "")) || "";
+};
+const impSubInfoOf = t => impSubsOf(t).map((name) => ({ name, lane: impMemberLane(t, name) }));
 /** 位置和名单里写的分路对不上的人（多半是手动挪过） */
 function impMoved(t){
   const out = [];
@@ -652,11 +756,11 @@ function impPreviewHTML(){
     if (dup) tips.push('<span style="color:var(--primary)">库里已有</span>');
     const moved = impMoved(t);
     if (moved.length) tips.push('<span style="color:var(--muted)">' + esc(moved.join("、")) + '</span>');
-    const subs = impSubsOf(t);
+    const subs = impSubInfoOf(t);
     html += '<tr><td class="nm">' + esc(t.name) + (t.seed ? ' <span class="hint">种子' + esc(t.seed) + '</span>' : '') + '</td>'
       + '<td>' + esc(t.group || "—") + '</td>'
       + t.assign.map((n,j) => '<td>' + impLaneSelect(ti, j, n) + '</td>').join("")
-      + '<td>' + (subs.length ? esc(subs.join("、")) : '<span class="hint">—</span>') + '</td>'
+      + '<td>' + (subs.length ? esc(subs.map((s) => s.name + (s.lane ? "（" + s.lane + "）" : "")).join("、")) : '<span class="hint">—</span>') + '</td>'
       + '<td class="tip">' + (tips.join(" · ") || "—") + '</td></tr>';
   });
   html += '</tbody></table></div>';
@@ -686,7 +790,7 @@ function impShow(){
 }
 function impFail(msg){
   IMP.teams = null;
-  $("#impPreview").innerHTML = '<div class="notice bad">' + esc(msg) + '</div>'
+  $("#impPreview").innerHTML = '<div class="notice bad" role="alert">' + esc(msg) + '</div>'
     + '<div class="hint" style="margin-top:6px">最稳的办法：在 Excel 里框选整张表（<b>连表头一起选</b>）→ Ctrl+C → 粘到上面的输入框 → 点「解析并预览」。</div>';
 }
 /** rows（二维数组）→ 预览 */
@@ -727,20 +831,30 @@ function impApply(){
       created++;
     } else updated++;
     if (useGroup && t.group) team.group = t.group;
-    const subs = impSubsOf(t);
+    if (!Array.isArray(team.playerLanes)) team.playerLanes = [];
+    while (team.playerLanes.length < 5) team.playerLanes.push(POSITIONS[team.playerLanes.length] || "");
+    const subs = impSubInfoOf(t);
     if (mode === "fill"){
       t.assign.forEach((nm, i) => {
-        if (nm && !String(team.players[i] || "").trim()){ team.players[i] = nm; filled++; }
+        if (nm && !String(team.players[i] || "").trim()){
+          team.players[i] = nm;
+          team.playerLanes[i] = impMemberLane(t, nm) || POSITIONS[i];
+          filled++;
+        }
       });
-      subs.forEach(nm => {
+      subs.forEach(({ name: nm, lane }) => {
         if (team.players.indexOf(nm) >= 0 || team.players.length >= ROSTER_MAX) return;
-        team.players.push(nm); filled++;
+        team.players.push(nm); team.playerLanes.push(lane || ""); filled++;
       });
     } else {                                   // 覆盖：整份名单按文件里的来（5 个位置 + 替补）
       const arr = t.assign.slice(0,5);
-      subs.forEach(nm => { if (nm && arr.indexOf(nm) < 0) arr.push(nm); });
+      const lanes = arr.map((nm, i) => nm ? (impMemberLane(t, nm) || POSITIONS[i]) : "");
+      subs.forEach(({ name: nm, lane }) => {
+        if (nm && arr.indexOf(nm) < 0) { arr.push(nm); lanes.push(lane || ""); }
+      });
       filled += arr.filter(Boolean).length;
       team.players = arr;
+      team.playerLanes = lanes;
     }
   });
   renderTeamGrid(); renderGameForm(); bkOnTeamsChanged(); scheduleSave();
@@ -1036,7 +1150,11 @@ function renderTables(){
    六、标签页
    ============================================================ */
 function switchTab(name){
-  $$(".tab").forEach(t => t.classList.toggle("on", t.dataset.tab === name));
+  $$(".tab").forEach(t => {
+    const current = t.dataset.tab === name;
+    t.classList.toggle("on", current);
+    t.setAttribute("aria-pressed", String(current));
+  });
   $$(".panel").forEach(p => p.classList.toggle("on", p.id === "panel-" + name));
   const wide = name === "bracket" || name === "help";   // 赛程图 / 说明页收起右侧预览，整页给内容
   $$(".layout").forEach(l => l.classList.toggle("single", wide));

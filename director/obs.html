@@ -10,6 +10,11 @@
   html.preview-mode, html.preview-mode body {
     background: radial-gradient(circle at 50% 42%, #26304a 0%, #131a28 62%, #0c111b 100%);
   }
+  /* 深色背景上的赛事纹章；透明输出不创建 .scene-bg，浅色 BP 板不叠加。 */
+  .scene-bg::before {
+    content:"";position:absolute;inset:0;pointer-events:none;opacity:.045;
+    background:url("/assets/pkc-emblem.png") 78% 72% / min(50vh,560px) no-repeat;
+  }
   html.preview-mode #stage::after {
     content: attr(data-note);
     position: absolute; right: 14px; bottom: 52px;
@@ -63,6 +68,7 @@
   }
   /* 灰白底上不画叠加用的网格线，避免脏；预览提示也要改成深字。 */
   html.scene-light .scene-bg::after { display: none; }
+  html.scene-light .scene-bg::before { display: none; }
   html.scene-light.preview-mode #stage::after { color: rgba(38,49,63,.42); }
   /* 占位文字（「BP：等待导播台开始本局」这类）在浅色底上要改成深字，否则看不见 */
   html.scene-light .empty { color: rgba(38,49,63,.62); }
@@ -348,6 +354,8 @@
   .iv-row { height: 82px; display: grid; grid-template-columns: 92px 1fr auto; align-items: center; gap: 14px; padding: 0 18px;
     border-radius: 10px; background: linear-gradient(90deg, rgba(255,255,255,.075), rgba(255,255,255,.022));
     border: 1px solid rgba(255,255,255,.06); border-left: 2px solid rgba(88,176,255,.78); }
+  .iv-rows.six { gap: 8px; padding: 10px 0 6px; }
+  .iv-rows.six .iv-row { height: 72px; }
   .iv-team.red .iv-row { border-left: 1px solid rgba(255,255,255,.06); border-right: 2px solid rgba(255,86,104,.78); }
   .iv-lane-box { display: flex; align-items: center; gap: 8px; color: rgba(246,231,200,.58); font-size: 12.5px; letter-spacing: .02em; white-space: nowrap; line-height: 1; }
   .iv-lane-ico { width: 24px; height: 24px; object-fit: contain; opacity: .95; flex: 0 0 24px;
@@ -400,68 +408,56 @@
     font: 800 22px Bahnschrift,"Microsoft YaHei",sans-serif; letter-spacing: .02em;
     box-shadow: 0 8px 20px rgba(255,159,46,.25), inset 0 1px 0 rgba(255,255,255,.55); }
   .bk-titlebox { min-width: 0; }
-  .bk-title { font-size: 34px; font-weight: 800; line-height: 1.1; letter-spacing: .01em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .bk-sub { font-size: 15px; color: #6b7c93; margin-top: 4px; letter-spacing: .02em; }
+  .bk-title { font-size: 40px; font-weight: 800; line-height: 1.1; letter-spacing: .01em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .bk-sub { font-size: 18px; color: #6b7c93; margin-top: 4px; letter-spacing: .02em; }
   .bk-head-right { margin-left: auto; display: flex; align-items: center; gap: 12px; flex: 0 0 auto; }
   .bk-live-pill { display: flex; align-items: center; gap: 8px; padding: 7px 14px; border-radius: 999px;
     background: rgba(255,255,255,.88); border: 1px solid #f0c9cf; color: #c02b3c;
-    font: 700 12px/1 Bahnschrift,"Microsoft YaHei",sans-serif; letter-spacing: .14em;
+    font: 700 15px/1 Bahnschrift,"Microsoft YaHei",sans-serif; letter-spacing: .10em;
     box-shadow: 0 4px 14px rgba(192,43,60,.08); }
   .bk-live-pill i { width: 8px; height: 8px; border-radius: 50%; background: #e5484d;
     box-shadow: 0 0 0 4px rgba(229,72,77,.13); animation: bkLiveDot 1.6s ease-in-out infinite; }
   .bk-progress { padding: 8px 15px; border-radius: 11px; background: linear-gradient(135deg, #1f2a44, #30446b);
-    color: #f6e7c8; font: 700 14px/1 "Microsoft YaHei",sans-serif; letter-spacing: .04em;
+    color: #f6e7c8; font: 700 17px/1 "Microsoft YaHei",sans-serif; letter-spacing: .04em;
     box-shadow: 0 8px 20px rgba(31,42,68,.18); }
-  .bk-progress b { color: #ffd98a; font-size: 20px; margin: 0 2px; }
+  .bk-progress b { color: #ffd98a; font-size: 23px; margin: 0 2px; }
   .bk-main { position: relative; z-index: 2; height: 800px; flex: 0 0 800px; margin-top: 10px;
-    display: grid; grid-template-columns: 470px 1fr 1fr; gap: 26px; }
+    display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 32px; }
   .bk-col { display: flex; flex-direction: column; min-height: 0; }
   .bk-col-title { height: 28px; flex: 0 0 28px; display: flex; align-items: center; gap: 8px;
-    font-size: 17px; font-weight: 800; color: #334155; letter-spacing: .02em; }
+    font-size: 20px; font-weight: 800; color: #334155; letter-spacing: .02em; }
   .bk-col-title::before { content: ""; width: 5px; height: 18px; border-radius: 3px; background: #8b6cf0; }
   .bk-col-r16 .bk-col-title::before { background: #2f6bff; }
   .bk-col-qf .bk-col-title::before { background: #d99a2b; }
-  .bk-groups { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 16px; }
-  .bk-group { position: relative; flex: 1; min-height: 0; display: flex; flex-direction: column; overflow: hidden;
-    background: rgba(255,255,255,.92); border: 1.5px solid rgba(120,145,180,.22); border-radius: 14px;
-    box-shadow: 0 8px 22px rgba(80,105,150,.08); }
-  .bk-group-head { height: 36px; flex: 0 0 36px; display: flex; align-items: center; justify-content: space-between;
-    padding: 0 13px; font-size: 17px; font-weight: 800; }
-  .bk-group-head em { font-style: normal; font-size: 12px; font-weight: 600; color: rgba(31,42,55,.55); letter-spacing: .04em; }
-  .bk-group-rows { flex: 1; min-height: 0; display: flex; flex-direction: column; justify-content: space-evenly; padding: 2px 8px; }
-  .bk-grow { height: 30px; display: flex; align-items: center; gap: 7px; padding: 0 7px; border-radius: 7px;
-    font-size: 15.5px; position: relative; overflow: hidden; }
-  .bk-grow .bk-seed { flex: 0 0 auto; }
-  .bk-grow .bk-name { font-size: 16px; }
   .bk-r16, .bk-qf { position: relative; flex: 1; min-height: 0; }
-  .bk-match { position: absolute; left: 0; right: 0; height: 74px; padding: 5px 12px 6px;
+  .bk-match { position: absolute; left: 0; right: 0; height: 83px; padding: 5px 14px 6px;
     display: flex; flex-direction: column; justify-content: center; overflow: hidden;
     background: rgba(255,255,255,.96); border: 1px solid rgba(120,145,180,.24); border-radius: 11px;
     box-shadow: 0 5px 14px rgba(80,105,150,.07); }
-  .bk-match-label { font-size: 11.5px; font-weight: 700; color: #8a99ad; letter-spacing: .03em; line-height: 1.2; }
-  .bk-row { height: 25px; display: flex; align-items: center; gap: 7px; border-radius: 6px; padding: 0 4px; position: relative; overflow: hidden; }
-  .bk-dot { width: 7px; height: 7px; border-radius: 50%; flex: 0 0 7px; background: #c9d3e2; }
-  .bk-name { font-size: 17px; font-weight: 700; color: #1f2a37; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .bk-match-label { font-size: 17px; font-weight: 700; color: #65758b; letter-spacing: .02em; line-height: 1.2; }
+  .bk-row { height: 31px; display: flex; align-items: center; gap: 9px; border-radius: 6px; padding: 0 4px; position: relative; overflow: hidden; }
+  .bk-dot { width: 9px; height: 9px; border-radius: 50%; flex: 0 0 9px; background: #c9d3e2; }
+  .bk-name { font-size: 24px; font-weight: 700; color: #1f2a37; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .bk-name.empty { color: #b6c2d4; font-weight: 500; }
-  .bk-seed { font-size: 10.5px; font-weight: 700; color: #2f6bff; background: rgba(47,107,255,.10);
-    border-radius: 4px; padding: 1px 4px; flex: 0 0 auto; }
-  .bk-score { margin-left: auto; font: 700 16px/1 Bahnschrift,sans-serif; color: #94a3b8; }
+  .bk-seed { font-size: 14px; font-weight: 700; color: #2f6bff; background: rgba(47,107,255,.10);
+    border-radius: 4px; padding: 2px 5px; flex: 0 0 auto; }
+  .bk-score { margin-left: auto; font: 700 24px/1 Bahnschrift,sans-serif; color: #73839a; }
   .bk-match.won { border-color: rgba(47,107,255,.45); box-shadow: 0 0 0 2px rgba(47,107,255,.10), 0 7px 18px rgba(47,107,255,.12); }
   .bk-match.bk-active {
     outline: 3px solid rgba(255,210,90,.95);
     box-shadow: 0 0 0 6px rgba(255,210,90,.16), 0 18px 48px rgba(0,0,0,.35);
     animation: bkActivePulse 2.4s ease-in-out infinite;
   }
-  .bk-legend { position: relative; z-index: 2; flex: 0 0 56px; height: 56px; margin-top: 12px;
+  .bk-legend { position: relative; z-index: 2; flex: 0 0 62px; height: 62px; margin-top: 12px;
     display: flex; align-items: center; gap: 0; padding: 0 18px; border-radius: 12px;
     background: rgba(255,255,255,.86); border: 1px solid rgba(120,145,180,.20);
     box-shadow: 0 6px 18px rgba(80,105,150,.06); }
   .bk-legend-item { flex: 1; display: flex; align-items: center; gap: 8px; min-width: 0; }
-  .bk-legend-item i { width: 18px; height: 18px; border-radius: 5px; flex: 0 0 18px; }
-  .bk-legend-item b { font-size: 14px; color: #334155; white-space: nowrap; }
-  .bk-legend-item span { font-size: 11.5px; color: #8a99ad; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .bk-foot { position: relative; z-index: 2; flex: 0 0 18px; height: 18px; display: flex; align-items: center;
-    justify-content: space-between; margin-top: 4px; color: #9aa8bb; font-size: 10.5px; letter-spacing: .04em; }
+  .bk-legend-item i { width: 20px; height: 20px; border-radius: 5px; flex: 0 0 20px; }
+  .bk-legend-item b { font-size: 16px; color: #334155; white-space: nowrap; }
+  .bk-legend-item span { font-size: 14px; color: #718198; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .bk-foot { position: relative; z-index: 2; flex: 0 0 20px; height: 20px; display: flex; align-items: center;
+    justify-content: space-between; margin-top: 4px; color: #77879e; font-size: 13px; letter-spacing: .04em; }
   .bk-foot .r { font-family: Bahnschrift,"Microsoft YaHei",sans-serif; }
 
   /* 落位强调 */
@@ -475,11 +471,6 @@
     background: linear-gradient(135deg, #ffe6ac, #e9c37f); color: #5a3a00;
     font: 800 11px/1 "Microsoft YaHei",sans-serif; letter-spacing: .06em;
     box-shadow: 0 4px 12px rgba(180,130,50,.28); animation: bkTagIn 2.9s ease both; pointer-events: none; }
-  .bk-grow.is-landing { animation: bkLandRow 3.1s ease-out both; }
-  .bk-grow.is-landing .bk-name { animation: bkNamePop .85s cubic-bezier(.22,1.4,.36,1) both; }
-  .bk-grow.is-landing::after { content: ""; position: absolute; inset: 0;
-    background: linear-gradient(100deg, transparent 20%, rgba(255,255,255,.92) 48%, transparent 76%);
-    transform: translateX(-130%); animation: bkSweep 1.25s .12s ease-out both; pointer-events: none; }
   .bk-complete { position: absolute; left: 50%; top: 50%; z-index: 6; transform: translate(-50%,-50%);
     padding: 16px 30px; border-radius: 16px; background: linear-gradient(135deg, rgba(31,42,68,.94), rgba(48,68,107,.94));
     color: #ffe6ac; font-size: 24px; font-weight: 800; letter-spacing: .12em;
@@ -508,6 +499,75 @@
     border-radius: 999px; background: rgba(6,12,24,.76); border: 1px solid rgba(233,195,127,.42);
     color: #f6e7c8; font: 700 12px/1 Bahnschrift,"Microsoft YaHei",sans-serif; letter-spacing: .10em;
     box-shadow: 0 8px 22px rgba(0,0,0,.22); }
+
+  /* 解说场景：精简为赛事转播包装，保留同一份实时数据与 OBS 透明输出逻辑。 */
+  .st{
+    color:#f4f6fb;perspective:none;
+    background:
+      radial-gradient(ellipse 780px 470px at 50% 46%,rgba(37,70,125,.42),transparent 76%),
+      radial-gradient(ellipse 760px 540px at 50% 110%,rgba(195,145,54,.13),transparent 72%),
+      linear-gradient(135deg,#07101f 0%,#101d33 50%,#080e1a 100%);
+  }
+  .st::before{
+    opacity:1;
+    background:
+      linear-gradient(90deg,transparent 49.94%,rgba(214,177,102,.12) 50%,transparent 50.06%),
+      repeating-linear-gradient(0deg,transparent 0 79px,rgba(255,255,255,.025) 80px),
+      radial-gradient(ellipse at 50% 42%,transparent 20%,rgba(2,6,14,.5) 100%);
+  }
+  .st::after{left:0;top:0;width:auto;height:auto;transform:none;border-radius:0;background:linear-gradient(180deg,rgba(255,255,255,.035),transparent 30%)}
+  .st-led{background:linear-gradient(115deg,transparent 0 12%,rgba(92,137,205,.045) 12.1% 12.2%,transparent 12.3% 87%,rgba(201,154,46,.05) 87.1% 87.2%,transparent 87.3%)}
+  .st-led::before{inset:0;background:linear-gradient(135deg,transparent 0 49.9%,rgba(255,255,255,.035) 50%,transparent 50.1%);opacity:1}
+  .st-led::after{left:50%;top:155px;width:1160px;height:730px;border:1px solid rgba(226,190,121,.10);box-shadow:0 0 100px rgba(33,67,119,.12);opacity:1}
+  .st-wall{left:56px;right:56px;top:20px;width:auto;height:auto;transform:none;border-radius:18px 18px 0 0;border:1px solid rgba(255,255,255,.075);border-bottom:0;box-shadow:inset 0 1px 0 rgba(255,255,255,.035);background:linear-gradient(180deg,rgba(255,255,255,.025),transparent 28%)}
+  .st-wall::after{left:7%;right:7%;background:linear-gradient(90deg,transparent,rgba(201,154,46,.5),transparent)}
+  .st-emblem{top:178px;width:490px;height:490px;opacity:.055;filter:grayscale(1);}
+  .st-brand{left:64px;top:38px;gap:11px}
+  .st-mark{width:42px;height:42px;padding:3px;background:#111c30;box-shadow:inset 0 0 0 1px rgba(224,190,124,.38)}
+  .st-brand b{font-size:15px;letter-spacing:.08em;color:#f5f1e8}
+  .st-brand span{font-size:9px;color:rgba(219,228,243,.48);letter-spacing:.18em}
+  .st-live{right:64px;top:42px;padding:9px 13px;border:1px solid rgba(255,255,255,.12);background:rgba(5,10,19,.72);font-size:11px;letter-spacing:.14em}
+  .st-head{top:74px}
+  .st-head h1{font-size:43px;letter-spacing:.045em;color:#f4f6fb;text-shadow:0 5px 30px rgba(0,0,0,.38)}
+  .st-head p{margin-top:8px;font-size:16px;font-weight:600;color:#d7b76e;letter-spacing:.28em}
+  .st-match{top:300px;gap:46px}
+  .st-team{position:relative;width:370px;padding:24px 24px 22px;border-radius:14px;text-align:left;overflow:hidden;
+    background:linear-gradient(120deg,rgba(36,88,159,.28),rgba(15,28,49,.78));border:1px solid rgba(99,157,239,.30);
+    box-shadow:0 20px 55px rgba(0,0,0,.28),inset 0 1px 0 rgba(255,255,255,.08)}
+  .st-team::before{content:"";position:absolute;left:0;top:0;bottom:0;width:4px;background:linear-gradient(180deg,#74b6ff,#2878e8)}
+  .st-team.red{background:linear-gradient(240deg,rgba(151,46,62,.27),rgba(38,18,31,.82));border-color:rgba(236,107,122,.27)}
+  .st-team.red::before{left:auto;right:0;background:linear-gradient(180deg,#ff9a9e,#d83f55)}
+  .st-side-label{font-size:10px;letter-spacing:.24em;color:#82bdff;margin-bottom:13px}
+  .st-team.red .st-side-label{color:#ff9da5}
+  .st-name{font-size:30px;color:#f5f7fb;letter-spacing:.015em}
+  .st-team::after{width:100%;height:1px;margin:17px 0 0;background:linear-gradient(90deg,rgba(105,177,255,.7),transparent)}
+  .st-team.red::after{background:linear-gradient(90deg,transparent,rgba(244,111,126,.68))}
+  .st-scorebox{width:228px;padding:18px 12px;border:1px solid rgba(226,190,121,.27);border-radius:14px;background:linear-gradient(180deg,rgba(19,27,42,.9),rgba(7,12,21,.9));box-shadow:0 20px 55px rgba(0,0,0,.3)}
+  .st-score{font-size:68px;color:#f3e8cb;text-shadow:0 0 32px rgba(222,183,103,.16)}
+  .st-score i{font-size:54px;color:rgba(226,190,121,.55)}
+  .st-score-label{margin-top:12px;color:rgba(228,213,181,.62);font-size:10px;letter-spacing:.2em}
+  .st-floor,.st-desk,.st-front,.st-chair,.st-person{display:none}
+  .st-seats{bottom:290px;align-items:center}
+  .st-seat{width:330px;height:116px;flex-basis:330px}
+  .st-seats.count-1 .st-seat{width:360px;height:116px;flex-basis:360px}
+  .st-seats.count-2{gap:150px}
+  .st-seats.count-3{gap:48px}
+  .st-seat .st-caster,.st-caster{
+    left:50%;bottom:0;width:330px;min-height:92px;transform:translateX(-50%);gap:13px;padding:13px 17px;
+    border:1px solid rgba(224,190,124,.20);border-radius:12px;
+    background:linear-gradient(110deg,rgba(21,34,55,.98),rgba(11,19,32,.98));
+    box-shadow:0 18px 42px rgba(0,0,0,.28),inset 0 1px 0 rgba(255,255,255,.07);
+  }
+  .st-caster::before{content:"";position:absolute;left:0;top:12px;bottom:12px;width:3px;background:#68aaff;border-radius:0 3px 3px 0}
+  .st-caster.r::before{background:#f07883}
+  .st-caster.c::before{background:#d9ad5c}
+  .st-ava{width:48px;height:48px;border-radius:11px;background:linear-gradient(145deg,#4f8dd9,#244d88);box-shadow:inset 0 0 0 1px rgba(255,255,255,.20)}
+  .st-caster.c .st-ava{background:linear-gradient(145deg,#d5a953,#80602c)}
+  .st-caster.r .st-ava{background:linear-gradient(145deg,#d66d7a,#813744)}
+  .st-caster span{font-size:10px;color:rgba(218,228,243,.55);letter-spacing:.16em}
+  .st-caster b{font-size:19px;color:#f5f6f8;letter-spacing:.02em}
+  .st-foot{height:42px;padding:0 64px;background:linear-gradient(90deg,rgba(5,9,16,.94),rgba(12,20,33,.9),rgba(5,9,16,.94));border-top:1px solid rgba(255,255,255,.08);color:rgba(230,235,244,.55);font-size:10px;letter-spacing:.16em}
+  .st-banner{bottom:64px;border-radius:12px;clip-path:none;box-shadow:0 24px 70px rgba(0,0,0,.48)}
 </style>
 </head>
 <body>
@@ -522,6 +582,7 @@
 <script src="/assets/pkc-ocr.js"></script>
 <script src="/assets/pkc-export.js"></script>
 <script src="/assets/pkc-app.js"></script>
+<script src="/assets/pkc-spotlight.js"></script>
 <script>
 "use strict";
 
@@ -630,22 +691,42 @@ function boardUrl(heroName) {
 const teamPlayers = new Map();
 const allTeams = [];
 let matchStore = null;
-fetch("/api/director/teams")
-  .then((r) => r.json())
-  .then((d) => {
-    for (const t of (d && d.teams) || []) {
-      teamPlayers.set(t.name, t.players || []);
-      allTeams.push(t);
-    }
-    // 队伍名单是异步到达的；若此前已渲染过，需作废缓存重绘一次，
-    // 否则选手名会一直显示为占位符（竞态）。
-    if (lastState) {
-      lastBpKey = null;
-      lastChartKey = null;
-      render(lastState);
-    }
-  })
-  .catch(() => {});
+let loadedTeamSeriesId = "";
+let teamLoadToken = 0;
+async function loadObsTeams(seriesId = "") {
+  const token = ++teamLoadToken;
+  let targetSeriesId = seriesId;
+  if (!targetSeriesId) {
+    const library = await fetch("/api/store/library", { cache: "no-store" }).then((r) => r.json()).catch(() => null);
+    if (token !== teamLoadToken) return;
+    targetSeriesId = library && (library.currentId || library.series && library.series[0] && library.series[0].id) || "";
+  }
+  if (!targetSeriesId || targetSeriesId === loadedTeamSeriesId) return;
+  const data = await fetch("/api/competition/teams?seriesId=" + encodeURIComponent(targetSeriesId), { cache: "no-store" })
+    .then((r) => r.json()).catch(() => null);
+  if (token !== teamLoadToken || !data || !Array.isArray(data.teams)) return;
+  teamPlayers.clear();
+  allTeams.splice(0, allTeams.length);
+  for (const team of data.teams) {
+    const players = (team.players || []).map((name, i) => ({
+      name,
+      realName: team.playerMeta && team.playerMeta[i] && team.playerMeta[i].realName || "",
+      lane: team.playerLanes && team.playerLanes[i] || "",
+    }));
+    const directorTeam = { ...team, players };
+    teamPlayers.set(team.name, players);
+    allTeams.push(directorTeam);
+  }
+  loadedTeamSeriesId = targetSeriesId;
+  // 队伍名单是异步到达的；若此前已渲染过，需作废缓存重绘一次，
+  // 否则选手名会一直显示为占位符（竞态）。
+  if (lastState) {
+    lastBpKey = null;
+    lastChartKey = null;
+    render(lastState);
+  }
+}
+loadObsTeams();
 fetch("/api/store/matches")
   .then((r) => r.json())
   .then((d) => {
@@ -1141,7 +1222,20 @@ renderBp = renderBp2;
 function render(state) {
   lastState = state;
   const { live, scenes } = state;
+  const contextSeriesId = live && live.context && live.context.seriesId || "";
+  if (contextSeriesId && contextSeriesId !== loadedTeamSeriesId) loadObsTeams(contextSeriesId);
   const scene = activeScene(state);
+  if (scene === "spotlight") {
+    const canvas = document.createElement("canvas");
+    /* #stage 本身会按视口缩放。画布必须保持原始 1920×1080，避免再按
+       iframe 视口尺寸设置 100vw/100vh 后被舞台二次缩小。 */
+    canvas.width = W;
+    canvas.height = H;
+    canvas.style.cssText = "width:1920px;height:1080px;display:block";
+    stage.replaceChildren(canvas); stage.classList.remove("board");
+    window.PKCSpotlight.draw(canvas, live && live.spotlightPlaylist).catch(() => {});
+    return;
+  }
   const meta = (scenes || []).find((s) => s.id === scene);
   /* BP 板走目标系统的灰白配色；赛间板是深色转播版面，不再套浅色底。 */
   document.documentElement.classList.toggle("scene-light", scene === "bp");
@@ -1321,7 +1415,9 @@ function renderCommentary(settings, live) {
         <span>HONOR · 赛事成就</span>
         <b>${esc(b.title || "新纪录")}</b>
         <p>${esc(b.content || "")}</p>
-        ${b.player ? `<em>${esc(b.player)}</em>` : ""}
+        ${b.hero
+          ? `<em>${esc(b.player ? b.player + " · " : "")}${esc(b.hero)}${b.winRate !== "" && b.winRate != null ? " · 胜率 " + esc(b.winRate) + "%" : ""}${b.heroGames ? "（" + esc(b.heroGames) + " 场）" : ""}</em>`
+          : (b.player ? `<em>${esc(b.player)}</em>` : "")}
       </div>
       <svg class="st-bn-trophy" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
         <path d="M8 4h8v4a4 4 0 0 1-8 0V4Z"/><path d="M8 5H5v2a3 3 0 0 0 3 3M16 5h3v2a3 3 0 0 1-3 3"/><path d="M12 12v4M9 20h6M10 16h4l1 4H9l1-4Z"/>
@@ -1357,7 +1453,7 @@ function renderCommentary(settings, live) {
     <div class="st-desk"></div>
     <div class="st-front"></div>
     ${banner}
-    <div class="st-foot"><span>赛前 · 解说席</span><span>PKC 2026</span></div>`;
+    <div class="st-foot"><span>${esc(subtitle)} · 解说席</span><span>PKC 2026</span></div>`;
   stage.append(root);
 }
 
@@ -1424,10 +1520,13 @@ function renderInterval(settings, live) {
 
     const players = teamPlayers.get(name) || [];
     const rows = el("div", "iv-rows");
+    const lanes = (isRed ? s.redLanes : s.blueLanes) || [];
     LANES.forEach((lane, i) => {
       const row = el("div", "iv-row");
       const laneBox = el("div", "iv-lane-box");
-      laneBox.append(laneIcon(lane, "iv-lane-ico", isRed ? "red" : "blue"), el("span", null, lane));
+      const laneName = lanes[i] || lane;
+      const iconLane = laneName === "补位" ? lane : (laneName === "对抗路" ? "上单" : laneName);
+      laneBox.append(laneIcon(iconLane, "iv-lane-ico", isRed ? "red" : "blue"), el("span", null, laneName));
       row.append(laneBox);
       row.append(el("span", "iv-who", (players[i] && players[i].name) || "—"));
       if (s.showRealName !== false && players[i] && players[i].realName) {
@@ -1435,6 +1534,18 @@ function renderInterval(settings, live) {
       }
       rows.append(row);
     });
+    const sub = isRed ? s.redSub : s.blueSub;
+    const subLane = isRed ? s.redSubLane : s.blueSubLane;
+    if (sub) {
+      const row = el("div", "iv-row");
+      const laneBox = el("div", "iv-lane-box");
+      const laneName = subLane || "补位";
+      const iconLane = laneName === "补位" ? "游走" : (laneName === "对抗路" ? "上单" : laneName);
+      laneBox.append(laneIcon(iconLane, "iv-lane-ico", isRed ? "red" : "blue"), el("span", null, laneName));
+      row.append(laneBox, el("span", "iv-who", sub));
+      rows.append(row);
+      rows.classList.add("six");
+    }
     c.append(rows);
     const foot = el("div", "iv-team-foot");
     foot.append(el("span", null, "STARTING LINEUP"), el("span", null, "PKC 2026"));
@@ -1493,12 +1604,6 @@ function renderBracketLive(bracket, change, activeKey) {
   const escBk = (s) => String(s == null ? "" : s).replace(/[&<>"']/g, (c) => (
     { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]
   ));
-  const rgba = (hex, a) => {
-    let h = String(hex || "#8aa").replace("#", "");
-    if (h.length === 3) h = h.split("").map((c) => c + c).join("");
-    const n = parseInt(h.length === 6 ? h : "8899aa", 16);
-    return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${a})`;
-  };
   const teamMap = new Map((bracket.teams || []).map((t) => [t.id, t]));
   const teamOf = (id) => teamMap.get(id) || null;
   const nameOf = (id) => (id ? ((teamOf(id) && teamOf(id).name) || id) : "");
@@ -1523,8 +1628,6 @@ function renderBracketLive(bracket, change, activeKey) {
     ["各组第1名", "各组第4名"], ["各组第2名", "各组第3名"],
     ["各组第2名", "各组第3名"], ["各组第1名", "各组第4名"],
   ];
-  const G_COLOR = { A: "#8b6cf0", B: "#2f9e8f", C: "#c58a3a", D: "#d95c7a" };
-
   const rowHtml = (id, side, placeholder, scoreVal) => {
     const seed = id ? seedOf(id) : "";
     return `<div class="bk-row" data-side="${side}">
@@ -1535,30 +1638,12 @@ function renderBracketLive(bracket, change, activeKey) {
     </div>`;
   };
 
-  const groupHtml = ["A", "B", "C", "D"].map((g) => {
-    const ids = groups[g] || [];
-    const rows = [0, 1, 2, 3].map((i) => {
-      const id = ids[i] || "";
-      return `<div class="bk-grow" data-group="${g}" data-index="${i}">
-        <span class="bk-seed" style="color:${G_COLOR[g]};background:${rgba(G_COLOR[g], .12)}">第${i + 1}名</span>
-        <i class="bk-dot" style="background:${id ? escBk(colorOf(id)) : "#c9d3e2"}"></i>
-        <span class="bk-name ${id ? "" : "empty"}">${escBk(id ? nameOf(id) : "（未选）")}</span>
-      </div>`;
-    }).join("");
-    return `<div class="bk-group" data-group-card="${g}" style="border-color:${rgba(G_COLOR[g], .28)}">
-      <div class="bk-group-head" style="background:${rgba(G_COLOR[g], .13)};color:${G_COLOR[g]}">
-        <span>${g} 组</span><em>已填 ${ids.filter(Boolean).length}/4</em>
-      </div>
-      <div class="bk-group-rows">${rows}</div>
-    </div>`;
-  }).join("");
-
   const r16Html = [0, 1, 2, 3, 4, 5, 6, 7].map((i) => {
     const d = draw[i] || {};
     const slots = R16_SLOTS[i];
     const sc = score["R16-" + (i + 1)] || {};
     const won = win["R16-" + (i + 1)];
-    return `<div class="bk-match${won ? " won" : ""}" data-key="R16-${i + 1}" style="top:${i * 94}px">
+    return `<div class="bk-match${won ? " won" : ""}" data-key="R16-${i + 1}" style="top:${i * 96}px">
       <div class="bk-match-label">16强赛 第${i + 1}场</div>
       ${rowHtml(d.a, "a", slots[0], sc.a)}
       ${rowHtml(d.b, "b", slots[1], sc.b)}
@@ -1574,7 +1659,7 @@ function renderBracketLive(bracket, change, activeKey) {
     const a = r16Winner(2 * j), b = r16Winner(2 * j + 1);
     const sc = score["WB1-" + (j + 1)] || {};
     const won = win["WB1-" + (j + 1)];
-    return `<div class="bk-match${won ? " won" : ""}" data-key="WB1-${j + 1}" style="top:${47 + j * 188}px">
+    return `<div class="bk-match${won ? " won" : ""}" data-key="WB1-${j + 1}" style="top:${47 + j * 192}px">
       <div class="bk-match-label">胜者组八强赛 第${j + 1}场</div>
       ${rowHtml(a, "a", `16强${2 * j + 1} 胜者`, sc.a)}
       ${rowHtml(b, "b", `16强${2 * j + 2} 胜者`, sc.b)}
@@ -1596,10 +1681,6 @@ function renderBracketLive(bracket, change, activeKey) {
       </div>
     </div>
     <div class="bk-main">
-      <section class="bk-col bk-col-groups">
-        <div class="bk-col-title">预选赛分组 · 每组前 4 名晋级 16 强</div>
-        <div class="bk-groups">${groupHtml}</div>
-      </section>
       <section class="bk-col bk-col-r16">
         <div class="bk-col-title">16 强赛 · 单败淘汰（输一场就出局）</div>
         <div class="bk-r16">${r16Html}</div>
@@ -1639,16 +1720,8 @@ function renderBracketLive(bracket, change, activeKey) {
     const row = card && card.querySelector('[data-side="' + side + '"]');
     if (card && row) targets.push({ card, row, label: label || ("落位 · 第" + (i + 1) + "场") });
   };
-  const addGroup = (g, i) => {
-    const row = root.querySelector('.bk-grow[data-group="' + g + '"][data-index="' + i + '"]');
-    const card = row && row.closest(".bk-group");
-    if (row && card) targets.push({ card, row, label: "落位 · " + g + " 组" });
-  };
-
   if (change.kind === "draw" && change.match != null && change.teamId) {
     addDraw(+change.match, change.side);
-  } else if (change.kind === "group" && change.teamId) {
-    addGroup(change.group, +change.index);
   } else if (change.kind === "bulk" || change.kind === "win") {
     if (prev) {
       for (let i = 0; i < 8; i++) {
@@ -1656,13 +1729,6 @@ function renderBracketLive(bracket, change, activeKey) {
           const oldId = (prev.draw && prev.draw[i] && prev.draw[i][side]) || "";
           const newId = (draw[i] && draw[i][side]) || "";
           if (newId && oldId !== newId) addDraw(i, side);
-        }
-      }
-      for (const g of ["A", "B", "C", "D"]) {
-        for (let i = 0; i < 4; i++) {
-          const oldId = (prev.groups && prev.groups[g] && prev.groups[g][i]) || "";
-          const newId = (groups[g] && groups[g][i]) || "";
-          if (newId && oldId !== newId) addGroup(g, i);
         }
       }
     }
@@ -1770,6 +1836,8 @@ function connect() {
     // 现场通道：BP 与数据图都由它实时驱动
     const st = JSON.parse(e.data);
     lastState = st;
+    const contextSeriesId = st.live && st.live.context && st.live.context.seriesId || "";
+    if (contextSeriesId && contextSeriesId !== loadedTeamSeriesId) loadObsTeams(contextSeriesId);
     const scene = activeScene(st);
     if (scene === "bracket") {
       const activeKey = st.live.context && st.live.bracket
@@ -1782,6 +1850,7 @@ function connect() {
     if (scene === "lineup") renderLineup(st.live.bp, st.live);
     if (scene === "interval") renderInterval(activeSettings(st), st.live);
     if (scene === "commentary") renderCommentary(activeSettings(st), st.live);
+    if (scene === "spotlight") render(st);
   });
   source.addEventListener("error", () => {
     showStatus("与导播台断开，重连中…");

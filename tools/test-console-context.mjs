@@ -12,17 +12,16 @@ const ctx = {
   matchKey: "R16-5",
   matchLabel: "16强5 · 等我刷把电刀 vs 别让我取名",
   matchRound: "16强赛",
-  gameId: "test-game",
-  gameLabel: "第2局",
   blueTeam: "等我刷把电刀",
   redTeam: "别让我取名",
 };
 
-await fetch("http://127.0.0.1:8971/api/director/context", {
+const contextResponse = await fetch("http://127.0.0.1:8971/api/director/context", {
   method: "POST",
   headers: { "Content-Type": "application/json" },
   body: JSON.stringify(ctx),
 });
+if (!contextResponse.ok) throw new Error("设置测试上下文失败：" + await contextResponse.text());
 
 const browser = await chromium.launch({ channel: "msedge", headless: true });
 const page = await browser.newPage({ viewport: { width: 1680, height: 1050 } });

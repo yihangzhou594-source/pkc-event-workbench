@@ -456,6 +456,32 @@ $("btnCopyObs").onclick = async () => {
 
 /* ================= 队伍库 ================= */
 let teams = [];
+let teamRevision = "";
+let teamSeriesId = "";
+let teamLoadToken = 0;
+
+async function fetchCanonicalTeams() {
+  let seriesId = state && state.live && state.live.context && state.live.context.seriesId || "";
+  if (!seriesId) {
+    const library = await fetch("/api/store/library", { cache: "no-store" }).then((r) => r.json());
+    seriesId = library.currentId || library.series && library.series[0] && library.series[0].id || "";
+  }
+  const response = await fetch("/api/competition/teams?seriesId=" + encodeURIComponent(seriesId), { cache: "no-store" });
+  const data = await response.json();
+  if (!response.ok) throw new Error(data.message || data.error || "读取队伍失败");
+  return {
+    ...data,
+    seriesId,
+    teams: (data.teams || []).map((team) => ({
+      ...team,
+      players: (team.players || []).map((name, i) => ({
+        name,
+        realName: team.playerMeta && team.playerMeta[i] && team.playerMeta[i].realName || "",
+        lane: team.playerLanes && team.playerLanes[i] || "",
+      })),
+    })),
+  };
+}
 
 function teamMsg(text, ok) {
   const el = $("teamMsg");
@@ -510,9 +536,12 @@ function paintTeams() {
 
 async function loadTeams() {
   if (!$("teamGrid")) return;
+  const token = ++teamLoadToken;
   try {
-    const r = await fetch("/api/director/teams");
-    const d = await r.json();
+    const d = await fetchCanonicalTeams();
+    if (token !== teamLoadToken) return;
+    teamSeriesId = d.seriesId || "";
+    teamRevision = d.revision || "";
     teams = Array.isArray(d.teams) ? d.teams : [];
     paintTeams();
     if (teams.length && $("teamJson") && !$("teamJson").value.trim()) {
@@ -542,14 +571,25 @@ $("btnTeamSave").onclick = async () => {
     return teamMsg("解析失败：" + e.message, false);
   }
   try {
-    const res = await fetch("/api/director/teams", {
-      method: "POST",
+    const res = await fetch("/api/competition/teams?seriesId=" + encodeURIComponent(teamSeriesId), {
+      method: "PUT",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ teams: list }),
+      body: JSON.stringify({ teams: list, revision: teamRevision }),
     });
     const d = await res.json();
+    if (res.status === 409) {
+      return teamMsg("队伍资料已被其他页面修改。请刷新页面读取最新名单，再重新应用你的修改。", false);
+    }
     if (!res.ok) throw new Error(d.message || d.error);
-    teams = d.teams || [];
+    teamRevision = d.revision || teamRevision;
+    teams = (d.teams || []).map((team) => ({
+      ...team,
+      players: (team.players || []).map((name, i) => ({
+        name,
+        realName: team.playerMeta && team.playerMeta[i] && team.playerMeta[i].realName || "",
+        lane: team.playerLanes && team.playerLanes[i] || "",
+      })),
+    }));
     paintTeams();
     teamMsg("已保存 " + teams.length + " 支队伍", true);
   } catch (e) {
@@ -672,7 +712,7 @@ async function bpPost(action, body) {
 
 function bindBp() {
   $("bpStart").onclick = async () => {
-    const teams = await (await fetch("/api/director/teams")).json().catch(() => ({ teams: [] }));
+    const teams = await fetchCanonicalTeams().catch(() => ({ teams: [] }));
     const list = teams.teams || [];
     await bpPost("bp/start", { teams: { blue: (list[0] && list[0].name) || "蓝方", red: (list[1] && list[1].name) || "红方" } });
     bpSel = null; paint(); paintGrid(); paintBpOps();
@@ -708,6 +748,7 @@ source.addEventListener("error", () => { setConn("已断开，重连中…"); })
 const portEl = $("portLabel"); if (portEl) portEl.textContent = location.port || "80";
 fetch("/api/director/state").then(r => r.json()).then(s => {
   state = s;
+  loadTeams();
   window.__pkDirectorReady = true;
   paint();
   syncFrame();
