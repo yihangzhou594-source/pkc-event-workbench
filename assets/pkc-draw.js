@@ -138,7 +138,7 @@ function procKeyOut(url, img){
 /* 雷达七个维度：与「PKC 战报图」版式一致，其中第四项用 KDA 替代补刀数 */
 const AXES = [
   { key:"kda",        name:"KDA",             unit:""  },
-  { key:"dmgPct",     name:"伤害占比",         unit:"%" },
+  { key:"dmgWan",     name:"伤害",             unit:"k" },
   { key:"tankPct",    name:"承伤占比",         unit:"%" },
   { key:"gpm",        name:"分均经济",         unit:""  },
   { key:"kp",         name:"参团率",           unit:"%" },
@@ -146,10 +146,31 @@ const AXES = [
   { key:"k",          name:"击杀",             unit:""  }
 ];
 const CMP_POOL = [
-  { key:"gold",      name:"总经济",     unit:""  },
-  { key:"dmgWan",    name:"总输出(万)", unit:""  },
-  { key:"goldShare", name:"经济占比",   unit:"%" }
+  { key:"gold",      name:"总经济",   unit:"" },
+  { key:"dmgWan",    name:"输出伤害", unit:"k" }
 ];
+/** 图表统一用 k 展示真实值：经济取元值，伤害取已换算好的「万」再 ×10。 */
+function fmtK(k){
+  const n = parseNum(k);
+  if (n === null) return "—";
+  const digits = Math.abs(n) >= 100 ? 0 : 1;
+  return n.toFixed(digits).replace(/\.0$/, "") + "k";
+}
+function goldK(p){
+  const gold = parseNum(p && p.gold);
+  return gold === null ? "—" : fmtK(gold / 1000);
+}
+function dmgK(p){
+  const wan = parseNum(p && p.dmgWan);
+  return wan === null ? "—" : fmtK(wan * 10);
+}
+function metricText(p, key){
+  if (key === "gold") return goldK(p);
+  if (key === "dmgWan") return dmgK(p);
+  if (key === "kp" || key === "dmgPct" || key === "tankPct" || key === "goldShare")
+    return isBlank(p && p[key]) ? "—" : dispVal(p[key], "%");
+  return isBlank(p && p[key]) ? "—" : String(p[key]).trim();
+}
 /** 取某个维度对某个选手的原始值与展示文本 */
 function axisVal(p, key){
   if (key === "kda"){
@@ -162,6 +183,7 @@ function axisVal(p, key){
     const s = effPerGold(p), n = parseNum(s);
     return { num:n, txt: s || "—" };
   }
+  if (key === "dmgWan") return { num:parseNum(p.dmgWan), txt:dmgK(p) };
   const raw = p[key];
   const unit = (AXES.find(a => a.key === key) || {}).unit || "";
   return { num: parseNum(raw), txt: isBlank(raw) ? "—" : dispVal(raw, unit) };
@@ -434,11 +456,11 @@ function drawCompare(ctx, row, ourColor, oppColor){
     const y = 838 + i*64;
     const a = parseNum(row.our[r.key]), b = parseNum(row.opp[r.key]);
     const sa = a||0, sb = b||0, sum = sa+sb, ra = sum>0 ? sa/sum : .5;
-    T(ctx, dispVal(row.our[r.key], r.unit), 806, y+14,
+    T(ctx, metricText(row.our, r.key), 806, y+14,
       { size:37, weight:"700", align:"right", color:ourColor, family:FN,
         shadow:"rgba(0,0,0,.3)", shadowBlur:6, shadowY:1 });
     T(ctx, r.name, 960, y+14, { size:20, weight:"500", align:"center", color:t.sub });
-    T(ctx, dispVal(row.opp[r.key], r.unit), 1114, y+14,
+    T(ctx, metricText(row.opp, r.key), 1114, y+14,
       { size:37, weight:"700", align:"left", color:oppColor, family:FN,
         shadow:"rgba(0,0,0,.3)", shadowBlur:6, shadowY:1 });
     const bx0=88, bx1=DW-88, mid=960, maxL=mid-bx0;
@@ -536,10 +558,10 @@ function drawKplStatChips(ctx, x, y, w, p, color, sideLabel){
   ctx.fillStyle = rgba(color, .85); ctx.fillRect(x, y, 4, 138);
   T(ctx, sideLabel, x+18, y+20, { size:16, weight:"800", color:KPL_GOLD, spacing:1.4 });
   const stats = [
-    ["总经济", isBlank(p.gold) ? "—" : p.gold],
-    ["输出", isBlank(p.dmgWan) ? "—" : fmtWan(p.dmgWan)+"万"],
+    ["总经济", goldK(p)],
+    ["输出伤害", dmgK(p)],
     ["参团率", isBlank(p.kp) ? "—" : dispVal(p.kp, "%")],
-    ["经济占比", isBlank(p.goldShare) ? "—" : dispVal(p.goldShare, "%")],
+    ["经济转伤", isBlank(p.dmgPerGold) ? "—" : p.dmgPerGold],
   ];
   stats.forEach((it, i) => {
     const cx = x + 20 + (i%2)*(w-40)/2;
@@ -632,11 +654,11 @@ function drawOverview(ctx, g){
     ctx.fillStyle = t.frame; ctx.fillRect(x+22, tileY+486, tileW-44, 1);
     fitText(ctx, row.opp.name || (row.hasOpp ? "—" : "（未指定）"), cx, tileY+522, { size:29, weight:"700", align:"center", color:C_RED, maxWidth:tileW-40, minScale:.62 });
     T(ctx, "KDA " + kdaText(row.opp), cx, tileY+560, { size:24, align:"center", color:C_RED, family:FN });
-    [["kp","参团率"],["dmgPct","伤害占比"]].forEach(([k,label], ki) => {
+    [["kp","参团率"],["dmgWan","输出伤害"]].forEach(([k,label], ki) => {
       const yy = tileY+636 + ki*62;
-      T(ctx, dispVal(row.our[k],"%"), x+24, yy, { size:28, weight:"700", color:C_BLUE, family:FN });
+      T(ctx, metricText(row.our,k), x+24, yy, { size:28, weight:"700", color:C_BLUE, family:FN });
       T(ctx, label, cx, yy, { size:19, align:"center", color:t.sub });
-      T(ctx, dispVal(row.opp[k],"%"), x+tileW-24, yy, { size:28, weight:"700", align:"right", color:C_RED, family:FN });
+      T(ctx, metricText(row.opp,k), x+tileW-24, yy, { size:28, weight:"700", align:"right", color:C_RED, family:FN });
     });
   });
   if (DB.prefs.footer) fitText(ctx, DB.prefs.footer, 960, 1054, { size:21, align:"center", color:t.faint, maxWidth:DW-200 });
@@ -684,21 +706,14 @@ function drawKplOverview(ctx, g){
     ctx.fillStyle = "rgba(255,255,255,.12)"; ctx.fillRect(x+20, tileY+420, tileW-40, 1);
     [
       ["参团率", "kp"],
-      ["伤害占比", "dmgPct"],
-      ["经济占比", "goldShare"],
+      ["输出伤害", "dmgWan"],
+      ["总经济", "gold"],
     ].forEach(([label,key], n) => {
-      const y = tileY+442 + n*70;
+      const y = tileY+442 + n*86;
       const a = parseNum(row.our[key]), b = parseNum(row.opp[key]);
-      overviewPairBar(ctx, x+24, y, tileW-48, label, a, b);
+      overviewPairBar(ctx, x+24, y, tileW-48, label, a, b,
+        metricText(row.our,key), metricText(row.opp,key));
     });
-    T(ctx, "经济 " + (isBlank(row.our.gold) ? "—" : row.our.gold), x+24, tileY+690,
-      { size:15, weight:"600", color:"rgba(255,255,255,.66)", family:FN });
-    T(ctx, (isBlank(row.opp.gold) ? "—" : row.opp.gold), x+tileW-24, tileY+690,
-      { size:15, weight:"600", align:"right", color:"rgba(255,255,255,.66)", family:FN });
-    T(ctx, "输出 " + (isBlank(row.our.dmgWan) ? "—" : fmtWan(row.our.dmgWan)+"万"), x+24, tileY+726,
-      { size:15, weight:"600", color:"rgba(255,255,255,.66)", family:FN });
-    T(ctx, (isBlank(row.opp.dmgWan) ? "—" : fmtWan(row.opp.dmgWan)+"万"), x+tileW-24, tileY+726,
-      { size:15, weight:"600", align:"right", color:"rgba(255,255,255,.66)", family:FN });
   });
   if (DB.prefs.footer) fitText(ctx, DB.prefs.footer, 960, 1054,
     { size:17, align:"center", color:"rgba(255,255,255,.42)", maxWidth:DW-200 });
@@ -726,22 +741,22 @@ function drawOverviewHero(ctx, x, y, size, hero, color){
   }
 }
 
-function overviewPairBar(ctx, x, y, w, label, a, b){
-  const av = Math.max(0, Math.min(100, a === null ? 0 : a));
-  const bv = Math.max(0, Math.min(100, b === null ? 0 : b));
-  T(ctx, label, x+w/2, y, { size:16, weight:"700", align:"center", color:"rgba(255,255,255,.72)", spacing:.5 });
-  T(ctx, a === null ? "—" : dispVal(a,"%"), x, y+28, { size:22, weight:"700", color:KPL_BLUE, family:FN });
-  T(ctx, b === null ? "—" : dispVal(b,"%"), x+w, y+28, { size:22, weight:"700", align:"right", color:KPL_RED, family:FN });
+function overviewPairBar(ctx, x, y, w, label, a, b, aText, bText){
+  const av = Math.max(0, a === null ? 0 : a);
+  const bv = Math.max(0, b === null ? 0 : b);
+  T(ctx, aText, x, y, { size:22, weight:"700", color:KPL_BLUE, family:FN });
+  T(ctx, bText, x+w, y, { size:22, weight:"700", align:"right", color:KPL_RED, family:FN });
   const total = av + bv;
   const ratio = total > 0 ? av/total : .5;
-  rr(ctx, x, y+46, w, 12, 6); ctx.fillStyle = "rgba(255,255,255,.13)"; ctx.fill();
+  rr(ctx, x, y+30, w, 12, 6); ctx.fillStyle = "rgba(255,255,255,.13)"; ctx.fill();
   if (ratio > 0.01){
-    rr(ctx, x, y+46, Math.max(2, w*ratio), 12, 6); ctx.fillStyle = KPL_BLUE; ctx.fill();
+    rr(ctx, x, y+30, Math.max(2, w*ratio), 12, 6); ctx.fillStyle = KPL_BLUE; ctx.fill();
   }
   if (ratio < 0.99){
     const right = w*(1-ratio);
-    rr(ctx, x+w-right, y+46, Math.max(2, right), 12, 6); ctx.fillStyle = KPL_RED; ctx.fill();
+    rr(ctx, x+w-right, y+30, Math.max(2, right), 12, 6); ctx.fillStyle = KPL_RED; ctx.fill();
   }
+  T(ctx, label, x+w/2, y+64, { size:16, weight:"700", align:"center", color:"rgba(255,255,255,.72)", spacing:.5 });
 }
 function kdaText(p){
   const f = v => isBlank(v) ? "-" : String(v).trim();
@@ -772,7 +787,7 @@ function drawRadarMini(ctx, cx, cy, R, row, ourColor, oppColor, showLabels = tru
     ctx.strokeStyle = color; ctx.lineWidth = lw; ctx.stroke();
   });
   // 维度名要写全（以前是 K/杀/伤/承/经/团/转 单字，看不出是什么维度）
-  const LABEL = { kda:"KDA", k:"击杀", dmgPct:"伤害占比", tankPct:"承伤占比",
+  const LABEL = { kda:"KDA", k:"击杀", dmgWan:"伤害", tankPct:"承伤占比",
                   gpm:"分均经济", kp:"参团率", dmgPerGold:"经济转伤" };
   if (!showLabels) return;
   for (let i=0;i<N;i++){
@@ -830,7 +845,7 @@ function drawMulti(ctx){
       const cx = x0 + labelW + colW*i + colW/2;
       T(ctx, kdaText(row.our), cx, y+rowH*0.29, { size:27, weight:"700", align:"center", color:C_BLUE, family:FN });
       T(ctx, kdaText(row.opp), cx, y+rowH*0.56, { size:23, align:"center", color:C_RED, family:FN });
-      const a = parseNum(row.our.dmgPct)||0, b = parseNum(row.opp.dmgPct)||0, sum = a+b;
+      const a = parseNum(row.our.dmgWan)||0, b = parseNum(row.opp.dmgWan)||0, sum = a+b;
       if (sum > 0){
         const bw = colW - 64, bx = cx - bw/2, by = y + rowH*0.73;
         rr(ctx,bx,by,bw,9,5); ctx.fillStyle = t.track; ctx.fill();

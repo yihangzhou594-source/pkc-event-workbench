@@ -34,6 +34,7 @@ const body = {
   }],
   max_tokens: 8000,
   temperature: 0,
+  thinking: { type: "disabled" },
   response_format: { type: "json_object" },
 };
 const res = await fetch("https://api.deepseek.com/chat/completions", {

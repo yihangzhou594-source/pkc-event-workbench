@@ -88,6 +88,9 @@ async function callDeepSeekOCR(images, hint) {
       messages: [{ role: "user", content }],
       max_tokens: cfg.maxTokens,
       temperature: 0,
+      // OCR 只需要按画面抄录。思考模式会反复推演并耗尽输出 token，
+      // 最终只返回 reasoning_content，前端看起来就会一直卡在读取中。
+      ...(cfg.model === "deepseek-flash" ? { thinking: { type: "disabled" } } : {}),
       response_format: { type: "json_object" },
     }),
     signal: AbortSignal.timeout(120000),
@@ -97,10 +100,16 @@ async function callDeepSeekOCR(images, hint) {
   let payload;
   try { payload = JSON.parse(raw); }
   catch { throw new Error("DeepSeek 返回格式异常"); }
-  let text = payload.choices && payload.choices[0] && payload.choices[0].message
-    ? payload.choices[0].message.content : "";
+  const choice = payload.choices && payload.choices[0] ? payload.choices[0] : null;
+  let text = choice && choice.message ? choice.message.content : "";
   text = String(text || "").trim().replace(/^```(?:json)?/i, "").replace(/```$/i, "").trim();
-  if (!text) throw new Error("DeepSeek 没有返回最终 JSON（可能是推理 token 用尽）");
+  if (!text) {
+    const reason = choice && choice.finish_reason ? choice.finish_reason : "unknown";
+    if (reason === "length") {
+      throw new Error("DeepSeek 推理 token 已用尽，未生成最终 JSON；请确认模型已关闭思考模式");
+    }
+    throw new Error("DeepSeek 没有返回最终 JSON（finish_reason=" + reason + "）");
+  }
   let data;
   try { data = JSON.parse(text); }
   catch { throw new Error("DeepSeek JSON 解析失败：" + text.slice(0, 300)); }

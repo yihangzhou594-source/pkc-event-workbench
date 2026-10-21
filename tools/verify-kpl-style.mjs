@@ -30,13 +30,23 @@ await page.evaluate((txt) => {
   window.PKC.render();
 }, SAMPLE);
 await page.waitForTimeout(2500);
-const data = await page.evaluate(() => {
-  const c = window.PKC.drawExport({ kind:"card", game:window.PKC.game(), idx:0 }, 1920, 1080);
-  return c.toDataURL("image/png");
+const images = await page.evaluate(() => {
+  const game = window.PKC.game();
+  return {
+    card: window.PKC.drawExport({ kind:"card", game, idx:0 }, 1920, 1080).toDataURL("image/png"),
+    overview: window.PKC.drawExport({ kind:"overview", game, idx:-1 }, 1920, 1080).toDataURL("image/png"),
+  };
 });
-fs.writeFileSync(path.join(OUT, "kpl-style-card.png"), Buffer.from(data.split(",")[1], "base64"));
+fs.writeFileSync(path.join(OUT, "kpl-style-card.png"), Buffer.from(images.card.split(",")[1], "base64"));
+fs.writeFileSync(path.join(OUT, "kpl-style-overview.png"), Buffer.from(images.overview.split(",")[1], "base64"));
 await page.screenshot({ path:path.join(OUT, "kpl-style-ui.png"), clip:{ x:0, y:0, width:1680, height:1050 } });
 await browser.close();
-console.log(JSON.stringify({ ok:true, file:path.join(OUT, "kpl-style-card.png") }, null, 2));
+console.log(JSON.stringify({
+  ok:true,
+  files:[
+    path.join(OUT, "kpl-style-card.png"),
+    path.join(OUT, "kpl-style-overview.png"),
+  ],
+}, null, 2));
 
 
