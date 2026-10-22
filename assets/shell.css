@@ -173,12 +173,18 @@
 .wk-panes{position:relative;flex:1;min-height:0;min-width:0;overflow:hidden}
 .wk-pane{
   position:absolute;inset:0;min-width:0;min-height:0;overflow-x:hidden;overflow-y:auto;
-  opacity:0;pointer-events:none;
+  opacity:0;pointer-events:none;visibility:hidden;z-index:0;
   overscroll-behavior-y:contain;
   -webkit-overflow-scrolling:touch;
-  transition:opacity .24s ease;
+  transition:opacity .24s ease, visibility 0s linear .24s;
 }
-.wk-pane.on{opacity:1;pointer-events:auto}
+.wk-pane.on{
+  opacity:1;pointer-events:auto;visibility:visible;z-index:1;
+  transition:opacity .24s ease, visibility 0s linear 0s;
+}
+/* 父级 pointer-events:none 挡不住子级显式 auto（导播台 .view.on）。隐藏面板整棵子树都不参与命中。 */
+.wk-pane:not(.on),
+.wk-pane:not(.on) *{pointer-events:none !important}
 .wk-pane iframe{width:100%;height:100%;border:0;display:block;background:var(--wk-bg)}
 
 /* ---------- 概览 ---------- */
