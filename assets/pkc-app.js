@@ -153,7 +153,7 @@ function renderHelp(){
             </tbody>
           </table>
           <h4>图上的七个维度</h4>
-          <p>雷达固定七维（顺时针，从正上方开始）：<b>KDA / 击杀 / 伤害 / 承伤占比 / 分均经济 / 参团率 / 经济转伤</b>。伤害与经济按真实值展示，末尾统一用 k；全图统一按赛制配色——蓝方一路鲜蓝、红方一路鲜红；队伍库里设的主色只影响列表小圆点。</p>
+          <p>雷达固定七维（顺时针，从正上方开始）：<b>KDA / 击杀 / 伤害 / 承伤占比 / 分均经济 / 参团率 / 经济转伤</b>。雷达每项以双方较高值为 100%，用于看相对形状；旁边同时标出真实值，伤害与经济末尾统一用 k。全图统一按赛制配色——蓝方一路鲜蓝、红方一路鲜红。</p>
           <p>顶部「🏆 KPL 风格」会切到单场电竞数据面板版式：蓝红比分条、左右英雄卡、中央双向雷达、选手数据卡和底部对比条。只使用现有字段，不编造补刀数、团战伤害等没有的数据。</p>
           <ul>
             <li>多局导出时，对位图序号会变成 <code>PKC_1_…</code>、<code>PKC_2_…</code>，按局依次排。</li>
@@ -193,8 +193,9 @@ function renderHelp(){
           <table class="hp-table">
             <thead><tr><th>快捷键</th><th>作用</th></tr></thead>
             <tbody>
-              <tr><td><code>1</code> ~ <code>5</code></td><td>按场景栏顺序切到 解说 / 赛间 / 赛程图 / 赛后数据图 / 空白</td></tr>
+              <tr><td><code>1</code> ~ <code>6</code></td><td>切到 解说 / 赛间 / 宣传轮播 / 赛程图 / 赛后数据图 / 空白</td></tr>
               <tr><td><code>空格</code></td><td>推送到直播端</td></tr>
+              <tr><td><code>U</code></td><td>撤回上一次推送，回到上一帧在播画面</td></tr>
               <tr><td><code>B</code></td><td>一键切「空白」并立刻推送（出事故时的 panic 键）</td></tr>
             </tbody>
           </table>
@@ -653,6 +654,7 @@ async function init(){
     const n = parseLines($("#pasteBox").value);
     const mo = autoMatchPlayers("our"), mp = autoMatchPlayers("opp");
     renderTables(); renderPreview(); scheduleSave();
+    if (n) collapseImportToolsAfterSuccess("已填入 " + n + " 条 · 核对下方数据");
     toast(n ? ("已填入 " + n + " 条" + ((mo.laned + mp.laned) ? ("，其中 " + (mo.laned + mp.laned) + " 人按队伍名单自动填了分路") : "")) : "没解析到有效行");
   };
   $("#btnFillHero").onclick = () => {
@@ -723,23 +725,45 @@ async function init(){
   $("#bkDrawClear").onclick = () => {
     const b = B();
     if (Object.keys(b.win || {}).length && !confirm("清空对阵会同时清掉赛果，继续？")) return;
+    window.PKC_RECOVERY?.snapshotBeforeChange("clear-bracket-draw", ["bracket"], "清空抽签对阵和赛果");
+    const previous = { draw: clone(b.draw || []), win: clone(b.win || {}), score: clone(b.score || {}) };
     b.draw = BK_R16_TYPE.map(() => ({ a:"", b:"" })); b.win = {}; b.score = {};
     renderBkDraw(); renderBkMatches(); scheduleBkRender(); scheduleSave();
     publishBracketLive({ kind:"bulk" });
+    if (typeof showUndoBar === "function") showUndoBar("已清空抽签对阵和赛果", () => {
+      const next = B();
+      next.draw = previous.draw; next.win = previous.win; next.score = previous.score;
+      renderBracket(); scheduleBkRender(); scheduleSave(); publishBracketLive({ kind:"bulk" });
+      toast("已撤销，抽签对阵和赛果已恢复");
+    });
   };
   $("#bkFill").onclick = bkAutoFill;
   $("#bkClearTeams").onclick = () => {
     const b = B();
+    window.PKC_RECOVERY?.snapshotBeforeChange("clear-bracket-groups", ["bracket"], "清空 A/B/C/D 组");
+    const previous = clone(b.groups || {});
     BK_G.forEach(g => { b.groups[g] = ["","","",""]; });
     renderBracket(); scheduleSave();
     publishBracketLive({ kind:"bulk" });
+    if (typeof showUndoBar === "function") showUndoBar("已清空 A/B/C/D 组", () => {
+      B().groups = previous;
+      syncTeamGroups(); renderBracket(); scheduleSave(); publishBracketLive({ kind:"bulk" });
+      toast("已撤销，分组已恢复");
+    });
   };
   $("#bkResetAll").onclick = () => {
     if (!confirm("清空全部赛果（比分和晋级）？分组会保留。")) return;
-    B().win = {}; B().score = {};
+    window.PKC_RECOVERY?.snapshotBeforeChange("clear-bracket-results", ["bracket"], "清空全部赛果");
+    const b = B(), previous = { win: clone(b.win || {}), score: clone(b.score || {}) };
+    b.win = {}; b.score = {};
     renderBkMatches(); scheduleBkRender(); scheduleSave();
     publishBracketLive({ kind:"meta" });
     toast("已清空赛果");
+    if (typeof showUndoBar === "function") showUndoBar("已清空全部赛果", () => {
+      const next = B(); next.win = previous.win; next.score = previous.score;
+      renderBkMatches(); scheduleBkRender(); scheduleSave(); publishBracketLive({ kind:"meta" });
+      toast("已撤销，赛果已恢复");
+    });
   };
   $("#bkDown16").onclick = () => downloadBracket("bk16");
   $("#bkDownDE").onclick = () => downloadBracket("bkde");
@@ -772,6 +796,14 @@ async function init(){
   }
   const tabParam = new URLSearchParams(location.search).get("tab");
   if (tabParam && document.getElementById("panel-" + tabParam)) switchTab(tabParam);
+  window.addEventListener("message", (event) => {
+    if (event.origin !== location.origin) return;
+    if (event.data?.type !== "pkc:remote-data-saved") return;
+    const saved = event.data.context || {};
+    showContextStatus("手机已更新本局「" + (saved.gameLabel || S.game?.label || "当前局") + "」，请重新加载后再编辑或生成图表。", [
+      { label:"加载最新数据", run:() => location.reload() },
+    ]);
+  }, { passive:true });
 
   window.PKC = {
     db: () => DB, heroes: () => HEROES, series: () => S.series, game: () => S.game,

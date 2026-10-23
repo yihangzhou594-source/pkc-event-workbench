@@ -47,6 +47,8 @@ export function createStore(options = {}) {
   const preview = initialPreview(sceneId);
   const live = initialLive();
   const onAir = { ...initialPreview(sceneId), settings: {}, revision: 0 };
+  const pushHistory = [];
+  let lastPush = null;
 
   const subscribers = new Set();
 
@@ -69,6 +71,8 @@ export function createStore(options = {}) {
       live: { ...live },
       isPreviewDirty: preview.scene !== onAir.scene
         || JSON.stringify(preview.settings) !== JSON.stringify(onAir.settings),
+      canUndoPush: pushHistory.length > 0,
+      lastPush: lastPush ? { ...lastPush } : null,
     };
   }
 
@@ -95,11 +99,36 @@ export function createStore(options = {}) {
     return snapshot();
   }
 
-  /** 推送到直播端：把预览整体复制为在播。 */
-  function push() {
+  /** 推送到直播端：把预览整体复制为在播，并记住可撤回的上一帧。 */
+  function push(options = {}) {
+    if (preview.scene === SceneId.BLANK && onAir.scene !== SceneId.BLANK && !options.force) {
+      throw new StoreError('blank_confirm_required', '推送到空白画面前需要确认');
+    }
+    pushHistory.push({
+      scene: onAir.scene,
+      settings: JSON.parse(JSON.stringify(onAir.settings)),
+      at: new Date().toISOString(),
+    });
+    if (pushHistory.length > 20) pushHistory.shift();
     onAir.scene = preview.scene;
     onAir.settings = JSON.parse(JSON.stringify(preview.settings));
     onAir.revision += 1;
+    lastPush = { scene: onAir.scene, at: new Date().toISOString() };
+    notify('onAir');
+    return snapshot();
+  }
+
+  /** 撤回最近一次推送，预览同步回到恢复后的在播画面。 */
+  function undoPush() {
+    const previous = pushHistory.pop();
+    if (!previous) return snapshot();
+    onAir.scene = previous.scene;
+    onAir.settings = JSON.parse(JSON.stringify(previous.settings));
+    onAir.revision += 1;
+    preview.scene = previous.scene;
+    preview.settings = JSON.parse(JSON.stringify(previous.settings));
+    preview.revision += 1;
+    lastPush = { scene: onAir.scene, at: new Date().toISOString(), restored: true };
     notify('onAir');
     return snapshot();
   }
@@ -242,6 +271,7 @@ export function createStore(options = {}) {
     setScene,
     setSceneSettings,
     push,
+    undoPush,
     discardPreview,
     setCountdown,
     setBp,

@@ -15,9 +15,16 @@
   }
   const W = 1920, H = 1080;
   const LANES = ["上单", "打野", "中路", "发育路", "游走"];
+  const FC = '"Noto Sans SC","Microsoft YaHei",sans-serif';
+  const FN = '"Bahnschrift SemiCondensed","Bahnschrift","Noto Sans SC","Microsoft YaHei",sans-serif';
   const state = { teams: [], art: null, images: {}, token: 0 };
   const canvas = $("#poster");
   const ctx = canvas.getContext("2d");
+
+  function setFont(size, weight = 400, family = FC, spacing = 0) {
+    ctx.font = `${weight} ${size}px ${family}`;
+    try { ctx.letterSpacing = `${spacing}px`; } catch {}
+  }
 
   async function getJSON(url) {
     const r = await fetch(url, { cache: "no-store" });
@@ -132,7 +139,7 @@
     ctx.drawImage(img, x + (w - dw) / 2, y + (h - dh) / 2, dw, dh);
   }
 
-  function panel(x, y, w, h, team, color, players, lanes, side, sub, subLane) {
+  function panel(x, y, w, h, team, color, players, lanes, side, sub, subLane, subHero) {
     const g = ctx.createLinearGradient(x, y, x + w, y + h);
     g.addColorStop(0, "rgba(255,250,235,.98)");
     g.addColorStop(.65, "rgba(248,237,210,.97)");
@@ -157,22 +164,22 @@
     bg.addColorStop(0, "#FFE9BC"); bg.addColorStop(.6, color); bg.addColorStop(1, "#8d6a2f");
     ctx.fillStyle = bg; ctx.fill();
     ctx.strokeStyle = "rgba(255,240,205,.9)"; ctx.lineWidth = 3; ctx.stroke();
-    ctx.fillStyle = "#fff8e7"; ctx.font = '900 44px "Microsoft YaHei", sans-serif';
+    ctx.fillStyle = "#fff8e7"; setFont(44, 900, FC, -.4);
     ctx.textAlign = "center"; ctx.textBaseline = "middle";
     ctx.fillText((team || "?").slice(0, 1), cx, y + 72);
 
     ctx.textAlign = side === "left" ? "left" : "right";
     ctx.textBaseline = "alphabetic";
-    ctx.fillStyle = color; ctx.font = '700 15px "Bahnschrift","Microsoft YaHei",sans-serif';
+    ctx.fillStyle = color; setFont(15, 700, FN, 1.5);
     ctx.fillText(side === "left" ? "BLUE SIDE" : "RED SIDE", side === "left" ? x + 144 : x + w - 144, y + 58);
-    ctx.fillStyle = "#634525"; ctx.font = '900 34px "Microsoft YaHei", sans-serif';
+    ctx.fillStyle = "#634525"; setFont(34, 900, FC, -.5);
     ctx.fillText(ellipsis(team, w - 205), side === "left" ? x + 144 : x + w - 144, y + 104);
 
     ctx.strokeStyle = "rgba(233,195,127,.20)"; ctx.lineWidth = 1;
     ctx.beginPath(); ctx.moveTo(x + 28, y + 132); ctx.lineTo(x + w - 28, y + 132); ctx.stroke();
 
     const all = players.slice(0, 5).map((name, i) => ({ name, lane: lanes[i] || LANES[i] }));
-    if (sub) all.push({ name: sub, lane: subLane || "补位" });
+    if (sub) all.push({ name: sub, lane: subLane || "补位", hero: subHero || "" });
     all.slice(0, 6).forEach((p, i) => {
       const ry = y + 151 + i * 62;
       roundRect(x + 24, ry, w - 48, 52, 11);
@@ -183,11 +190,12 @@
 
       ctx.textAlign = "left"; ctx.textBaseline = "middle";
       const leftSide = side === "left";
-      ctx.fillStyle = "#9a7443"; ctx.font = '700 14px "Microsoft YaHei", sans-serif';
+      ctx.fillStyle = "#9a7443"; setFont(13, 700, FC, .6);
       ctx.textAlign = leftSide ? "left" : "right";
       ctx.fillText(p.lane, leftSide ? x + 42 : x + w - 42, ry + 32);
-      ctx.fillStyle = "#563d25"; ctx.font = '800 23px "Microsoft YaHei", sans-serif';
-      ctx.fillText(ellipsis(p.name || "—", w - 190), leftSide ? x + 142 : x + w - 142, ry + 33);
+      ctx.fillStyle = "#563d25"; setFont(22, 800, FC, -.35);
+      const playerLabel = p.hero ? (p.name || "—") + " · " + p.hero : (p.name || "—");
+      ctx.fillText(ellipsis(playerLabel, w - 190), leftSide ? x + 142 : x + w - 142, ry + 33);
     });
   }
 
@@ -264,31 +272,33 @@
     const bo = $("#pBo").value;
     const sub = $("#pSub").value.trim();
     const footer = $("#pFooter").value.trim();
+    const casters = ["#pCaster1", "#pCaster2", "#pCaster3"]
+      .map((selector) => $(selector).value.trim()).filter(Boolean);
 
     if (emblem) ctx.drawImage(emblem, 56, 48, 96, 96);
     ctx.textAlign = "left"; ctx.textBaseline = "alphabetic";
-    ctx.fillStyle = "#654825"; ctx.font = '900 34px "Microsoft YaHei", sans-serif';
+    ctx.fillStyle = "#654825"; setFont(34, 900, FC, -.7);
     ctx.fillText("薄扶林王者杯", 172, 96);
-    ctx.fillStyle = "rgba(101,72,37,.62)"; ctx.font = '600 13px "Bahnschrift","Microsoft YaHei",sans-serif';
+    ctx.fillStyle = "rgba(101,72,37,.62)"; setFont(13, 600, FN, 1.6);
     ctx.fillText("POK FU LAM KING CUP", 174, 126);
 
     ctx.textAlign = "right";
-    ctx.fillStyle = "#654825"; ctx.font = '800 27px "Microsoft YaHei", sans-serif';
+    ctx.fillStyle = "#654825"; setFont(27, 800, FC, -.3);
     ctx.fillText(stage, W - 56, 96);
-    ctx.fillStyle = "rgba(101,72,37,.65)"; ctx.font = '600 17px "Microsoft YaHei", sans-serif';
+    ctx.fillStyle = "rgba(101,72,37,.65)"; setFont(17, 600, FN, .5);
     ctx.fillText([date, time].filter(Boolean).join(" · "), W - 56, 124);
 
     ctx.textAlign = "center";
-    ctx.fillStyle = "#6a4b28"; ctx.font = '900 42px "Microsoft YaHei", sans-serif';
+    ctx.fillStyle = "#6a4b28"; setFont(46, 900, FC, -.8);
     ctx.fillText(ellipsis(event, 1350), W / 2, 228);
     if (sub) {
-      ctx.fillStyle = "rgba(101,72,37,.72)"; ctx.font = '600 19px "Microsoft YaHei", sans-serif';
+      ctx.fillStyle = "rgba(101,72,37,.72)"; setFont(19, 600, FC, .8);
       ctx.fillText(ellipsis(sub, 1200), W / 2, 263);
     }
     const line = ctx.createLinearGradient(360, 0, 1560, 0);
     line.addColorStop(0, "rgba(233,195,127,0)"); line.addColorStop(.5, "rgba(233,195,127,.9)"); line.addColorStop(1, "rgba(233,195,127,0)");
     ctx.fillStyle = line; ctx.fillRect(360, 287, 1200, 1.5);
-    ctx.fillStyle = "#805d2e"; ctx.font = '900 28px "Microsoft YaHei", sans-serif'; ctx.fillText("首发名单", W / 2, 330);
+    ctx.fillStyle = "#805d2e"; setFont(26, 900, FC, 4); ctx.fillText("首发名单", W / 2, 330);
 
     const left = $("#pTeamLeft").value.trim() || "左队";
     const right = $("#pTeamRight").value.trim() || "右队";
@@ -300,27 +310,33 @@
     const rsub = $("#pSubRight").value.trim();
     const lsubLane = $("#pSubLaneLeft").value;
     const rsubLane = $("#pSubLaneRight").value;
-    panel(56, 360, 820, 520, left, teamColor(left, "#58B0FF"), lp, ll, "left", "", "");
-    panel(1044, 360, 820, 520, right, teamColor(right, "#FF5668"), rp, rl, "right", "", "");
+    const lsubHero = $("#pSubHeroLeft").value.trim();
+    const rsubHero = $("#pSubHeroRight").value.trim();
+    panel(56, 360, 820, 520, left, teamColor(left, "#58B0FF"), lp, ll, "left", lsub, lsubLane, lsubHero);
+    panel(1044, 360, 820, 520, right, teamColor(right, "#FF5668"), rp, rl, "right", rsub, rsubLane, rsubHero);
 
     ctx.textAlign = "center";
-    ctx.fillStyle = "#E9C37F"; ctx.font = '900 72px "Bahnschrift","Microsoft YaHei",sans-serif';
+    ctx.fillStyle = "#E9C37F"; setFont(78, 900, FN, -2);
     ctx.fillText("VS", W / 2, 570);
-    ctx.fillStyle = "rgba(101,72,37,.76)"; ctx.font = '700 19px "Bahnschrift","Microsoft YaHei",sans-serif';
+    ctx.fillStyle = "rgba(101,72,37,.76)"; setFont(21, 700, FN, 1.4);
     ctx.fillText(bo, W / 2, 607);
-    ctx.fillStyle = "rgba(101,72,37,.48)"; ctx.font = '600 11px "Bahnschrift","Microsoft YaHei",sans-serif';
+    ctx.fillStyle = "rgba(101,72,37,.48)"; setFont(11, 600, FN, 2.2);
     ctx.fillText("MATCH DAY", W / 2, 633);
 
-    ctx.fillStyle = "rgba(101,72,37,.78)"; ctx.font = '700 20px "Microsoft YaHei", sans-serif';
+    if (casters.length) {
+      ctx.fillStyle = "rgba(101,72,37,.72)"; setFont(19, 700, FC, .5);
+      ctx.fillText(ellipsis("解说：" + casters.join(" · "), 1380), W / 2, 916);
+    }
+    ctx.fillStyle = "rgba(101,72,37,.78)"; setFont(20, 700, FC, .6);
     ctx.fillText(footer || "今晚开赛 · 敬请期待", W / 2, 956);
-    ctx.fillStyle = "rgba(101,72,37,.46)"; ctx.font = '600 12px "Bahnschrift","Microsoft YaHei",sans-serif';
+    ctx.fillStyle = "rgba(101,72,37,.46)"; setFont(12, 600, FN, .8);
     ctx.fillText("PKC 2026 · 薄扶林王者杯", W / 2, 1000);
     $("#pMsg").textContent = `${left} vs ${right} · ${bo} · ${date} ${time}`;
   }
 
   function bind() {
     buildRows("Left"); buildRows("Right");
-    $$("#pEvent,#pStage,#pDate,#pTime,#pBo,#pSub,#pFooter,#pTeamLeft,#pTeamRight,#pArtOpacity,#pSubLeft,#pSubRight,#pSubLaneLeft,#pSubLaneRight,#pPlayersLeft input,#pPlayersRight input,#pPlayersLeft .plane,#pPlayersRight .plane")
+    $$("#pEvent,#pStage,#pDate,#pTime,#pBo,#pSub,#pFooter,#pCaster1,#pCaster2,#pCaster3,#pTeamLeft,#pTeamRight,#pArtOpacity,#pSubLeft,#pSubRight,#pSubHeroLeft,#pSubHeroRight,#pSubLaneLeft,#pSubLaneRight,#pPlayersLeft input,#pPlayersRight input,#pPlayersLeft .plane,#pPlayersRight .plane")
       .forEach((el) => el.addEventListener("input", () => { setActionStatus(""); draw(); }));
     ["Left", "Right"].forEach((side) => {
       const input = $(side === "Left" ? "#pSubLeft" : "#pSubRight");

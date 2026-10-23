@@ -78,15 +78,34 @@
     ctx.font = '800 32px Microsoft YaHei'; ctx.fillText(item.lane || LANES[index], 960, 247);
     players.forEach((p, i) => {
       const left = i === 0, x = left ? 120 : 1120, w = 680, color = left ? '#68b8ff' : '#ff7a83';
-      const panel = ctx.createLinearGradient(x, 280, x + w, 850); panel.addColorStop(0, 'rgba(8,17,31,.88)'); panel.addColorStop(1, 'rgba(16,25,39,.76)');
-      ctx.fillStyle = panel; ctx.beginPath(); ctx.roundRect(x, 300, w, 560, 28); ctx.fill(); ctx.strokeStyle = color + '88'; ctx.lineWidth = 2; ctx.stroke();
-      ctx.save(); ctx.beginPath(); ctx.roundRect(x + 20, 320, w - 40, 410, 18); ctx.clip();
-      const img = images[i]; if (img) { const s = Math.max(640 / img.width, 430 / img.height); const dw = img.width * s, dh = img.height * s; ctx.globalAlpha = .92; ctx.drawImage(img, x + (w - dw) / 2, 315 + (430 - dh) / 2, dw, dh); }
-      else { ctx.fillStyle = 'rgba(255,255,255,.035)'; ctx.fillRect(x + 20, 320, w - 40, 410); ctx.fillStyle = '#ead9b2'; ctx.font = '700 34px Microsoft YaHei'; ctx.textAlign = 'center'; ctx.fillText(p.data.heroName || '待填写代表英雄', x + w / 2, 545); }
-      const shade = ctx.createLinearGradient(0, 540, 0, 735); shade.addColorStop(0, 'rgba(6,10,18,0)'); shade.addColorStop(1, 'rgba(6,10,18,.92)'); ctx.fillStyle = shade; ctx.fillRect(x + 20, 530, w - 40, 200); ctx.restore();
-      ctx.textAlign = left ? 'left' : 'right'; ctx.fillStyle = '#fff6df'; ctx.font = '900 52px Microsoft YaHei'; ctx.fillText(p.data.player || '待定选手', left ? x + 54 : x + w - 54, 685);
-      ctx.fillStyle = color; ctx.font = '700 26px Microsoft YaHei'; ctx.fillText(p.data.heroName || '代表英雄待填写', left ? x + 56 : x + w - 56, 735);
-      ctx.textAlign = left ? 'left' : 'right'; ctx.fillStyle = '#f3deb0'; ctx.font = '800 38px Microsoft YaHei'; ctx.fillText(playlist?.teams?.[p.side]?.name || (left ? '蓝方战队' : '红方战队'), left ? x + 54 : x + w - 54, 820);
+      const panel = ctx.createLinearGradient(x, 270, x + w, 920); panel.addColorStop(0, 'rgba(8,17,31,.90)'); panel.addColorStop(1, 'rgba(16,25,39,.78)');
+      ctx.fillStyle = panel; ctx.beginPath(); ctx.roundRect(x, 280, w, 640, 28); ctx.fill(); ctx.strokeStyle = color + '88'; ctx.lineWidth = 2; ctx.stroke();
+      ctx.save(); ctx.beginPath(); ctx.roundRect(x + 20, 300, w - 40, 500, 18); ctx.clip();
+      const img = images[i];
+      if (img) {
+        const imageW = w - 40, imageH = 500;
+        const coverScale = Math.max(imageW / img.width, imageH / img.height);
+        const coverW = img.width * coverScale, coverH = img.height * coverScale;
+        ctx.save();
+        ctx.globalAlpha = .24;
+        try { ctx.filter = 'blur(24px) saturate(.75)'; } catch {}
+        ctx.drawImage(img, x + (w - coverW) / 2, 300 + (imageH - coverH) / 2, coverW, coverH);
+        ctx.restore();
+        const containScale = Math.min(imageW / img.width, imageH / img.height);
+        const drawW = img.width * containScale, drawH = img.height * containScale;
+        const verticalMargin = Math.max(0, imageH - drawH);
+        const drawY = 300 + Math.max(0, verticalMargin / 2 - Math.min(16, verticalMargin * .2));
+        ctx.globalAlpha = .98;
+        ctx.drawImage(img, x + (w - drawW) / 2, drawY, drawW, drawH);
+      } else {
+        ctx.fillStyle = 'rgba(255,255,255,.035)'; ctx.fillRect(x + 20, 300, w - 40, 500);
+        ctx.fillStyle = '#ead9b2'; ctx.font = '700 34px Microsoft YaHei'; ctx.textAlign = 'center';
+        ctx.fillText(p.data.heroName || '待填写代表英雄', x + w / 2, 545);
+      }
+      const shade = ctx.createLinearGradient(0, 565, 0, 800); shade.addColorStop(0, 'rgba(6,10,18,0)'); shade.addColorStop(1, 'rgba(6,10,18,.94)'); ctx.fillStyle = shade; ctx.fillRect(x + 20, 555, w - 40, 245); ctx.restore();
+      ctx.textAlign = left ? 'left' : 'right'; ctx.fillStyle = '#fff6df'; ctx.font = '900 52px Microsoft YaHei'; ctx.fillText(p.data.player || '待定选手', left ? x + 54 : x + w - 54, 720);
+      ctx.fillStyle = color; ctx.font = '700 26px Microsoft YaHei'; ctx.fillText(p.data.heroName || '代表英雄待填写', left ? x + 56 : x + w - 56, 770);
+      ctx.textAlign = left ? 'left' : 'right'; ctx.fillStyle = '#f3deb0'; ctx.font = '800 38px Microsoft YaHei'; ctx.fillText(playlist?.teams?.[p.side]?.name || (left ? '蓝方战队' : '红方战队'), left ? x + 54 : x + w - 54, 862);
     });
     ctx.textAlign = 'center'; ctx.fillStyle = '#f4d78f'; ctx.font = '900 52px Arial'; ctx.fillText('VS', 960, 555);
     ctx.fillStyle = '#dec995'; ctx.font = '600 18px Microsoft YaHei'; ctx.fillText(`${index + 1} / 5   ·   上单  /  打野  /  中路  /  发育路  /  游走`, 960, 950);

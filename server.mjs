@@ -9,30 +9,47 @@ import http from "node:http";
 import fs from "node:fs";
 import path from "node:path";
 import crypto from "node:crypto";
+import os from "node:os";
 import { spawn, spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
-import { handleDirector, closeDirectorStreams } from "./director/routes.mjs";
-import { writeJsonAtomic } from "./lib/json-store.mjs";
-import { aggregateHeroStats, applyLabels, toCSV, addManualGame } from "./lib/hero-stats.mjs";
 import {
-  readHeroStats, writeHeroStats, startCapture, captureStatus,
-  pauseCapture, resumeCapture, stopCapture, ingestSession, listSessions,
-} from "./lib/saibao-capture.mjs";
+  handleDirector, closeDirectorStreams, remoteDirectorState,
+  remoteDirectorAction, directorStreamApi, setDirectorContext,
+} from "./director/routes.mjs";
+import { writeJsonAtomic, listBackupVersions, restoreJsonBackup, snapshotJsonFile } from "./lib/json-store.mjs";
+import { aggregateHeroStats, toCSV, addManualGame } from "./lib/hero-stats.mjs";
+import { readHeroStats, writeHeroStats } from "./lib/hero-stats-store.mjs";
+import { buildGroupSchedule } from "./lib/group-schedule.mjs";
+import { buildSeasonInsights } from "./lib/season-insights.mjs";
+import { createRemoteControl, RemoteControlError } from "./lib/remote-control.mjs";
+import { isLoopbackAddress, remoteRequestAllowed } from "./lib/remote-access-policy.mjs";
+import {
+  buildRemoteMatchContext, mergeRemoteDraft, buildRemoteGame, validateRemoteDraft,
+} from "./lib/remote-match-data.mjs";
+import { readCompetitionContext, saveCompetitionContext } from "./lib/competition-context.mjs";
 
 const ROOT = path.dirname(fileURLToPath(import.meta.url));
 const PORT = Number(process.env.PKC_PORT || 8971);
+const REMOTE_MODE = process.env.PKC_REMOTE === "1";
+const LISTEN_HOST = REMOTE_MODE ? "0.0.0.0" : "127.0.0.1";
 const DIR_HERO = path.join(ROOT, "英雄半身像");
 const DIR_THUMB = path.join(ROOT, "英雄缩略图");
 const DIR_OPT = path.join(ROOT, "英雄优化");
 const DIR_HICON = path.join(ROOT, "素材", "_官方头像");
-const DIR_DATA = path.join(ROOT, "数据");
+const DIR_DATA = process.env.PKC_DATA_DIR
+  ? path.resolve(process.env.PKC_DATA_DIR)
+  : path.join(ROOT, "数据");
 const DIR_ASSETS = path.join(ROOT, "assets");
 const DIR_DOCS = path.join(ROOT, "docs");
 const DIR_PREVIEW = path.join(ROOT, "预览");
 const APP_PAGE = path.join(ROOT, "director", "console.html");
+const REMOTE_PAGE = path.join(ROOT, "director", "remote.html");
 const HERO_LIST = path.join(ROOT, "tools", "_herolist.txt");
 const AI_CONFIG_FILE = path.join(DIR_DATA, "ai-config.json");
 const AI_SECRET_HELPER = path.join(ROOT, "tools", "ai-secret.ps1");
+const BACKUP_DIR = path.join(DIR_DATA, "_backup");
+const AUDIT_FILE = path.join(BACKUP_DIR, "audit.json");
+const remoteAccess = createRemoteControl();
 
 fs.mkdirSync(DIR_DATA, { recursive: true });
 
@@ -262,6 +279,26 @@ function readBody(req) {
     req.on("error", reject);
   });
 }
+function readBodyLimited(req, maxBytes) {
+  return new Promise((resolve, reject) => {
+    const chunks = [];
+    let size = 0;
+    let tooLarge = false;
+    req.on("data", (chunk) => {
+      size += chunk.length;
+      if (size > maxBytes) {
+        tooLarge = true;
+        return;
+      }
+      if (!tooLarge) chunks.push(chunk);
+    });
+    req.on("end", () => {
+      if (tooLarge) reject(Object.assign(new Error("上传内容超过大小限制"), { code: "payload_too_large" }));
+      else resolve(Buffer.concat(chunks).toString("utf8"));
+    });
+    req.on("error", reject);
+  });
+}
 function safeJoin(baseDir, rel) {
   const p = path.resolve(baseDir, decodeURIComponent(rel).replace(/^[/\\]+/, ""));
   return p.startsWith(path.resolve(baseDir)) ? p : null;
@@ -273,10 +310,11 @@ function serveFile(res, file, extra = {}) {
   });
 }
 
-const STORE_KEYS = new Set(["library", "matches", "prefs", "heroPick", "bracket", "context"]);
+const STORE_KEYS = new Set(["library", "matches", "prefs", "heroPick", "bracket", "context", "heroStats"]);
+const BACKUP_KEYS = new Set([...STORE_KEYS, "heroStats"]);
 /* 这些是真正的赛事数据：多标签页同时写时要拦住，避免互相覆盖。
    context 只是“当前选中哪一局”的现场指针，按后写覆盖即可。 */
-const STORE_CONFLICT_KEYS = new Set(["library", "matches", "bracket", "heroPick"]);
+const STORE_CONFLICT_KEYS = new Set(["library", "matches", "bracket", "heroPick", "heroStats"]);
 
 /** 用文件内容哈希当版本号：服务重启后依然有效，不需要额外状态。 */
 function storeRev(file) {
@@ -288,11 +326,405 @@ function storeRev(file) {
 }
 const storeFile = key => path.join(DIR_DATA, key + ".json");
 
+function readStoreJson(key, fallback = null) {
+  try {
+    return JSON.parse(fs.readFileSync(storeFile(key), "utf8").replace(/^\uFEFF/, ""));
+  } catch {
+    return fallback;
+  }
+}
+
+function appendDataAudit(action, detail = "", key = "") {
+  fs.mkdirSync(BACKUP_DIR, { recursive: true });
+  const entry = {
+    at: new Date().toISOString(),
+    action: String(action || "unknown").slice(0, 80),
+    key: String(key || "").slice(0, 40),
+    detail: String(detail || "").slice(0, 500),
+  };
+  let entries = [];
+  try {
+    const current = JSON.parse(fs.readFileSync(AUDIT_FILE, "utf8"));
+    if (Array.isArray(current)) entries = current;
+  } catch { /* first audit entry */ }
+  entries.push(entry);
+  try {
+    writeJsonAtomic(AUDIT_FILE, JSON.stringify(entries.slice(-200), null, 2), { backup: false });
+  } catch (error) {
+    entry.persisted = false;
+    entry.persistError = String(error?.message || error);
+  }
+  return entry;
+}
+
+function readDataAudit(limit = 50) {
+  try {
+    const entries = JSON.parse(fs.readFileSync(AUDIT_FILE, "utf8"));
+    return (Array.isArray(entries) ? entries : [])
+      .slice(-Math.max(1, Math.min(100, Number(limit) || 50)))
+      .reverse();
+  } catch {
+    return [];
+  }
+}
+
+function readCookie(req, name) {
+  const source = String(req.headers.cookie || "");
+  for (const part of source.split(";")) {
+    const index = part.indexOf("=");
+    if (index < 0) continue;
+    if (part.slice(0, index).trim() !== name) continue;
+    try { return decodeURIComponent(part.slice(index + 1).trim()); } catch { return ""; }
+  }
+  return "";
+}
+
+function lanAddresses() {
+  const output = [];
+  for (const [alias, entries] of Object.entries(os.networkInterfaces())) {
+    for (const entry of entries || []) {
+      if (entry.family !== "IPv4" || entry.internal || !entry.address) continue;
+      output.push({ interface: alias, address: entry.address, url: `http://${entry.address}:${PORT}/remote` });
+    }
+  }
+  return output;
+}
+
+function remoteAccessPayload() {
+  const access = remoteAccess.accessInfo();
+  return {
+    enabled: REMOTE_MODE,
+    host: LISTEN_HOST,
+    port: PORT,
+    urls: lanAddresses(),
+    pin: access.pin,
+    pinExpiresAt: access.pinExpiresAt,
+    sessionCount: access.sessionCount,
+    maxSessions: access.maxSessions,
+  };
+}
+
+function remoteCookie(sessionId, maxAge = 8 * 60 * 60) {
+  return `pkc_remote_session=${encodeURIComponent(sessionId)}; Path=/; HttpOnly; SameSite=Strict; Max-Age=${maxAge}`;
+}
+
+function remoteMatchSources() {
+  const library = readStoreJson("library", null);
+  const matches = readStoreJson("matches", { games:{} });
+  const bracket = readStoreJson("bracket", {});
+  const storedContext = readCompetitionContext();
+  return { library, matches, bracket, context:storedContext.context, contextRevision:storedContext.revision };
+}
+
+function remoteMatchCatalog() {
+  const source = remoteMatchSources();
+  const catalog = buildRemoteMatchContext({
+    library:source.library,
+    matches:source.matches,
+    bracket:source.bracket,
+    context:source.context,
+    matchesRevision:storeRev(storeFile("matches")),
+    contextRevision:source.contextRevision,
+  });
+  return { ...catalog, source };
+}
+
+function validateRemoteImages(images) {
+  if (!Array.isArray(images) || images.length < 1 || images.length > 4) {
+    throw Object.assign(new Error("请上传 1—4 张截图"), { code:"invalid_image_count" });
+  }
+  let total = 0;
+  return images.map((value, index) => {
+    const match = String(value || "").match(/^data:(image\/(?:png|jpeg|jpg|webp));base64,([A-Za-z0-9+/=]+)$/);
+    if (!match) throw Object.assign(new Error("第 " + (index + 1) + " 张不是受支持的图片"), { code:"invalid_image_type" });
+    const bytes = Buffer.from(match[2], "base64").length;
+    if (bytes > 10 * 1024 * 1024) {
+      throw Object.assign(new Error("第 " + (index + 1) + " 张图片超过 10MB"), { code:"image_too_large" });
+    }
+    total += bytes;
+    if (total > 32 * 1024 * 1024) {
+      throw Object.assign(new Error("图片合计超过 32MB"), { code:"images_too_large" });
+    }
+    return String(value);
+  });
+}
+
+function saveRemoteMatchData(body) {
+  const catalog = remoteMatchCatalog();
+  const source = catalog.source;
+  const series = (source.library?.series || []).find((item) => String(item.id) === catalog.seriesId);
+  if (!series) throw Object.assign(new Error("找不到当前系列赛"), { code:"series_not_found" });
+  if (body.seriesId && String(body.seriesId) !== String(series.id)) {
+    throw Object.assign(new Error("远程录入只能写入当前系列赛"), { code:"series_scope_denied" });
+  }
+  if (!body.baseRev || body.baseRev !== catalog.matchesRevision) {
+    throw Object.assign(new Error("对局数据已在其他页面更新，请重新读取"), {
+      code:"revision_conflict",
+      revision:catalog.matchesRevision,
+    });
+  }
+  if (body.contextRevision !== undefined
+    && Number(body.contextRevision) !== Number(catalog.contextRevision)) {
+    throw Object.assign(new Error("当前场次已在其他页面更新，请重新读取"), {
+      code:"context_conflict",
+      revision:catalog.contextRevision,
+    });
+  }
+  const match = catalog.matches.find((item) => item.matchKey === String(body.matchKey || ""));
+  if (!match) throw Object.assign(new Error("找不到目标场次或双方队伍尚未排定"), { code:"match_not_found" });
+  const blueTeam = (series.teams || []).find((team) => String(team.id) === match.blueId);
+  const redTeam = (series.teams || []).find((team) => String(team.id) === match.redId);
+  const games = Array.isArray(source.matches?.games?.[series.id]) ? source.matches.games[series.id] : [];
+  const existingGame = body.gameId ? games.find((game) => String(game.id) === String(body.gameId)) : null;
+  if (body.gameId && (!existingGame || String(existingGame.matchKey || "") !== match.matchKey)) {
+    throw Object.assign(new Error("目标局次不属于所选场次"), { code:"game_not_found" });
+  }
+  const built = buildRemoteGame({
+    seriesId:series.id,
+    matchKey:match.matchKey,
+    blueTeam,
+    redTeam,
+    draft:body.draft,
+    existingGames:games,
+    existingGame,
+    allowedMatchKeys:catalog.matches.map((item) => item.matchKey),
+  });
+  const nextMatches = {
+    ...source.matches,
+    games: {
+      ...(source.matches.games || {}),
+      [series.id]: existingGame
+        ? games.map((game) => String(game.id) === built.game.id ? built.game : game)
+        : [...games, built.game],
+    },
+  };
+  const matchesFile = storeFile("matches");
+  const previousRaw = fs.existsSync(matchesFile) ? fs.readFileSync(matchesFile, "utf8") : null;
+  writeJsonAtomic(matchesFile, JSON.stringify(nextMatches, null, 2), {
+    backupDir:path.join(DIR_DATA, "_backup"),
+    key:"matches",
+    forceBackup:true,
+  });
+  try {
+    const candidate = {
+      ...(source.context || {}),
+      seriesId:series.id,
+      seriesName:series.name || "",
+      matchKey:match.matchKey,
+      matchLabel:match.roundLabel + " · " + match.blueName + " vs " + match.redName,
+      matchRound:match.roundLabel,
+      gameId:built.game.id,
+      gameLabel:built.game.label,
+      blueId:match.blueId,
+      redId:match.redId,
+      blueTeam:match.blueName,
+      redTeam:match.redName,
+      blueScore:built.game.ourScore,
+      redScore:built.game.oppScore,
+      remoteSavedAt:new Date().toISOString(),
+    };
+    const contextResult = saveCompetitionContext(candidate, catalog.contextRevision);
+    setDirectorContext(contextResult.context);
+    appendDataAudit(
+      "remote-upload-save",
+      (existingGame ? "覆盖" : "新建") + " " + built.game.label + " · 缺失 " + built.missing.length + " 项",
+      "matches",
+    );
+    return {
+      ok:true,
+      replaced:built.replaced,
+      game:built.game,
+      missing:built.missing,
+      warnings:built.warnings,
+      revision:storeRev(matchesFile),
+      contextRevision:contextResult.revision,
+      context:contextResult.context,
+    };
+  } catch (error) {
+    if (previousRaw !== null) {
+      try {
+        writeJsonAtomic(matchesFile, previousRaw, { backup:false });
+      } catch { /* original file remains backed up before writing */ }
+    }
+    throw error;
+  }
+}
+
 /* ---------------- 路由 ---------------- */
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, "http://localhost");
   const p = url.pathname;
+  const localRequest = isLoopbackAddress(req.socket.remoteAddress);
+  let remoteSession = null;
   try {
+    if (REMOTE_MODE && !localRequest && !remoteRequestAllowed(p)) {
+      return sendJSON(res, { error: "remote_only_endpoint", message: "局域网远程模式只开放手机控制接口" }, 403);
+    }
+    if (p.startsWith("/api/remote/")
+      && !["/api/remote/pair", "/api/remote/access", "/api/remote/refresh-pin"].includes(p)) {
+      const sessionId = readCookie(req, "pkc_remote_session");
+      remoteSession = remoteAccess.authenticate(sessionId);
+      if (!remoteSession) return sendJSON(res, { error: "remote_auth_required" }, 401);
+    }
+    if (p === "/remote" || p === "/remote/") {
+      return serveFile(res, REMOTE_PAGE, { "Cache-Control": "no-store" });
+    }
+    if (p === "/api/remote/access" && req.method === "GET") {
+      if (!localRequest) return sendJSON(res, { error: "local_only" }, 403);
+      return sendJSON(res, remoteAccessPayload());
+    }
+    if (p === "/api/remote/refresh-pin" && req.method === "POST") {
+      if (!localRequest) return sendJSON(res, { error: "local_only" }, 403);
+      return sendJSON(res, { ok: true, ...remoteAccessPayload() });
+    }
+    if (p === "/api/remote/pair" && req.method === "POST") {
+      const body = JSON.parse((await readBody(req)) || "{}");
+      try {
+        const paired = remoteAccess.pair({
+          pin: body.pin,
+          ip: req.socket.remoteAddress || "unknown",
+          deviceName: body.deviceName,
+        });
+        res.setHeader("Set-Cookie", remoteCookie(paired.sessionId));
+        appendDataAudit("remote-pair", paired.deviceName, "remote");
+        return sendJSON(res, {
+          ok: true,
+          csrf: paired.csrf,
+          deviceName: paired.deviceName,
+          expiresAt: paired.expiresAt,
+        });
+      } catch (error) {
+        if (!(error instanceof RemoteControlError)) throw error;
+        if (error.retryAfterMs) res.setHeader("Retry-After", String(Math.ceil(error.retryAfterMs / 1000)));
+        return sendJSON(res, { error: error.code, message: error.message, retryAfterMs: error.retryAfterMs }, error.code === "rate_limited" ? 429 : 401);
+      }
+    }
+    if (p === "/api/remote/state" && req.method === "GET") {
+      return sendJSON(res, {
+        ...remoteDirectorState(),
+        remote: {
+          deviceName: remoteSession.deviceName,
+          expiresAt: remoteSession.expiresAt,
+          csrf: remoteSession.csrf,
+        },
+      });
+    }
+    if (p === "/api/remote/stream" && req.method === "GET") {
+      directorStreamApi(res);
+      return;
+    }
+    if (p === "/api/remote/action" && req.method === "POST") {
+      if (!remoteAccess.verifyCsrf(remoteSession?.id, req.headers["x-pkc-csrf"])) {
+        return sendJSON(res, { error: "csrf_rejected" }, 403);
+      }
+      const body = JSON.parse((await readBody(req)) || "{}");
+      const result = remoteDirectorAction(body);
+      if (result.status >= 200 && result.status < 300) {
+        if (["push", "undo-push", "blank"].includes(body.action)) {
+          appendDataAudit("remote-" + body.action, remoteSession.deviceName, "remote");
+        }
+      }
+      return sendJSON(res, result.body, result.status);
+    }
+    if (p === "/api/remote/match-context" && req.method === "GET") {
+      try {
+        const { source, ...catalog } = remoteMatchCatalog();
+        return sendJSON(res, catalog);
+      } catch (error) {
+        return sendJSON(res, { error:error.code || "match_context_failed", message:error.message }, 500);
+      }
+    }
+    if (p === "/api/remote/ocr-draft" && req.method === "POST") {
+      if (!remoteAccess.verifyCsrf(remoteSession?.id, req.headers["x-pkc-csrf"])) {
+        return sendJSON(res, { error:"csrf_rejected" }, 403);
+      }
+      try {
+        const raw = await readBodyLimited(req, 48 * 1024 * 1024);
+        const body = JSON.parse(raw || "{}");
+        const images = validateRemoteImages(body.images);
+        const catalog = remoteMatchCatalog();
+        const match = catalog.matches.find((item) => item.matchKey === String(body.matchKey || ""));
+        if (!match) return sendJSON(res, { error:"match_not_found", message:"找不到目标场次" }, 404);
+        const series = (catalog.source.library?.series || []).find((item) => String(item.id) === catalog.seriesId);
+        const blueTeam = series.teams.find((team) => String(team.id) === match.blueId);
+        const redTeam = series.teams.find((team) => String(team.id) === match.redId);
+        const games = catalog.source.matches?.games?.[series.id] || [];
+        const existingGame = body.gameId ? games.find((game) => String(game.id) === String(body.gameId)) : null;
+        if (body.gameId && (!existingGame || String(existingGame.matchKey || "") !== match.matchKey)) {
+          return sendJSON(res, { error:"game_not_found", message:"目标局次不属于所选场次" }, 404);
+        }
+        const hint = [
+          "当前场次：" + match.roundLabel + " · " + match.blueName + " vs " + match.redName,
+          "蓝方名单：" + (blueTeam.players || []).join("、"),
+          "红方名单：" + (redTeam.players || []).join("、"),
+          body.hint,
+        ].filter(Boolean).join("\n");
+        const out = await callDeepSeekOCR(images, hint);
+        const draft = mergeRemoteDraft({
+          ocr:out.data,
+          existingGame,
+          blueTeam,
+          redTeam,
+        });
+        const knownHeroes = new Set(Object.keys(scanHeroes(false).heroes || {}));
+        for (const row of draft.rows) {
+          for (const [side, label] of [["our", "蓝方"], ["opp", "红方"]]) {
+            const hero = String(row[side]?.hero || "").trim();
+            if (hero && !knownHeroes.has(hero)) draft.warnings.push(label + "英雄「" + hero + "」未匹配素材名");
+          }
+        }
+        draft.warnings = Array.from(new Set(draft.warnings));
+        return sendJSON(res, {
+          ok:true,
+          target:{
+            matchKey:match.matchKey,
+            gameId:existingGame?.id || "",
+            gameLabel:existingGame?.label || match.nextGameLabel,
+          },
+          draft,
+          usage:out.usage || null,
+          imageCount:images.length,
+        });
+      } catch (error) {
+        if (error.code === "payload_too_large") {
+          return sendJSON(res, { error:error.code, message:error.message }, 413);
+        }
+        if (["invalid_image_count", "invalid_image_type", "image_too_large", "images_too_large"].includes(error.code)) {
+          return sendJSON(res, { error:error.code, message:error.message }, 400);
+        }
+        const keyMissing = /未配置 DeepSeek API Key/.test(String(error.message || ""));
+        return sendJSON(res, {
+          error:keyMissing ? "ocr_not_configured" : "ocr_failed",
+          message:String(error.message || error),
+        }, keyMissing ? 503 : 502);
+      }
+    }
+    if (p === "/api/remote/match-data" && req.method === "POST") {
+      if (!remoteAccess.verifyCsrf(remoteSession?.id, req.headers["x-pkc-csrf"])) {
+        return sendJSON(res, { error:"csrf_rejected" }, 403);
+      }
+      try {
+        const body = JSON.parse((await readBodyLimited(req, 2 * 1024 * 1024)) || "{}");
+        return sendJSON(res, saveRemoteMatchData(body));
+      } catch (error) {
+        const status = error.code === "revision_conflict" || error.code === "context_conflict" ? 409
+          : ["series_not_found", "match_not_found", "game_not_found"].includes(error.code) ? 404
+            : ["series_scope_denied", "invalid_match_teams", "invalid_draft"].includes(error.code) ? 400 : 500;
+        return sendJSON(res, {
+          error:error.code || "remote_save_failed",
+          message:error.message || String(error),
+          revision:error.revision,
+        }, status);
+      }
+    }
+    if (p === "/api/remote/logout" && req.method === "POST") {
+      if (!remoteAccess.verifyCsrf(remoteSession?.id, req.headers["x-pkc-csrf"])) {
+        return sendJSON(res, { error: "csrf_rejected" }, 403);
+      }
+      remoteAccess.revoke(remoteSession.id);
+      res.setHeader("Set-Cookie", remoteCookie("", 0));
+      return sendJSON(res, { ok: true });
+    }
     if (p === "/" || p === "/index.html") {
       return serveFile(res, APP_PAGE, { "Cache-Control": "no-store" });
     }
@@ -331,9 +763,58 @@ const server = http.createServer(async (req, res) => {
         return sendJSON(res, { ok: false, error: String(e && e.message || e) }, 502);
       }
     }
-    /* ---------------- 英雄胜率 / 赛宝抓取 ---------------- */
+    if (p === "/api/store/backups" && req.method === "GET") {
+      const key = url.searchParams.get("key") || "";
+      if (!BACKUP_KEYS.has(key)) return sendJSON(res, { error: "invalid_backup_key" }, 400);
+      const versions = listBackupVersions(BACKUP_DIR, key);
+      return sendJSON(res, { ok: true, key, versions });
+    }
+    if (p === "/api/store/restore" && req.method === "POST") {
+      const body = JSON.parse((await readBody(req)) || "{}");
+      const key = String(body.key || "");
+      if (!BACKUP_KEYS.has(key)) return sendJSON(res, { error: "invalid_backup_key" }, 400);
+      const file = storeFile(key);
+      const current = storeRev(file);
+      if (body.baseRev && body.baseRev !== current) {
+        return sendJSON(res, { error: "conflict", key, rev: current }, 409);
+      }
+      try {
+        const restored = restoreJsonBackup(file, BACKUP_DIR, key, body.name);
+        const rev = storeRev(file);
+        appendDataAudit("restore-version", "恢复版本 " + restored.name, key);
+        return sendJSON(res, { ok: true, key, rev, restored });
+      } catch (error) {
+        return sendJSON(res, { error: "restore_failed", message: error.message }, 400);
+      }
+    }
+    if (p === "/api/store/audit" && req.method === "GET") {
+      return sendJSON(res, { ok: true, entries: readDataAudit(url.searchParams.get("limit")) });
+    }
+    if (p === "/api/store/audit" && req.method === "POST") {
+      const body = JSON.parse((await readBody(req)) || "{}");
+      const entry = appendDataAudit(body.action, body.detail, body.key);
+      return sendJSON(res, { ok: true, entry });
+    }
+    if (p === "/api/store/snapshot" && req.method === "POST") {
+      const body = JSON.parse((await readBody(req)) || "{}");
+      const keys = Array.isArray(body.keys) ? body.keys.map(String) : [];
+      const snapshots = [];
+      for (const key of keys) {
+        if (!BACKUP_KEYS.has(key)) continue;
+        try {
+          const snapshot = snapshotJsonFile(storeFile(key), BACKUP_DIR, key);
+          if (snapshot) snapshots.push(snapshot);
+        } catch { /* current file may be absent or malformed; keep other snapshots */ }
+      }
+      const audit = appendDataAudit(body.action || "snapshot", body.detail || "创建操作前快照", keys.join(","));
+      return sendJSON(res, { ok: true, snapshots, audit });
+    }
+    /* ---------------- 英雄胜率 / 手动录入 ---------------- */
     if (p === "/herostats") {
       return serveFile(res, path.join(ROOT, "director", "herostats.html"), { "Cache-Control": "no-store" });
+    }
+    if (p === "/season") {
+      return serveFile(res, path.join(ROOT, "director", "season.html"), { "Cache-Control": "no-store" });
     }
     if (p === "/promo") {
       return serveFile(res, path.join(ROOT, "director", "promo.html"), { "Cache-Control": "no-store" });
@@ -355,18 +836,39 @@ const server = http.createServer(async (req, res) => {
     }
     if (p === "/api/hero-stats/raw" && req.method === "GET") {
       const data = readHeroStats();
+      return sendJSON(res, { ok: true, ...data });
+    }
+    if (p === "/api/hero-stats/schedule" && req.method === "GET") {
+      const library = readStoreJson("library", null);
+      const seriesId = url.searchParams.get("seriesId") || String(library && library.currentId || "");
       return sendJSON(res, {
         ok: true,
-        ...data,
-        sessions: listSessions().map((s) => ({ name: s.name, mtime: s.mtime })),
+        ...buildGroupSchedule({
+          library,
+          seriesId,
+        }),
       });
     }
-    if (p === "/api/hero-stats/labels" && req.method === "POST") {
-      const body = JSON.parse(await readBody(req));
-      const labels = body && body.labels && typeof body.labels === "object" ? body.labels : {};
-      const data = applyLabels(readHeroStats(), labels);
-      writeHeroStats(data);
-      return sendJSON(res, { ok: true, clusters: data.clusters });
+    if (p === "/api/season/insights" && req.method === "GET") {
+      const library = readStoreJson("library", null);
+      const context = readStoreJson("context", null);
+      const seriesId = url.searchParams.get("seriesId")
+        || context?.seriesId
+        || library?.currentId
+        || "";
+      const exists = (library?.series || []).some((series) => String(series.id) === String(seriesId));
+      if (!exists) return sendJSON(res, { error: "series_not_found", seriesId }, 404);
+      return sendJSON(res, buildSeasonInsights({
+        library,
+        matches: readStoreJson("matches", { games: {} }),
+        bracket: readStoreJson("bracket", {}),
+        heroStats: readHeroStats(),
+        seriesId,
+        context,
+        stage: url.searchParams.get("stage") || "all",
+        leftId: url.searchParams.get("leftId") || "",
+        rightId: url.searchParams.get("rightId") || "",
+      }));
     }
     if (p === "/api/hero-stats/manual" && req.method === "POST") {
       const body = JSON.parse(await readBody(req));
@@ -389,16 +891,6 @@ const server = http.createServer(async (req, res) => {
       writeHeroStats(null);
       return sendJSON(res, { ok: true, cleared: true });
     }
-    if (p === "/api/hero-stats/ingest" && req.method === "POST") {
-      const body = JSON.parse(await readBody(req) || "{}");
-      const sessions = listSessions();
-      const dir = body.session
-        ? (sessions.find((s) => s.name === body.session) || {}).dir
-        : (sessions[0] || {}).dir;
-      if (!dir) return sendJSON(res, { ok: false, error: "没有可用的抓取会话" }, 400);
-      const out = ingestSession(dir);
-      return sendJSON(res, out, out.ok ? 200 : 400);
-    }
     if (p === "/api/hero-stats/export.csv" && req.method === "GET") {
       const data = readHeroStats();
       const q = url.searchParams;
@@ -417,33 +909,6 @@ const server = http.createServer(async (req, res) => {
       });
       return res.end(csv);
     }
-    if (p === "/api/saibao/capture/start" && req.method === "POST") {
-      const body = JSON.parse(await readBody(req) || "{}");
-      return sendJSON(res, startCapture({ groups: body.groups, maxSeries: body.maxSeries, quiet: !!body.quiet }));
-    }
-    if (p === "/api/saibao/capture/status" && req.method === "GET") {
-      return sendJSON(res, captureStatus());
-    }
-    if (p === "/api/saibao/capture/pause" && req.method === "POST") {
-      return sendJSON(res, pauseCapture());
-    }
-    if (p === "/api/saibao/capture/resume" && req.method === "POST") {
-      return sendJSON(res, resumeCapture());
-    }
-    if (p === "/api/saibao/capture/stop" && req.method === "POST") {
-      return sendJSON(res, stopCapture());
-    }
-    if (p.startsWith("/capture/")) {
-      const rest = p.slice("/capture/".length).split("/");
-      const session = decodeURIComponent(rest.shift() || "");
-      const rel = rest.map(decodeURIComponent).join("/");
-      if (!session || !rel) return send(res, 404, "Not Found");
-      const base = path.join(ROOT, "tmp", session);
-      const file = safeJoin(base, rel);
-      if (!file) return send(res, 403, "Forbidden");
-      return serveFile(res, file, { "Cache-Control": "no-store" });
-    }
-
     // 导播台 / OBS 场景页 / 状态 API（实现见 director/routes.mjs）
     if (await handleDirector(req, res, url, { sendJSON, send, readBody, serveFile, ROOT })) return;
 
@@ -486,6 +951,7 @@ const server = http.createServer(async (req, res) => {
         writeJsonAtomic(file, raw, {
           backupDir: path.join(DIR_DATA, "_backup"),
           key,
+          forceBackup: req.headers["x-pkc-force-backup"] === "1",
         });
         res.setHeader("X-PKC-Rev", storeRev(file));
         return sendJSON(res, { ok: true, key, bytes: raw.length });
@@ -525,12 +991,19 @@ server.on("error", (err) => {
   process.exit(1);
 });
 
-server.listen(PORT, "127.0.0.1", () => {
+server.listen(PORT, LISTEN_HOST, () => {
   const st = scanHeroes(true);
   const heroes = Object.keys(st.heroes).length;
   console.log("──────────────────────────────────────────────");
   console.log("  PKC 赛后数据图生成器 · 本地服务已启动");
   console.log("  地址: http://localhost:" + PORT);
+  if (REMOTE_MODE) {
+    console.log("  远程模式: " + LISTEN_HOST + ":" + PORT);
+    for (const item of lanAddresses()) console.log("  手机地址: " + item.url + "  (" + item.interface + ")");
+    console.log("  临时口令: " + remoteAccess.accessInfo().pin);
+  } else {
+    console.log("  局域网远程控制未开启；请重新运行「启动.bat」并选择手机远程模式");
+  }
   console.log("  英雄素材: " + (fs.existsSync(DIR_HERO) ? heroes + " 个英雄 / " + st.total + " 个文件" : "未找到 英雄半身像 目录"));
   console.log("  数据目录: " + DIR_DATA);
   console.log("  关闭本窗口即停止服务");

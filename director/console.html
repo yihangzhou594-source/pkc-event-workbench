@@ -171,6 +171,14 @@
   .pk .scene-ops{display:none}
   .pk .scene-ops.on{display:block}
   .pk .ops-scene-hint{font-size:12px;font-weight:700;color:#2457c5;background:#eef4ff;border:1px solid #cfe0ff;border-radius:9px;padding:7px 10px}
+  .pk .director-readiness{display:flex;flex-direction:column;gap:5px;padding:8px;border:1px solid var(--line);border-radius:10px;background:#fbfcff}
+  .pk .director-readiness .r{display:grid;grid-template-columns:7px minmax(0,1fr) auto;gap:7px;align-items:center;font-size:11.5px}
+  .pk .director-readiness .r>i{width:7px;height:7px;border-radius:50%;background:#159f61}
+  .pk .director-readiness .r.warning>i{background:#dd9828}
+  .pk .director-readiness .r.blocked>i{background:#d7475c}
+  .pk .director-readiness .r b{font-weight:700;color:var(--ink)}
+  .pk .director-readiness .r span{color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .pk .director-readiness .r em{font-style:normal;font-size:10px;font-weight:700;color:var(--muted)}
   .pk .cm-person{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;margin-top:6px}
   .pk .cm-person.off{display:none}
   .pk .cm-banner-box{margin-top:12px;padding-top:10px;border-top:1px solid var(--line2)}
@@ -248,6 +256,7 @@
       <div class="wk-cap">数据</div>
       <button class="wk-item" data-view="data" data-icon="data" title="对局数据"><span class="wk-ico"></span><span>对局数据</span></button>
       <button class="wk-item" data-view="herostats" data-icon="herostats" title="英雄胜率"><span class="wk-ico"></span><span>英雄胜率</span></button>
+      <button class="wk-item" data-view="season" data-icon="data" title="赛季仪表盘"><span class="wk-ico"></span><span>赛季仪表盘</span></button>
       <button class="wk-item" data-view="bracket" data-icon="bracket" title="淘汰赛赛程"><span class="wk-ico"></span><span>淘汰赛赛程</span></button>
       <div class="wk-cap">资料</div>
       <button class="wk-item" data-view="teams" data-icon="teams" title="队伍库"><span class="wk-ico"></span><span>队伍库</span></button>
@@ -336,8 +345,13 @@
               </div>
               <div class="wk-note">概览每 30 秒刷新一次；顶栏的场次与在播状态走实时通道。</div>
             </div>
-            <div class="wk-card">
-              <h3>开播前检查 <em id="wkCheckSum">—</em></h3>
+            <div class="wk-card wk-remote-card">
+              <h3>手机远程控制 <em id="remoteMode">仅本机</em></h3>
+              <div id="remoteAccessBody" class="wk-note">普通模式不开放局域网。关闭服务后重新运行「启动.bat」并选择手机远程模式。</div>
+            </div>
+            <div class="wk-card wk-span2">
+              <h3>场景预检 <em id="wkCheckSum">—</em></h3>
+              <div class="wk-readiness" id="ovSceneReadiness"></div>
               <div class="wk-checks" id="ovChecks"></div>
             </div>
             <div class="wk-card">
@@ -357,6 +371,7 @@
         <span class="dirty" id="dirtyTag" role="status" aria-live="polite" aria-atomic="true">● 预览有未推送改动</span>
         <span class="ctx-chip" id="ctxChip">未选择场次</span>
         <span class="grow"></span>
+        <button class="btn ghost" id="btnUndoPush" disabled>撤回上次推送 · U</button>
         <button class="btn ghost" id="btnDiscard">丢弃预览</button>
         <button class="btn primary" id="btnPush">推送到直播端</button>
       </div>
@@ -380,6 +395,7 @@
 
         <div class="card ops">
           <div class="ops-scene-hint" id="opsSceneHint">当前场景：—</div>
+          <div class="director-readiness wk-readiness" id="directorReadiness"></div>
           <div id="opsTimer" class="scene-ops">
             <h2>现场操作 · 点击即生效</h2>
             <div class="row">
@@ -618,6 +634,9 @@
       <section class="wk-pane" id="pane-herostats">
         <iframe id="herostatsFrame" src="/herostats" title="英雄胜率"></iframe>
       </section>
+      <section class="wk-pane" id="pane-season">
+        <iframe id="seasonFrame" src="/season" title="赛季仪表盘"></iframe>
+      </section>
       <section class="wk-pane" id="pane-promo">
         <iframe id="promoFrame" src="/promo" title="赛前宣传图"></iframe>
       </section>
@@ -659,7 +678,7 @@ async function post(action, body) {
     body: JSON.stringify(body || {}),
   });
   const data = await res.json();
-  if (action === "push") {
+  if (action === "push" && !data.error) {
     stageMode = "live";
     document.querySelectorAll(".seg button").forEach((button) => {
       const selected = button.dataset.mode === "live";
@@ -668,6 +687,29 @@ async function post(action, body) {
     });
   }
   return data;
+}
+
+async function postPush(force = false) {
+  let data = await post("push", { force });
+  if (data && ["blank_confirm_required", "readiness_blocked"].includes(data.error) && !force) {
+    const reason = data.message || "当前场景预检未通过。";
+    if (!confirm(reason + "\n\n确认仍要推送到直播端？")) return null;
+    data = await post("push", { force: true });
+  }
+  if (data && data.error) {
+    if (window.__pkSay) window.__pkSay(data.message || data.error);
+    return null;
+  }
+  return data;
+}
+
+async function pushCurrent(force = false) {
+  const next = await postPush(force);
+  if (!next) return false;
+  state = next;
+  paint();
+  syncFrame();
+  return true;
 }
 
 function paintScenes() {
@@ -717,7 +759,7 @@ function paintScenes() {
   tip.style.marginTop = "10px";
   tip.style.paddingTop = "8px";
   tip.style.lineHeight = "1.7";
-  tip.textContent = "1-5 切场景 · 空格推送 · B 空白";
+  tip.textContent = "1-6 切场景 · 空格推送 · U 撤回 · B 紧急空白";
   box.append(tip);
 }
 
@@ -727,9 +769,11 @@ function paint() {
   const scenes = state.scenes || [];
 
   $("dirtyTag").classList.toggle("on", !!isPreviewDirty);
+  const undo = $("btnUndoPush");
+  if (undo) undo.disabled = !state.canUndoPush;
   $("pushState").textContent = isPreviewDirty
-    ? "预览中的改动尚未推送至直播端"
-    : "直播端与当前预览一致";
+    ? "预览中的改动尚未推送至直播端 · 空格推送"
+    : "直播端与当前预览一致" + (state.canUndoPush ? " · U 撤回上次推送" : "");
 
   const onAirLabel = (scenes.find(s => s.id === onAir.scene) || {}).label || onAir.scene;
   $("onAirScene").textContent = onAirLabel;
@@ -929,11 +973,15 @@ document.querySelectorAll(".seg button").forEach(b => {
   };
 });
 
-$("btnPush").onclick = async () => { state = await post("push"); paint(); syncFrame(); };
+$("btnPush").onclick = async () => { await pushCurrent(); };
+$("btnUndoPush").onclick = async () => {
+  const next = await post("undo-push");
+  if (next && !next.error) { state = next; paint(); syncFrame(); }
+};
 $("btnDiscard").onclick = async () => { state = await post("discard"); paint(); syncFrame(); };
 
 /* ---------- 现场快捷键 ----------
-   1-5 切场景 / 空格推送 / B 一键切空白（panic）。
+   1-6 切场景 / 空格推送 / U 撤回 / B 一键切空白（panic）。
    只在「导播台」视图生效，输入框里打字时不拦截。 */
 const HOTKEY_SCENES = ["commentary", "interval", "spotlight", "bracket", "chart", "blank"];
 function hotkeyTyping(el) {
@@ -948,17 +996,19 @@ document.addEventListener("keydown", async (e) => {
 
   if (e.key === " ") {
     e.preventDefault();
-    state = await post("push");
-    paint();
-    syncFrame();
+    await pushCurrent();
     return;
   }
   if (e.key === "b" || e.key === "B") {
     e.preventDefault();
     state = await post("scene", { id: "blank" });
-    state = await post("push");
-    paint();
-    syncFrame();
+    await pushCurrent(true);
+    return;
+  }
+  if (e.key === "u" || e.key === "U") {
+    e.preventDefault();
+    const next = await post("undo-push");
+    if (next && !next.error) { state = next; paint(); syncFrame(); }
     return;
   }
   const n = Number(e.key);
@@ -993,9 +1043,7 @@ if (chartAirBtn) chartAirBtn.onclick = async () => {
     return;
   }
   state = await post("scene", { id: "chart" });
-  state = await post("push");
-  paint();
-  syncFrame();
+  await pushCurrent();
 };
 const chartToggleBtn = $("btnChartToggle");
 if (chartToggleBtn) chartToggleBtn.onclick = async () => {
@@ -1029,8 +1077,7 @@ $("btnSpotlightPush").onclick = async () => {
   const editor = $("spotlightRoster");
   state = await post("spotlight/playlist", { patch: readSpotlightEditor() });
   state = await post("scene", { id: "spotlight" });
-  state = await post("push");
-  editor.dataset.dirty = "false"; paint(); syncFrame();
+  if (await pushCurrent()) editor.dataset.dirty = "false";
 };
 $("btnSpotlightExport").onclick = async () => {
   const canvas = document.createElement("canvas");

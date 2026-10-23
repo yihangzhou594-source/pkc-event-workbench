@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>PKC 赛季仪表盘</title>
+  <style>
+    :root{--bg:#eef2f7;--card:#fff;--ink:#172033;--sub:#637087;--line:#dfe5ef;--blue:#2f6bff;--gold:#d8b35b;--bad:#c64255;--warn:#b97313;--ok:#168a54}
+    *{box-sizing:border-box}html,body{margin:0;min-height:100%}body{background:radial-gradient(circle at 8% 0,rgba(54,104,170,.16),transparent 30%),var(--bg);color:var(--ink);font:14px/1.5 system-ui,"Microsoft YaHei",sans-serif}
+    button,select{font:inherit}button:focus-visible,select:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
+    .top{padding:22px 24px 18px;background:linear-gradient(118deg,#13233f,#1c3457 55%,#172a3e);color:#fff}
+    .top-inner{max-width:1680px;margin:auto;display:flex;gap:18px;align-items:flex-end;flex-wrap:wrap}
+    .title{flex:1;min-width:260px}.title span{font-size:10px;letter-spacing:.18em;color:#e1c37e;font-weight:800}.title h1{margin:4px 0 2px;font-size:26px}.title p{margin:0;color:rgba(255,255,255,.62)}
+    .toolbar{display:flex;gap:8px;flex-wrap:wrap}.btn{border:1px solid var(--line);border-radius:9px;background:#fff;color:var(--ink);padding:8px 12px;font-weight:700;cursor:pointer}.btn.primary{background:#ffd76a;border-color:#ffd76a;color:#342607}.btn:disabled{opacity:.45;cursor:not-allowed}
+    .wrap{max-width:1680px;margin:auto;padding:16px 20px 50px}
+    .filters{display:grid;grid-template-columns:minmax(180px,1.3fr) repeat(3,minmax(130px,.7fr)) auto;gap:10px;align-items:end;padding:14px;background:var(--card);border:1px solid var(--line);border-radius:14px;box-shadow:0 8px 24px rgba(35,48,70,.06)}
+    label{display:flex;flex-direction:column;gap:5px;color:var(--sub);font-size:11px;font-weight:700}
+    select{border:1px solid var(--line);border-radius:8px;background:#fbfcff;padding:9px 10px;color:var(--ink)}
+    .status{padding:8px 10px;border-radius:9px;background:#eef4ff;color:#315eb8;font-size:12px;white-space:nowrap}.status.bad{background:#fff0f2;color:#a22e42}
+    .summary{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:9px;margin:14px 0}
+    .kpi{padding:12px 14px;background:#fff;border:1px solid var(--line);border-radius:12px}.kpi span{display:block;color:var(--sub);font-size:11px}.kpi b{display:block;margin-top:4px;font:800 23px/1.1 Bahnschrift,system-ui,sans-serif}
+    .notice{padding:10px 12px;border-radius:10px;background:#fff8e7;color:#86530b;margin:10px 0;font-size:12px}
+    .grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+    .figure{background:#fff;border:1px solid var(--line);border-radius:14px;overflow:hidden;box-shadow:0 8px 26px rgba(35,48,70,.07)}
+    .figure-head{display:flex;align-items:center;gap:10px;padding:11px 14px;border-bottom:1px solid var(--line)}
+    .figure-head b{font-size:13px}.figure-head span{margin-left:auto;color:var(--sub);font-size:11px}
+    canvas{display:block;width:100%;height:auto;background:#111827}
+    .poster{grid-column:1/-1}.poster .canvas-wrap{max-width:540px;margin:auto}.poster canvas{width:100%}
+    .hint{color:var(--sub);font-size:11px;margin-top:7px}
+    @media(max-width:1100px){.filters{grid-template-columns:1fr 1fr}.summary{grid-template-columns:repeat(3,1fr)}.grid{grid-template-columns:1fr}}
+    @media(max-width:620px){.top{padding:16px}.wrap{padding:12px}.filters{grid-template-columns:1fr}.summary{grid-template-columns:repeat(2,1fr)}}
+  </style>
+</head>
+<body>
+  <header class="top">
+    <div class="top-inner">
+      <div class="title"><span>PKC SEASON INSIGHTS</span><h1>完整赛季仪表盘</h1><p>当前系列赛 · 官方赛果与有效对局统一口径</p></div>
+      <div class="toolbar">
+        <button class="btn primary" id="btnSeasonZip">打包下载全部 6 张</button>
+        <button class="btn" id="btnSeasonText">复制文字摘要</button>
+      </div>
+    </div>
+  </header>
+  <main class="wrap">
+    <section class="filters">
+      <label>系列赛<select id="seasonSeries"></select></label>
+      <label>阶段<select id="seasonStage"><option value="all">全部阶段</option><option value="group">小组赛</option><option value="knockout">淘汰赛</option></select></label>
+      <label>对比左队<select id="seasonLeft"></select></label>
+      <label>对比右队<select id="seasonRight"></select></label>
+      <button class="btn primary" id="btnSeasonRefresh">刷新仪表盘</button>
+    </section>
+    <div class="status" id="seasonStatus" role="status" aria-live="polite">正在读取赛季数据…</div>
+    <section class="summary" id="seasonSummary"></section>
+    <div class="notice" id="seasonWarnings" hidden></div>
+    <section class="grid">
+      <article class="figure"><div class="figure-head"><b>01 · 赛季总览</b><span>1920 × 1080</span><button class="btn" data-download="overview">下载</button></div><canvas id="seasonOverview" width="1920" height="1080"></canvas></article>
+      <article class="figure"><div class="figure-head"><b>02 · 队伍状态</b><span>1920 × 1080</span><button class="btn" data-download="teams">下载</button></div><canvas id="seasonTeams" width="1920" height="1080"></canvas></article>
+      <article class="figure"><div class="figure-head"><b>03 · 双方对比</b><span>1920 × 1080</span><button class="btn" data-download="compare">下载</button></div><canvas id="seasonCompare" width="1920" height="1080"></canvas></article>
+      <article class="figure"><div class="figure-head"><b>04 · 选手英雄池</b><span>1920 × 1080</span><button class="btn" data-download="players">下载</button></div><canvas id="seasonPlayers" width="1920" height="1080"></canvas></article>
+      <article class="figure"><div class="figure-head"><b>05 · BP 与英雄热度</b><span>1920 × 1080</span><button class="btn" data-download="heroes">下载</button></div><canvas id="seasonHeroes" width="1920" height="1080"></canvas></article>
+      <article class="figure poster"><div class="figure-head"><b>赛季总结海报</b><span>1080 × 1350 · 4:5</span><button class="btn" data-download="poster">下载</button></div><div class="canvas-wrap"><canvas id="seasonPoster" width="1080" height="1350"></canvas></div></article>
+    </section>
+    <div class="hint">统计口径：弃权和判负计入官方胜负，但不进入英雄、选手和对局指标分母；零样本显示 N/A，不补零。</div>
+  </main>
+  <script src="/assets/pkc-season.js"></script>
+</body>
+</html>

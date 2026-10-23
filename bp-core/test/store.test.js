@@ -33,6 +33,41 @@ test('推送后预览与在播一致，脏标记清除', () => {
   assert.equal(snap.isPreviewDirty, false);
 });
 
+test('推送记录回退点并可撤回', () => {
+  const s = createStore();
+  s.setScene(SceneId.INTERVAL);
+  s.push();
+  s.setScene(SceneId.CHART);
+  s.push();
+  let snap = s.snapshot();
+  assert.equal(snap.canUndoPush, true);
+  assert.equal(snap.lastPush.scene, SceneId.CHART);
+
+  s.undoPush();
+  snap = s.snapshot();
+  assert.equal(snap.onAir.scene, SceneId.INTERVAL);
+  assert.equal(snap.preview.scene, SceneId.INTERVAL);
+  assert.equal(snap.isPreviewDirty, false);
+  assert.equal(snap.canUndoPush, true);
+
+  s.undoPush();
+  assert.equal(s.snapshot().onAir.scene, SceneId.BLANK);
+  assert.equal(s.snapshot().canUndoPush, false);
+});
+
+test('非空画面切空白需要 force', () => {
+  const s = createStore();
+  s.setScene(SceneId.COMMENTARY);
+  s.push();
+  s.setScene(SceneId.BLANK);
+  assert.throws(
+    () => s.push(),
+    (e) => e instanceof StoreError && e.code === 'blank_confirm_required',
+  );
+  const snap = s.push({ force: true });
+  assert.equal(snap.onAir.scene, SceneId.BLANK);
+});
+
 test('丢弃预览回到在播状态', () => {
   const s = createStore();
   s.setScene(SceneId.COMMENTARY);

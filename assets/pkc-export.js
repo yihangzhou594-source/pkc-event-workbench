@@ -611,6 +611,11 @@ function clearMatchData(key){
     score: b.score[key] ? { ...b.score[key] } : null,
     win: b.win[key] || null,
   };
+  window.PKC_RECOVERY?.snapshotBeforeChange(
+    "clear-match",
+    ["matches", "bracket"],
+    "清除 " + snapshot.name + " 的 " + snapshot.games.length + " 局",
+  );
 
   const gone = new Set(snapshot.games);
   S.series.games = S.series.games.filter(g => !gone.has(g));
@@ -753,9 +758,20 @@ function renderBkMatches(){
   $$(".bk-clr", host).forEach(el => {
     el.onclick = () => {
       const b2 = B(), k = el.dataset.k;
+      const previous = { win: b2.win[k] || null, score: b2.score[k] ? { ...b2.score[k] } : null };
+      window.PKC_RECOVERY?.snapshotBeforeChange("clear-match-score", ["bracket"], "清空 " + matchDisplayName(k));
       delete b2.win[k]; delete b2.score[k];
       renderBkMatches(); scheduleSave(); scheduleBkRender();
       publishBracketLive({ kind:"meta" });
+      showUndoBar("已清空「" + matchDisplayName(k) + "」的比分和晋级", () => {
+        const next = B();
+        if (previous.score) next.score[k] = previous.score;
+        else delete next.score[k];
+        if (previous.win) next.win[k] = previous.win;
+        else delete next.win[k];
+        renderBkMatches(); scheduleSave(); scheduleBkRender(); publishBracketLive({ kind:"meta" });
+        toast("已撤销，比分和晋级已恢复");
+      });
     };
   });
   $$(".bk-del", host).forEach(el => {

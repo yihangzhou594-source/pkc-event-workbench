@@ -16,7 +16,7 @@
   .top{display:flex;justify-content:space-between;gap:18px;align-items:flex-start;flex-wrap:wrap}
   h1{margin:0;font-size:24px;letter-spacing:.2px}
   .sub{color:var(--sub);margin-top:4px}
-  .capture{display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:flex-end}
+  .top-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:flex-end}
   .btn{border:1px solid var(--line);background:#fff;color:var(--ink);border-radius:10px;padding:8px 13px;cursor:pointer;font:inherit}
   .btn:hover{border-color:#c9d3e8;background:#fbfcff}
   .btn.primary{background:var(--blue);border-color:var(--blue);color:#fff}
@@ -25,17 +25,9 @@
   .btn:disabled{opacity:.45;cursor:not-allowed}
   :focus-visible{outline:2px solid var(--blue);outline-offset:2px;box-shadow:0 0 0 3px rgba(47,107,255,.14)}
   .panel{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow)}
-  .capture-panel{margin-top:14px;padding:14px 16px;display:grid;grid-template-columns:1fr 1fr;gap:14px}
-  .cap-left{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
-  .cap-left label{color:var(--sub);font-size:12px}
-  .cap-left input{width:130px;border:1px solid var(--line);border-radius:8px;padding:7px 9px;font:inherit}
-  .cap-right{display:flex;flex-direction:column;gap:7px;justify-content:center}
-  .bar{height:8px;background:#edf1f9;border-radius:99px;overflow:hidden}
-  .bar i{display:block;height:100%;width:0;background:linear-gradient(90deg,#2f6bff,#73a0ff);transition:width .35s}
-  .cap-msg{color:var(--sub);font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .filters{display:flex;gap:10px;flex-wrap:wrap;margin:14px 0}
   .filters select,.filters input{border:1px solid var(--line);background:#fff;border-radius:9px;padding:7px 10px;font:inherit;color:var(--ink)}
-  .cards{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px;margin:2px 0 16px}
+  .cards{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin:2px 0 16px}
   .kpi{padding:14px 16px}
   .kpi b{display:block;font-size:26px;line-height:1.1}
   .kpi span{color:var(--sub);font-size:12px}
@@ -49,25 +41,10 @@
   th:hover{color:var(--blue)}
   td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
   tr:hover td{background:#fafbff}
-  .tag{display:inline-block;padding:1px 7px;border-radius:99px;font-size:11px;background:#eef3ff;color:#3159b8}
-  .tag.warn{background:#fff3e0;color:#a46100}
-  .tag.bad{background:#ffe9ec;color:#b52b3a}
   .rate{font-weight:700}
   .rate.hi{color:var(--green)} .rate.lo{color:var(--red)}
   .empty{padding:36px 10px;text-align:center;color:var(--sub)}
-  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:12px}
-  .cluster{border:1px solid var(--line);border-radius:12px;padding:10px;display:flex;gap:10px;align-items:center;background:#fff}
-  .cluster img{width:56px;height:56px;border-radius:10px;object-fit:cover;background:#eef1f7;flex:0 0 56px}
-  .cluster .meta{min-width:0;flex:1}
-  .cluster .meta b{display:block;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .cluster .meta span{color:var(--sub);font-size:11px}
-  .cluster input{width:100%;border:1px solid var(--line);border-radius:8px;padding:6px 7px;font:inherit;margin-top:5px}
-  .cluster.pending{border-color:#f1c27d;background:#fffdf8}
-  .cluster.done{border-color:#bfe6d2;background:#f7fffb}
-  .toolbar{display:flex;gap:8px;align-items:center;justify-content:space-between;flex-wrap:wrap;margin-bottom:12px}
   .muted{color:var(--sub);font-size:12px}
-  pre.log{margin:0;background:#0e1424;color:#cfe0ff;border-radius:12px;padding:14px;max-height:360px;overflow:auto;font:12px/1.5 Consolas,monospace;white-space:pre-wrap}
-  .split{display:grid;grid-template-columns:1.1fr .9fr;gap:12px}
   .hint{color:var(--sub);font-size:12px;margin-top:6px}
   .manual-toolbar{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:12px}
   .manual-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
@@ -85,6 +62,12 @@
   .manual-ban{margin:5px 0}
   .manual-ban input{width:100%;border:1px solid var(--line);border-radius:8px;padding:6px 7px;font:inherit}
   .manual-actions{display:flex;align-items:center;gap:12px;margin-top:14px}
+  .manual-match{margin-bottom:14px;padding:12px;border:1px solid var(--line);border-radius:12px;background:#f8faff}
+  .manual-match select{width:100%;margin-top:6px;border:1px solid var(--line);border-radius:8px;padding:9px 10px;font:inherit;background:#fff}
+  .manual-match-info{margin-top:8px;color:var(--sub);font-size:12px}
+  .match-teams{display:flex;align-items:center;gap:10px;font-weight:700;margin:8px 0}
+  .match-teams span{flex:1;text-align:center;padding:8px;border-radius:8px;background:#f0f4ff}
+  .match-teams em{font-style:normal;color:var(--sub);font-weight:500}
   /* Match the workbench shell and make data-review steps easier to scan. */
   body{-webkit-font-smoothing:antialiased}
   .wrap{max-width:1580px;padding:22px clamp(14px,2.3vw,34px) 48px}
@@ -92,9 +75,6 @@
   h1{font-size:26px;letter-spacing:-.02em}
   .sub{max-width:760px;line-height:1.7}
   .panel{border-radius:14px;box-shadow:0 2px 8px rgba(31,42,68,.045),0 12px 28px rgba(31,42,68,.035)}
-  .capture-panel{border-top:3px solid var(--blue);gap:18px}
-  .cap-left{row-gap:9px}
-  .cap-left input{min-height:36px}
   .filters{position:sticky;top:0;z-index:4;padding:9px 10px;margin:14px -2px;background:rgba(244,246,251,.94);backdrop-filter:blur(10px);border:1px solid rgba(230,234,242,.85);border-radius:12px}
   .filters select{min-height:36px;flex:1 1 150px}
   .cards{gap:10px}
@@ -107,7 +87,7 @@
   .manual-card{background:linear-gradient(180deg,#fff,#fbfcff)}
   .manual-actions{position:sticky;bottom:0;z-index:2;padding:10px 0;background:rgba(244,246,251,.95);backdrop-filter:blur(8px)}
   @media(max-width:680px){.wrap{padding:14px 12px 32px}.filters{position:static}.tabs{top:0}.cards{grid-template-columns:repeat(2,minmax(0,1fr))}.kpi{padding:12px}.kpi b{font-size:22px}.manual-actions{position:static;align-items:flex-start;flex-direction:column}}
-  @media(max-width:1050px){.cards{grid-template-columns:repeat(3,1fr)}.capture-panel{grid-template-columns:1fr}.split{grid-template-columns:1fr}}
+  @media(max-width:1050px){.cards{grid-template-columns:repeat(2,1fr)}}
   @media(max-width:1050px){.manual-grid{grid-template-columns:1fr}}
   @media(max-width:680px){.cards{grid-template-columns:repeat(2,minmax(0,1fr))}}
 </style>
@@ -117,30 +97,13 @@
   <div class="top">
     <div>
       <h1>英雄胜率</h1>
-      <div class="sub">王者赛宝 · 小组赛选择 / 禁用 / 胜率。抓取过程只读，不会重置或改判比赛。</div>
+      <div class="sub">所有英雄胜率均手动录入。系统从队伍分组自动展开小组赛场次，不再抓取或自动导入战绩。</div>
     </div>
-    <div class="capture">
+    <div class="top-actions">
       <button class="btn" id="btnCsv">导出 CSV</button>
       <button class="btn" id="btnPng">导出 PNG</button>
     </div>
   </div>
-
-  <section class="panel capture-panel">
-    <div class="cap-left">
-      <label for="capGroups">组别</label>
-      <input id="capGroups" value="1,2,3,4" title="例如 1,2,3,4；先跑 1 组可快速验收">
-      <label for="capMax">最多场次</label>
-      <input id="capMax" value="0" title="0 = 不限">
-      <label for="capQuiet" style="display:flex;align-items:center;gap:5px"><input type="checkbox" id="capQuiet" checked> 安静模式</label>
-      <button class="btn primary" id="btnStart">开始抓取</button>
-      <button class="btn" id="btnPause" disabled>暂停</button>
-      <button class="btn danger" id="btnStop" disabled>停止</button>
-    </div>
-    <div class="cap-right">
-      <div class="bar" id="capProgress" role="progressbar" aria-label="赛宝抓取进度" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><i id="capBar"></i></div>
-      <div class="cap-msg" id="capMsg" role="status" aria-live="polite" aria-atomic="true">还没有抓取记录</div>
-    </div>
-  </section>
 
   <div class="filters">
     <select id="fStage" aria-label="按阶段筛选"></select>
@@ -148,51 +111,52 @@
     <select id="fTeam" aria-label="按队伍筛选"></select>
     <select id="fPlayer" aria-label="按选手筛选"></select>
     <select id="fMin" aria-label="按最少出场次数筛选">
-      <option value="3">出场 ≥3</option>
+      <option value="0" selected>全部英雄</option>
       <option value="1">出场 ≥1</option>
-      <option value="0">全部英雄</option>
+      <option value="3">出场 ≥3</option>
     </select>
     <button class="btn" id="btnRefresh">刷新</button>
   </div>
 
   <div class="cards">
-    <div class="panel kpi"><b id="kSeries">0</b><span>已抓系列赛</span></div>
+    <div class="panel kpi"><b id="kSeries">0</b><span>已汇总系列赛</span></div>
     <div class="panel kpi"><b id="kGames">0</b><span>有效局</span></div>
     <div class="panel kpi"><b id="kPicks">0</b><span>英雄出场</span></div>
     <div class="panel kpi"><b id="kHeroes">0</b><span>出场英雄</span></div>
-    <div class="panel kpi"><b id="kPending">0</b><span>待确认头像</span></div>
   </div>
 
   <section class="panel">
     <div class="tabs">
       <button class="tab on" data-tab="heroes" aria-pressed="true">英雄榜</button>
       <button class="tab" data-tab="players">选手英雄池</button>
-      <button class="tab" data-tab="review">待确认 <span class="tag warn" id="reviewCount">0</span></button>
+      <button class="tab" data-tab="heroRank">英雄排行榜</button>
       <button class="tab" data-tab="manual">手动录入</button>
-      <button class="tab" data-tab="log">抓取日志</button>
     </div>
     <div class="body">
       <div id="viewHeroes"></div>
       <div id="viewPlayers" hidden></div>
-      <div id="viewReview" hidden></div>
+      <div id="viewHeroRank" hidden></div>
       <div id="viewManual" hidden>
         <div class="manual-toolbar">
-          <div class="muted">录入以前的赛事：选/填双方队名、5 个 ban（可空）、5 个选手和英雄、胜方。同阶段 + 组别 + 轮次 + 双方队名会合并为同一系列赛；同一「第几局」再保存会覆盖。</div>
+          <div class="muted">选择系统生成的小组赛场次，填写双方选手、英雄和胜方。不需要填写日期。</div>
           <button class="btn danger" id="mClear">清空已有数据</button>
         </div>
-        <div class="manual-grid">
+        <div class="manual-match">
+          <label for="mMatch"><b>小组赛场次</b></label>
+          <select id="mMatch" aria-label="选择小组赛场次"></select>
+          <div class="manual-match-info" id="mMatchEmpty">请先在「淘汰赛赛程」的分组区域填好 A / B / C / D 组的队伍。</div>
+        </div>
+        <div id="mManualFields" hidden>
+          <div class="manual-grid">
           <div class="manual-card">
-            <h3>系列赛 / 局</h3>
-            <div class="manual-row"><label for="mStage">阶段</label><input id="mStage" list="stageList" value="循环赛"></div>
-            <div class="manual-row"><label for="mGroup">组别</label><input id="mGroup" placeholder="1组"></div>
-            <div class="manual-row"><label for="mRound">轮次</label><input id="mRound" placeholder="第1轮"></div>
-            <div class="manual-row"><label for="mDate">日期</label><input id="mDate" placeholder="10/14"></div>
+            <h3>赛程 / 局</h3>
+            <div class="match-teams"><span id="mTeamLeftName">左队</span><em>VS</em><span id="mTeamRightName">右队</span></div>
+            <div class="manual-match-info" id="mMatchInfo">小组赛</div>
             <div class="manual-row"><label for="mGameNo">第几局</label><input id="mGameNo" type="number" min="1" max="7" value="1"></div>
             <div class="manual-row"><label for="mWinner">胜方</label><select id="mWinner"><option value="left">左队胜</option><option value="right">右队胜</option></select></div>
           </div>
           <div class="manual-card">
-            <h3>左队</h3>
-            <input id="mTeamLeft" list="teamNames" placeholder="左队队名" aria-label="左队队名">
+            <h3 id="mTeamLeftNameCard">左队</h3>
             <h4>禁用（可空）</h4>
             <div id="mBansLeft"></div>
             <h4>选择 / 选手</h4>
@@ -200,27 +164,24 @@
             <datalist id="playerNamesLeft"></datalist>
           </div>
           <div class="manual-card">
-            <h3>右队</h3>
-            <input id="mTeamRight" list="teamNames" placeholder="右队队名" aria-label="右队队名">
+            <h3 id="mTeamRightNameCard">右队</h3>
             <h4>禁用（可空）</h4>
             <div id="mBansRight"></div>
             <h4>选择 / 选手</h4>
             <div id="mPicksRight"></div>
             <datalist id="playerNamesRight"></datalist>
           </div>
-        </div>
-        <div class="manual-actions">
-          <button class="btn primary" id="mSave">保存这一局</button>
-          <span class="muted">保存后会自动把「第几局」+1，方便连续录同一场系列赛。</span>
+          </div>
+          <div class="manual-actions">
+            <button class="btn primary" id="mSave">保存这一局</button>
+            <span class="muted">保存后会自动把「第几局」+1，方便连续录同一场系列赛。</span>
+          </div>
         </div>
         <datalist id="heroNamesManual"></datalist>
-        <datalist id="teamNames"></datalist>
-        <datalist id="stageList"><option value="循环赛"><option value="淘汰赛"></datalist>
       </div>
-      <div id="viewLog" hidden></div>
     </div>
   </section>
 </div>
-<script src="/assets/pkc-herostats.js"></script>
+<script src="/assets/pkc-herostats-manual.js"></script>
 </body>
 </html>

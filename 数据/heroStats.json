@@ -3,7 +3,934 @@
   "event": "2026PKC秋季赛",
   "stage": "循环赛",
   "capturedAt": "",
-  "updatedAt": "",
-  "series": [],
-  "clusters": {}
+  "updatedAt": "2026-10-23T15:01:40.446Z",
+  "series": [
+    {
+      "id": "手动-循环赛-1组-第一轮-蝴蝶飞过废墟-薄肌俱乐部",
+      "stage": "循环赛",
+      "group": "1组",
+      "round": "第一轮",
+      "date": "10/13",
+      "teams": [
+        "蝴蝶飞过废墟",
+        "薄肌俱乐部"
+      ],
+      "seriesScore": [
+        2,
+        0
+      ],
+      "forfeit": false,
+      "noData": false,
+      "conflict": false,
+      "games": [
+        {
+          "no": 1,
+          "winner": "left",
+          "duration": "",
+          "noData": false,
+          "conflict": false,
+          "left": {
+            "team": "蝴蝶飞过废墟",
+            "side": "红方",
+            "picks": [
+              {
+                "order": 3,
+                "cluster": "manual-pick-%E8%92%99%E6%81%AC"
+              },
+              {
+                "order": 4,
+                "cluster": "manual-pick-%E8%B5%B5%E4%BA%91"
+              },
+              {
+                "order": 5,
+                "cluster": "manual-pick-%E5%A4%A7%E4%B9%94"
+              },
+              {
+                "order": 9,
+                "cluster": "manual-pick-%E5%85%AC%E5%AD%99%E7%A6%BB"
+              },
+              {
+                "order": 10,
+                "cluster": "manual-pick-%E7%89%9B%E9%AD%94"
+              }
+            ],
+            "bans": [
+              {
+                "cluster": "manual-ban-%E7%9B%BE%E5%B1%B1"
+              },
+              {
+                "cluster": "manual-ban-%E6%9D%A8%E6%88%AC"
+              },
+              {
+                "cluster": "manual-ban-%E6%95%96%E9%9A%90"
+              },
+              {
+                "cluster": "manual-ban-%E5%90%8E%E7%BE%BF"
+              }
+            ],
+            "players": [
+              {
+                "name": "付诸清风",
+                "cluster": "manual-pick-%E8%92%99%E6%81%AC"
+              },
+              {
+                "name": "小阮有点萌",
+                "cluster": "manual-pick-%E8%B5%B5%E4%BA%91"
+              },
+              {
+                "name": "​譞",
+                "cluster": "manual-pick-%E5%A4%A7%E4%B9%94"
+              },
+              {
+                "name": "幸福降临玖心",
+                "cluster": "manual-pick-%E5%85%AC%E5%AD%99%E7%A6%BB"
+              },
+              {
+                "name": "迪士尼老板",
+                "cluster": "manual-pick-%E7%89%9B%E9%AD%94"
+              }
+            ]
+          },
+          "right": {
+            "team": "薄肌俱乐部",
+            "side": "蓝方",
+            "picks": [
+              {
+                "order": 3,
+                "cluster": "manual-pick-%E5%BD%B1"
+              },
+              {
+                "order": 4,
+                "cluster": "manual-pick-%E7%8C%AA%E5%85%AB%E6%88%92"
+              },
+              {
+                "order": 5,
+                "cluster": "manual-pick-%E6%B5%B7%E6%9C%88"
+              },
+              {
+                "order": 9,
+                "cluster": "manual-pick-%E7%8B%84%E4%BB%81%E6%9D%B0"
+              },
+              {
+                "order": 10,
+                "cluster": "manual-pick-%E6%9C%B5%E8%8E%89%E4%BA%9A"
+              }
+            ],
+            "bans": [
+              {
+                "cluster": "manual-ban-%E5%B0%91%E5%8F%B8%E7%BC%98"
+              },
+              {
+                "cluster": "manual-ban-%E6%B2%88%E6%A2%A6%E6%BA%AA"
+              },
+              {
+                "cluster": "manual-ban-%E7%8B%82%E9%93%81"
+              },
+              {
+                "cluster": "manual-ban-%E7%99%BD%E8%B5%B7"
+              },
+              {
+                "cluster": "manual-ban-%E6%9B%B9%E6%93%8D"
+              }
+            ],
+            "players": [
+              {
+                "name": "王行健",
+                "cluster": "manual-pick-%E5%BD%B1"
+              },
+              {
+                "name": "狂吃中线大王",
+                "cluster": "manual-pick-%E7%8C%AA%E5%85%AB%E6%88%92"
+              },
+              {
+                "name": "低级社畜们",
+                "cluster": "manual-pick-%E6%B5%B7%E6%9C%88"
+              },
+              {
+                "name": "瀚海中子星",
+                "cluster": "manual-pick-%E7%8B%84%E4%BB%81%E6%9D%B0"
+              },
+              {
+                "name": "蔡文7堡堡",
+                "cluster": "manual-pick-%E6%9C%B5%E8%8E%89%E4%BA%9A"
+              }
+            ]
+          }
+        },
+        {
+          "no": 2,
+          "winner": "left",
+          "duration": "",
+          "noData": false,
+          "conflict": false,
+          "left": {
+            "team": "蝴蝶飞过废墟",
+            "side": "红方",
+            "picks": [
+              {
+                "order": 3,
+                "cluster": "manual-pick-%E4%BA%9A%E8%BF%9E"
+              },
+              {
+                "order": 4,
+                "cluster": "manual-pick-%E9%A9%AC%E8%B6%85"
+              },
+              {
+                "order": 5,
+                "cluster": "manual-pick-%E8%A5%BF%E6%96%BD"
+              },
+              {
+                "order": 9,
+                "cluster": "manual-pick-%E8%89%BE%E7%90%B3"
+              },
+              {
+                "order": 10,
+                "cluster": "manual-pick-%E7%9B%BE%E5%B1%B1"
+              }
+            ],
+            "bans": [
+              {
+                "cluster": "manual-ban-%E9%B2%81%E7%8F%AD%E5%A4%A7%E5%B8%88"
+              },
+              {
+                "cluster": "manual-ban-%E8%B5%B5%E4%BA%91"
+              },
+              {
+                "cluster": "manual-ban-%E5%85%B3%E7%BE%BD"
+              },
+              {
+                "cluster": "manual-ban-%E5%93%AA%E5%90%92"
+              },
+              {
+                "cluster": "manual-ban-%E8%80%81%E5%A4%AB%E5%AD%90"
+              }
+            ],
+            "players": [
+              {
+                "name": "付诸清风",
+                "cluster": "manual-pick-%E4%BA%9A%E8%BF%9E"
+              },
+              {
+                "name": "小阮有点萌",
+                "cluster": "manual-pick-%E9%A9%AC%E8%B6%85"
+              },
+              {
+                "name": "​譞",
+                "cluster": "manual-pick-%E8%A5%BF%E6%96%BD"
+              },
+              {
+                "name": "幸福降临玖心",
+                "cluster": "manual-pick-%E8%89%BE%E7%90%B3"
+              },
+              {
+                "name": "迪士尼老板",
+                "cluster": "manual-pick-%E7%9B%BE%E5%B1%B1"
+              }
+            ]
+          },
+          "right": {
+            "team": "薄肌俱乐部",
+            "side": "蓝方",
+            "picks": [
+              {
+                "order": 3,
+                "cluster": "manual-pick-%E5%BB%89%E9%A2%87"
+              },
+              {
+                "order": 4,
+                "cluster": "manual-pick-%E6%9D%A8%E6%88%AC"
+              },
+              {
+                "order": 5,
+                "cluster": "manual-pick-%E6%95%96%E9%9A%90"
+              },
+              {
+                "order": 9,
+                "cluster": "manual-pick-%E8%B2%82%E8%9D%89"
+              },
+              {
+                "order": 10,
+                "cluster": "manual-pick-%E8%94%A1%E6%96%87%E5%A7%AC"
+              }
+            ],
+            "bans": [
+              {
+                "cluster": "manual-ban-%E5%B0%91%E5%8F%B8%E7%BC%98"
+              },
+              {
+                "cluster": "manual-ban-%E6%B2%88%E6%A2%A6%E6%BA%AA"
+              },
+              {
+                "cluster": "manual-ban-%E7%8B%82%E9%93%81"
+              },
+              {
+                "cluster": "manual-ban-%E7%99%BD%E8%B5%B7"
+              }
+            ],
+            "players": [
+              {
+                "name": "王行健",
+                "cluster": "manual-pick-%E5%BB%89%E9%A2%87"
+              },
+              {
+                "name": "狂吃中线大王",
+                "cluster": "manual-pick-%E6%9D%A8%E6%88%AC"
+              },
+              {
+                "name": "低级社畜们",
+                "cluster": "manual-pick-%E6%95%96%E9%9A%90"
+              },
+              {
+                "name": "瀚海中子星",
+                "cluster": "manual-pick-%E8%B2%82%E8%9D%89"
+              },
+              {
+                "name": "蔡文7堡堡",
+                "cluster": "manual-pick-%E8%94%A1%E6%96%87%E5%A7%AC"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "手动-循环赛-A组-第1轮-肘击派队-等我刷把电刀",
+      "stage": "循环赛",
+      "group": "A组",
+      "round": "第1轮",
+      "date": "",
+      "teams": [
+        "肘击派队",
+        "等我刷把电刀"
+      ],
+      "seriesScore": [
+        1,
+        0
+      ],
+      "forfeit": false,
+      "noData": false,
+      "conflict": false,
+      "games": [
+        {
+          "no": 1,
+          "winner": "left",
+          "duration": "",
+          "noData": false,
+          "conflict": false,
+          "left": {
+            "team": "肘击派队",
+            "side": "蓝方",
+            "picks": [
+              {
+                "order": 3,
+                "cluster": "manual-pick-%E5%A7%AC%E5%B0%8F%E6%BB%A1"
+              },
+              {
+                "order": 4,
+                "cluster": "manual-pick-%E9%B2%81%E7%8F%AD%E5%A4%A7%E5%B8%88"
+              },
+              {
+                "order": 5,
+                "cluster": "manual-pick-%E7%8E%8B%E6%98%AD%E5%90%9B"
+              },
+              {
+                "order": 9,
+                "cluster": "manual-pick-%E6%95%96%E9%9A%90"
+              },
+              {
+                "order": 10,
+                "cluster": "manual-pick-%E7%8C%AA%E5%85%AB%E6%88%92"
+              }
+            ],
+            "bans": [
+              {
+                "cluster": "manual-ban-%E5%B0%91%E5%8F%B8%E7%BC%98"
+              },
+              {
+                "cluster": "manual-ban-%E5%A4%A7%E4%B9%94"
+              },
+              {
+                "cluster": "manual-ban-%E9%92%9F%E9%A6%97"
+              },
+              {
+                "cluster": "manual-ban-%E5%8F%B8%E7%A9%BA%E9%9C%87"
+              },
+              {
+                "cluster": "manual-ban-%E6%9B%B9%E6%93%8D"
+              }
+            ],
+            "players": [
+              {
+                "name": "徐我一生如意",
+                "cluster": "manual-pick-%E5%A7%AC%E5%B0%8F%E6%BB%A1"
+              },
+              {
+                "name": "suko",
+                "cluster": "manual-pick-%E9%B2%81%E7%8F%AD%E5%A4%A7%E5%B8%88"
+              },
+              {
+                "name": "释子都快烂了",
+                "cluster": "manual-pick-%E7%8E%8B%E6%98%AD%E5%90%9B"
+              },
+              {
+                "name": "不吃衙吏",
+                "cluster": "manual-pick-%E6%95%96%E9%9A%90"
+              },
+              {
+                "name": "云千落",
+                "cluster": "manual-pick-%E7%8C%AA%E5%85%AB%E6%88%92"
+              }
+            ]
+          },
+          "right": {
+            "team": "等我刷把电刀",
+            "side": "红方",
+            "picks": [
+              {
+                "order": 3,
+                "cluster": "manual-pick-%E5%A4%8F%E6%B4%9B%E7%89%B9"
+              },
+              {
+                "order": 4,
+                "cluster": "manual-pick-%E8%B5%B5%E4%BA%91"
+              },
+              {
+                "order": 5,
+                "cluster": "manual-pick-%E5%B0%8F%E4%B9%94"
+              },
+              {
+                "order": 9,
+                "cluster": "manual-pick-%E8%8B%8D"
+              },
+              {
+                "order": 10,
+                "cluster": "manual-pick-%E5%BC%A0%E9%A3%9E"
+              }
+            ],
+            "bans": [
+              {
+                "cluster": "manual-ban-%E5%85%83%E6%AD%8C"
+              },
+              {
+                "cluster": "manual-ban-%E8%8A%88%E6%9C%88"
+              },
+              {
+                "cluster": "manual-ban-%E6%9D%A8%E6%88%AC"
+              },
+              {
+                "cluster": "manual-ban-%E6%B5%B7%E6%9C%88"
+              },
+              {
+                "cluster": "manual-ban-%E5%AD%99%E6%82%9F%E7%A9%BA"
+              }
+            ],
+            "players": [
+              {
+                "name": "别小看我食力",
+                "cluster": "manual-pick-%E5%A4%8F%E6%B4%9B%E7%89%B9"
+              },
+              {
+                "name": "终将心如止水",
+                "cluster": "manual-pick-%E8%B5%B5%E4%BA%91"
+              },
+              {
+                "name": "無言泪尽",
+                "cluster": "manual-pick-%E5%B0%8F%E4%B9%94"
+              },
+              {
+                "name": "楠竹",
+                "cluster": "manual-pick-%E8%8B%8D"
+              },
+              {
+                "name": "方块块块块",
+                "cluster": "manual-pick-%E5%BC%A0%E9%A3%9E"
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ],
+  "clusters": {
+    "manual-pick-%E8%92%99%E6%81%AC": {
+      "hero": "蒙恬",
+      "confidence": 1,
+      "confirmed": true,
+      "source": "manual",
+      "count": 1,
+      "sample": "/hicon/%E8%92%99%E6%81%AC.jpg",
+      "firstSeen": "",
+      "kind": "pick"
+    },
+    "manual-pick-%E8%B5%B5%E4%BA%91": {
+      "hero": "赵云",
+      "confidence": 1,
+      "confirmed": true,
+      "source": "manual",
+      "count": 2,
+      "sample": "/hicon/%E8%B5%B5%E4%BA%91.jpg",
+      "firstSeen": "",
+      "kind": "pick"
+    },
+    "manual-pick-%E5%A4%A7%E4%B9%94": {
+      "hero": "大乔",
+      "confidence": 1,
+      "confirmed": true,
+      "source": "manual",
+      "count": 1,
+      "sample": "/hicon/%E5%A4%A7%E4%B9%94.jpg",
+      "firstSeen": "",
+      "kind": "pick"
+    },
+    "manual-pick-%E5%85%AC%E5%AD%99%E7%A6%BB": {
+      "hero": "公孙离",
+      "confidence": 1,
+      "confirmed": true,
+      "source": "manual",
+      "count": 1,
+      "sample": "/hicon/%E5%85%AC%E5%AD%99%E7%A6%BB.jpg",
+      "firstSeen": "",
+      "kind": "pick"
+    },
+    "manual-pick-%E7%89%9B%E9%AD%94": {
+      "hero": "牛魔",
+      "confidence": 1,
+      "confirmed": true,
+      "source": "manual",
+      "count": 1,
+      "sample": "/hicon/%E7%89%9B%E9%AD%94.jpg",
+      "firstSeen": "",
+      "kind": "pick"
+    },
+    "manual-pick-%E5%BD%B1": {
+      "hero": "影",
+      "confidence": 1,
+      "confirmed": true,
+      "source": "manual",
+      "count": 1,
+      "sample": "/hicon/%E5%BD%B1.jpg",
+      "firstSeen": "",
+      "kind": "pick"
+    },
+    "manual-pick-%E7%8C%AA%E5%85%AB%E6%88%92": {
+      "hero": "猪八戒",
+      "confidence": 1,
+      "confirmed": true,
+      "source": "manual",
+      "count": 2,
+      "sample": "/hicon/%E7%8C%AA%E5%85%AB%E6%88%92.jpg",
+      "firstSeen": "",
+      "kind": "pick"
+    },
+    "manual-pick-%E6%B5%B7%E6%9C%88": {
+      "hero": "海月",
+      "confidence": 1,
+      "confirmed": true,
+      "source": "manual",
+      "count": 1,
+      "sample": "/hicon/%E6%B5%B7%E6%9C%88.jpg",
+      "firstSeen": "",
+      "kind": "pick"
+    },
+    "manual-pick-%E7%8B%84%E4%BB%81%E6%9D%B0": {
+      "hero": "狄仁杰",
+      "confidence": 1,
+      "confirmed": true,
+      "source": "manual",
+      "count": 1,
+      "sample": "/hicon/%E7%8B%84%E4%BB%81%E6%9D%B0.jpg",
+      "firstSeen": "",
+      "kind": "pick"
+    },
+    "manual-pick-%E6%9C%B5%E8%8E%89%E4%BA%9A": {
+      "hero": "朵莉亚",
+      "confidence": 1,
+      "confirmed": true,
+      "source": "manual",
+      "count": 1,
+      "sample": "/hicon/%E6%9C%B5%E8%8E%89%E4%BA%9A.jpg",
+      "firstSeen": "",
+      "kind": "pick"
+    },
+    "manual-ban-%E7%9B%BE%E5%B1%B1": {
+      "hero": "盾山",
+      "confidence": 1,
+      "confirmed": true,
+      "source": "manual",
+      "count": 1,
+      "sample": "/hicon/%E7%9B%BE%E5%B1%B1.jpg",
+      "firstSeen": "",
+      "kind": "ban"
+    },
+    "manual-ban-%E6%9D%A8%E6%88%AC": {
+      "hero": "杨戬",
+      "confidence": 1,
+      "confirmed": true,
+      "source": "manual",
+      "count": 2,
+      "sample": "/hicon/%E6%9D%A8%E6%88%AC.jpg",
+      "firstSeen": "",
+      "kind": "ban"
+    },
+    "manual-ban-%E6%95%96%E9%9A%90": {
+      "hero": "敖隐",
+      "confidence": 1,
+      "confirmed": true,
+      "source": "manual",
+      "count": 1,
+      "sample": "/hicon/%E6%95%96%E9%9A%90.jpg",
+      "firstSeen": "",
+      "kind": "ban"
+    },
+    "manual-ban-%E5%90%8E%E7%BE%BF": {
+      "hero": "后羿",
+      "confidence": 1,
+      "confirmed": true,
+      "source": "manual",
+      "count": 1,
+      "sample": "/hicon/%E5%90%8E%E7%BE%BF.jpg",
+      "firstSeen": "",
+      "kind": "ban"
+    },
+    "manual-ban-%E5%B0%91%E5%8F%B8%E7%BC%98": {
+      "hero": "少司缘",
+      "confidence": 1,
+      "confirmed": true,
+      "source": "manual",
+      "count": 3,
+      "sample": "/hicon/%E5%B0%91%E5%8F%B8%E7%BC%98.jpg",
+      "firstSeen": "",
+      "kind": "ban"
+    },
+    "manual-ban-%E6%B2%88%E6%A2%A6%E6%BA%AA": {
+      "hero": "沈梦溪",
+      "confidence": 1,
+      "confirmed": true,
+      "source": "manual",
+      "count": 2,
+      "sample": "/hicon/%E6%B2%88%E6%A2%A6%E6%BA%AA.jpg",
+      "firstSeen": "",
+      "kind": "ban"
+    },
+    "manual-ban-%E7%8B%82%E9%93%81": {
+      "hero": "狂铁",
+      "confidence": 1,
+      "confirmed": true,
+      "source": "manual",
+      "count": 2,
+      "sample": "/hicon/%E7%8B%82%E9%93%81.jpg",
+      "firstSeen": "",
+      "kind": "ban"
+    },
+    "manual-ban-%E7%99%BD%E8%B5%B7": {
+      "hero": "白起",
+      "confidence": 1,
+      "confirmed": true,
+      "source": "manual",
+      "count": 2,
+      "sample": "/hicon/%E7%99%BD%E8%B5%B7.jpg",
+      "firstSeen": "",
+      "kind": "ban"
+    },
+    "manual-ban-%E6%9B%B9%E6%93%8D": {
+      "hero": "曹操",
+      "confidence": 1,
+      "confirmed": true,
+      "source": "manual",
+      "count": 2,
+      "sample": "/hicon/%E6%9B%B9%E6%93%8D.jpg",
+      "firstSeen": "",
+      "kind": "ban"
+    },
+    "manual-pick-%E4%BA%9A%E8%BF%9E": {
+      "hero": "亚连",
+      "confidence": 1,
+      "confirmed": true,
+      "source": "manual",
+      "count": 1,
+      "sample": "/hicon/%E4%BA%9A%E8%BF%9E.jpg",
+      "firstSeen": "",
+      "kind": "pick"
+    },
+    "manual-pick-%E9%A9%AC%E8%B6%85": {
+      "hero": "马超",
+      "confidence": 1,
+      "confirmed": true,
+      "source": "manual",
+      "count": 1,
+      "sample": "/hicon/%E9%A9%AC%E8%B6%85.jpg",
+      "firstSeen": "",
+      "kind": "pick"
+    },
+    "manual-pick-%E8%A5%BF%E6%96%BD": {
+      "hero": "西施",
+      "confidence": 1,
+      "confirmed": true,
+      "source": "manual",
+      "count": 1,
+      "sample": "/hicon/%E8%A5%BF%E6%96%BD.jpg",
+      "firstSeen": "",
+      "kind": "pick"
+    },
+    "manual-pick-%E8%89%BE%E7%90%B3": {
+      "hero": "艾琳",
+      "confidence": 1,
+      "confirmed": true,
+      "source": "manual",
+      "count": 1,
+      "sample": "/hicon/%E8%89%BE%E7%90%B3.jpg",
+      "firstSeen": "",
+      "kind": "pick"
+    },
+    "manual-pick-%E7%9B%BE%E5%B1%B1": {
+      "hero": "盾山",
+      "confidence": 1,
+      "confirmed": true,
+      "source": "manual",
+      "count": 1,
+      "sample": "/hicon/%E7%9B%BE%E5%B1%B1.jpg",
+      "firstSeen": "",
+      "kind": "pick"
+    },
+    "manual-pick-%E5%BB%89%E9%A2%87": {
+      "hero": "廉颇",
+      "confidence": 1,
+      "confirmed": true,
+      "source": "manual",
+      "count": 1,
+      "sample": "/hicon/%E5%BB%89%E9%A2%87.jpg",
+      "firstSeen": "",
+      "kind": "pick"
+    },
+    "manual-pick-%E6%9D%A8%E6%88%AC": {
+      "hero": "杨戬",
+      "confidence": 1,
+      "confirmed": true,
+      "source": "manual",
+      "count": 1,
+      "sample": "/hicon/%E6%9D%A8%E6%88%AC.jpg",
+      "firstSeen": "",
+      "kind": "pick"
+    },
+    "manual-pick-%E6%95%96%E9%9A%90": {
+      "hero": "敖隐",
+      "confidence": 1,
+      "confirmed": true,
+      "source": "manual",
+      "count": 2,
+      "sample": "/hicon/%E6%95%96%E9%9A%90.jpg",
+      "firstSeen": "",
+      "kind": "pick"
+    },
+    "manual-pick-%E8%B2%82%E8%9D%89": {
+      "hero": "貂蝉",
+      "confidence": 1,
+      "confirmed": true,
+      "source": "manual",
+      "count": 1,
+      "sample": "/hicon/%E8%B2%82%E8%9D%89.jpg",
+      "firstSeen": "",
+      "kind": "pick"
+    },
+    "manual-pick-%E8%94%A1%E6%96%87%E5%A7%AC": {
+      "hero": "蔡文姬",
+      "confidence": 1,
+      "confirmed": true,
+      "source": "manual",
+      "count": 1,
+      "sample": "/hicon/%E8%94%A1%E6%96%87%E5%A7%AC.jpg",
+      "firstSeen": "",
+      "kind": "pick"
+    },
+    "manual-ban-%E9%B2%81%E7%8F%AD%E5%A4%A7%E5%B8%88": {
+      "hero": "鲁班大师",
+      "confidence": 1,
+      "confirmed": true,
+      "source": "manual",
+      "count": 1,
+      "sample": "/hicon/%E9%B2%81%E7%8F%AD%E5%A4%A7%E5%B8%88.jpg",
+      "firstSeen": "",
+      "kind": "ban"
+    },
+    "manual-ban-%E8%B5%B5%E4%BA%91": {
+      "hero": "赵云",
+      "confidence": 1,
+      "confirmed": true,
+      "source": "manual",
+      "count": 1,
+      "sample": "/hicon/%E8%B5%B5%E4%BA%91.jpg",
+      "firstSeen": "",
+      "kind": "ban"
+    },
+    "manual-ban-%E5%85%B3%E7%BE%BD": {
+      "hero": "关羽",
+      "confidence": 1,
+      "confirmed": true,
+      "source": "manual",
+      "count": 1,
+      "sample": "/hicon/%E5%85%B3%E7%BE%BD.jpg",
+      "firstSeen": "",
+      "kind": "ban"
+    },
+    "manual-ban-%E5%93%AA%E5%90%92": {
+      "hero": "哪吒",
+      "confidence": 1,
+      "confirmed": true,
+      "source": "manual",
+      "count": 1,
+      "sample": "/hicon/%E5%93%AA%E5%90%92.jpg",
+      "firstSeen": "",
+      "kind": "ban"
+    },
+    "manual-ban-%E8%80%81%E5%A4%AB%E5%AD%90": {
+      "hero": "老夫子",
+      "confidence": 1,
+      "confirmed": true,
+      "source": "manual",
+      "count": 1,
+      "sample": "/hicon/%E8%80%81%E5%A4%AB%E5%AD%90.jpg",
+      "firstSeen": "",
+      "kind": "ban"
+    },
+    "manual-pick-%E5%A7%AC%E5%B0%8F%E6%BB%A1": {
+      "hero": "姬小满",
+      "confidence": 1,
+      "confirmed": true,
+      "source": "manual",
+      "count": 1,
+      "sample": "/hicon/%E5%A7%AC%E5%B0%8F%E6%BB%A1.jpg",
+      "firstSeen": "",
+      "kind": "pick"
+    },
+    "manual-pick-%E9%B2%81%E7%8F%AD%E5%A4%A7%E5%B8%88": {
+      "hero": "鲁班大师",
+      "confidence": 1,
+      "confirmed": true,
+      "source": "manual",
+      "count": 1,
+      "sample": "/hicon/%E9%B2%81%E7%8F%AD%E5%A4%A7%E5%B8%88.jpg",
+      "firstSeen": "",
+      "kind": "pick"
+    },
+    "manual-pick-%E7%8E%8B%E6%98%AD%E5%90%9B": {
+      "hero": "王昭君",
+      "confidence": 1,
+      "confirmed": true,
+      "source": "manual",
+      "count": 1,
+      "sample": "/hicon/%E7%8E%8B%E6%98%AD%E5%90%9B.jpg",
+      "firstSeen": "",
+      "kind": "pick"
+    },
+    "manual-pick-%E5%A4%8F%E6%B4%9B%E7%89%B9": {
+      "hero": "夏洛特",
+      "confidence": 1,
+      "confirmed": true,
+      "source": "manual",
+      "count": 1,
+      "sample": "/hicon/%E5%A4%8F%E6%B4%9B%E7%89%B9.jpg",
+      "firstSeen": "",
+      "kind": "pick"
+    },
+    "manual-pick-%E5%B0%8F%E4%B9%94": {
+      "hero": "小乔",
+      "confidence": 1,
+      "confirmed": true,
+      "source": "manual",
+      "count": 1,
+      "sample": "/hicon/%E5%B0%8F%E4%B9%94.jpg",
+      "firstSeen": "",
+      "kind": "pick"
+    },
+    "manual-pick-%E8%8B%8D": {
+      "hero": "苍",
+      "confidence": 1,
+      "confirmed": true,
+      "source": "manual",
+      "count": 1,
+      "sample": "/hicon/%E8%8B%8D.jpg",
+      "firstSeen": "",
+      "kind": "pick"
+    },
+    "manual-pick-%E5%BC%A0%E9%A3%9E": {
+      "hero": "张飞",
+      "confidence": 1,
+      "confirmed": true,
+      "source": "manual",
+      "count": 1,
+      "sample": "/hicon/%E5%BC%A0%E9%A3%9E.jpg",
+      "firstSeen": "",
+      "kind": "pick"
+    },
+    "manual-ban-%E5%A4%A7%E4%B9%94": {
+      "hero": "大乔",
+      "confidence": 1,
+      "confirmed": true,
+      "source": "manual",
+      "count": 1,
+      "sample": "/hicon/%E5%A4%A7%E4%B9%94.jpg",
+      "firstSeen": "",
+      "kind": "ban"
+    },
+    "manual-ban-%E9%92%9F%E9%A6%97": {
+      "hero": "钟馗",
+      "confidence": 1,
+      "confirmed": true,
+      "source": "manual",
+      "count": 1,
+      "sample": "/hicon/%E9%92%9F%E9%A6%97.jpg",
+      "firstSeen": "",
+      "kind": "ban"
+    },
+    "manual-ban-%E5%8F%B8%E7%A9%BA%E9%9C%87": {
+      "hero": "司空震",
+      "confidence": 1,
+      "confirmed": true,
+      "source": "manual",
+      "count": 1,
+      "sample": "/hicon/%E5%8F%B8%E7%A9%BA%E9%9C%87.jpg",
+      "firstSeen": "",
+      "kind": "ban"
+    },
+    "manual-ban-%E5%85%83%E6%AD%8C": {
+      "hero": "元歌",
+      "confidence": 1,
+      "confirmed": true,
+      "source": "manual",
+      "count": 1,
+      "sample": "/hicon/%E5%85%83%E6%AD%8C.jpg",
+      "firstSeen": "",
+      "kind": "ban"
+    },
+    "manual-ban-%E8%8A%88%E6%9C%88": {
+      "hero": "芈月",
+      "confidence": 1,
+      "confirmed": true,
+      "source": "manual",
+      "count": 1,
+      "sample": "/hicon/%E8%8A%88%E6%9C%88.jpg",
+      "firstSeen": "",
+      "kind": "ban"
+    },
+    "manual-ban-%E6%B5%B7%E6%9C%88": {
+      "hero": "海月",
+      "confidence": 1,
+      "confirmed": true,
+      "source": "manual",
+      "count": 1,
+      "sample": "/hicon/%E6%B5%B7%E6%9C%88.jpg",
+      "firstSeen": "",
+      "kind": "ban"
+    },
+    "manual-ban-%E5%AD%99%E6%82%9F%E7%A9%BA": {
+      "hero": "孙悟空",
+      "confidence": 1,
+      "confirmed": true,
+      "source": "manual",
+      "count": 1,
+      "sample": "/hicon/%E5%AD%99%E6%82%9F%E7%A9%BA.jpg",
+      "firstSeen": "",
+      "kind": "ban"
+    }
+  }
 }

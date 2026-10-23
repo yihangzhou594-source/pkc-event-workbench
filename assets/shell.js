@@ -34,7 +34,8 @@
     director: { title: "导播台", sub: "预览、推送与现场操作", pane: "director", nav: "director" },
     spotlight: { title: "宣传轮播", sub: "编辑选手名单、预览并控制直播轮播", pane: "director", nav: "spotlight" },
     data:     { title: "对局数据", sub: "截图识别、五路数据与本局信息", pane: "engine", tab: "data", nav: "data" },
-    herostats:{ title: "英雄胜率", sub: "小组赛英雄池、出场与胜率", pane: "herostats", nav: "herostats" },
+    herostats:{ title: "英雄胜率", sub: "自动生成小组赛赛程 + 手动录入", pane: "herostats", nav: "herostats" },
+    season:   { title: "赛季仪表盘", sub: "队伍、英雄池与 BP 分析图", pane: "season", nav: "season" },
     promo:    { title: "赛前宣传图", sub: "群发海报与主视觉", pane: "promo", nav: "promo" },
     bracket:  { title: "淘汰赛赛程", sub: "分组、抽签、赛果与赛程图", pane: "engine", tab: "bracket", nav: "bracket" },
     teams:    { title: "队伍库", sub: "队伍、选手名单与状态", pane: "engine", tab: "teams", nav: "teams" },
@@ -85,12 +86,14 @@
   syncResponsiveShell();
   const panes = {
     overview: $("#pane-overview"), director: $("#pane-director"),
-    engine: $("#pane-engine"), herostats: $("#pane-herostats"), promo: $("#pane-promo"),
+    engine: $("#pane-engine"), herostats: $("#pane-herostats"),
+    season: $("#pane-season"), promo: $("#pane-promo"),
   };
   const frame = $("#genFrame");
   const titleEl = $("#wkTitle");
   const subEl = $("#wkSub");
   let navigationContext = null;
+  let lastRemoteSaveNotice = "";
 
   function viewUrl(name) {
     const params = new URLSearchParams();
@@ -145,32 +148,45 @@
 
   /* ---------- 生成器 iframe ---------- */
   let engineTarget = "";
-  let engineLoaded = false;
-  function ensureEngine() {
-    if (engineLoaded || !frame) return;
-    engineLoaded = true;
-    frame.src = "/generator?bare=1";
+  let engineRequested = false;
+  function engineReady() {
+    try {
+      const w = frame && frame.contentWindow;
+      return !!(w && typeof w.switchTab === "function");
+    } catch {
+      /* 请求失败的 iframe 可能是跨源错误页，按未就绪处理并允许重试。 */
+      return false;
+    }
+  }
+  function ensureEngine(force) {
+    if (!frame) return false;
+    if (engineReady()) return true;
+    const retry = !!force && engineRequested;
+    frame.src = "/generator?bare=1" + (retry ? "&retry=" + Date.now() : "");
+    engineRequested = true;
+    return false;
   }
   function switchEngine(tab) {
     engineTarget = tab;
-    ensureEngine();
+    ensureEngine(engineRequested);
     let left = 30;
     const tick = () => {
-      const w = frame && frame.contentWindow;
-      if (w && typeof w.switchTab === "function") {
-        try { w.switchTab(tab); } catch {}
-        setTimeout(() => {
-          const layout = frame.contentDocument && frame.contentDocument.querySelector(".layout");
-          const btn = $("#wkPreviewToggle");
-          if (btn) btn.textContent = layout && layout.classList.contains("focus") ? "显示预览" : "收起预览";
-        }, 260);
-        return;
+      try {
+        const w = frame && frame.contentWindow;
+        if (w && typeof w.switchTab === "function") {
+          w.switchTab(tab);
+          setTimeout(() => {
+            const layout = frame.contentDocument && frame.contentDocument.querySelector(".layout");
+            const btn = $("#wkPreviewToggle");
+            if (btn) btn.textContent = layout && layout.classList.contains("focus") ? "显示预览" : "收起预览";
+          }, 260);
+          return;
+        }
+      } catch {
+        /* 错误页会在下一轮或用户再次进入时重试。 */
       }
       if (--left <= 0) {
-        if (frame && !frame.dataset.fallback) {
-          frame.dataset.fallback = "1";
-          frame.src = "/generator?bare=1&tab=" + encodeURIComponent(tab);
-        }
+        /* 保持页面可重试：用户再次进入「对局数据」时会重新请求生成器。 */
         return;
       }
       setTimeout(tick, 200);
@@ -179,7 +195,7 @@
   }
 
   frame && frame.addEventListener("load", () => {
-    if (engineTarget) switchEngine(engineTarget);
+    if (engineTarget && engineReady()) switchEngine(engineTarget);
   });
 
   /* 生成器内部切换 tab 时回传，侧栏跟随 */
@@ -369,6 +385,97 @@
     $$('[data-workflow-go]', host).forEach((button) => button.addEventListener("click", () => setView(button.dataset.workflowGo, true)));
   }
 
+  function renderSceneReadiness(readiness) {
+    window.PKC_READINESS = readiness || null;
+    const hosts = [$("#ovSceneReadiness"), $("#directorReadiness")].filter(Boolean);
+    if (!hosts.length) return;
+    if (!readiness || !Array.isArray(readiness.scenes)) {
+      hosts.forEach((host) => { host.textContent = "场景预检暂不可用"; });
+      return;
+    }
+    const statusText = { ready: "就绪", warning: "注意", blocked: "阻断" };
+    const fallbackView = {
+      commentary: "data", interval: "teams", bracket: "bracket",
+      chart: "data", spotlight: "director", blank: "",
+    };
+    hosts.forEach((host) => {
+      host.replaceChildren();
+      readiness.scenes.forEach((scene) => {
+        const row = document.createElement("div");
+        row.className = "wk-readiness-item " + scene.status;
+        const dot = document.createElement("i");
+        const copy = document.createElement("div");
+        const title = document.createElement("b");
+        title.textContent = scene.label + " · " + statusText[scene.status];
+        const summary = document.createElement("span");
+        summary.textContent = scene.summary || "";
+        summary.title = (scene.blockers || []).map((item) => item.label).join("；") || scene.summary || "";
+        copy.append(title, summary);
+        const view = scene.blockers?.[0]?.view || fallbackView[scene.id] || "";
+        if (view) {
+          const button = document.createElement("button");
+          button.type = "button";
+          button.textContent = scene.status === "ready" ? "查看" : "去处理";
+          button.addEventListener("click", () => setView(view, true));
+          row.append(dot, copy, button);
+        } else {
+          const state = document.createElement("em");
+          state.textContent = statusText[scene.status];
+          row.append(dot, copy, state);
+        }
+        host.append(row);
+      });
+    });
+    const sum = $("#wkCheckSum");
+    if (sum) sum.textContent = readiness.overall.readyCount + " / " + readiness.overall.total + " 场景就绪";
+  }
+
+  function renderRemoteAccess(access) {
+    const host = $("#remoteAccessBody");
+    const mode = $("#remoteMode");
+    if (!host || !mode) return;
+    host.replaceChildren();
+    if (!access || !access.enabled) {
+      mode.textContent = "仅本机";
+      host.textContent = "普通模式只监听 127.0.0.1。关闭服务后重新运行「启动.bat」并选择手机远程模式。";
+      return;
+    }
+    mode.textContent = "局域网已开启";
+    const url = access.urls?.[0]?.url || "";
+    const urlBox = document.createElement("div");
+    urlBox.className = "wk-remote-url";
+    urlBox.textContent = url || "未检测到局域网地址";
+    const pin = document.createElement("div");
+    pin.className = "wk-remote-pin";
+    pin.textContent = String(access.pin || "").replace(/(\d{3})(\d{3})/, "$1 $2");
+    const meta = document.createElement("div");
+    meta.className = "wk-remote-meta";
+    meta.textContent = "手机与电脑需在同一 HKU Wi-Fi。口令 "
+      + new Date(access.pinExpiresAt).toLocaleTimeString("zh-CN", { hour12:false })
+      + " 失效 · 已连接 " + access.sessionCount + "/" + access.maxSessions + " 台";
+    const actions = document.createElement("div");
+    actions.className = "wk-remote-actions";
+    const copy = document.createElement("button");
+    copy.className = "wk-btn";
+    copy.textContent = "复制手机地址";
+    copy.disabled = !url;
+    copy.onclick = async () => {
+      try { await navigator.clipboard.writeText(url); copy.textContent = "已复制"; } catch {}
+    };
+    const refresh = document.createElement("button");
+    refresh.className = "wk-btn";
+    refresh.textContent = "刷新口令";
+    refresh.onclick = async () => {
+      refresh.disabled = true;
+      try {
+        const result = await fetch("/api/remote/refresh-pin", { method:"POST" }).then((response) => response.json());
+        if (!result.error) renderRemoteAccess(result);
+      } finally { refresh.disabled = false; }
+    };
+    actions.append(copy, refresh);
+    host.append(urlBox, pin, meta, actions);
+  }
+
   function loadOverview() {
     return Promise.all([
       fetch("/api/store/library", { cache: "no-store" }).then((r) => r.json()).catch(() => null),
@@ -376,7 +483,9 @@
       fetch("/api/director/state", { cache: "no-store" }).then((r) => r.json()).catch(() => null),
       fetch("/api/ping", { cache: "no-store" }).then((r) => r.json()).catch(() => null),
       fetch("/api/store/bracket", { cache: "no-store" }).then((r) => r.json()).catch(() => null),
-    ]).then(async ([lib, matches, st, ping, brackets]) => {
+      fetch("/api/director/readiness", { cache: "no-store" }).then((r) => r.json()).catch(() => null),
+      fetch("/api/remote/access", { cache: "no-store" }).then((r) => r.json()).catch(() => null),
+    ]).then(async ([lib, matches, st, ping, brackets, readiness, remoteAccess]) => {
       matchCache = matches;
       navigationBracketData = brackets || {};
       const series = lib && lib.series ? (lib.series.find((s) => s.id === lib.currentId) || lib.series[0]) : null;
@@ -403,6 +512,8 @@
 
       if (st) applyTopbar(st);
       renderChecks(st, (teamData && teamData.teams) || [], games);
+      renderSceneReadiness(readiness);
+      renderRemoteAccess(remoteAccess);
       renderWorkflow(series, (teamData && teamData.teams) || [], games, st);
     });
   }
@@ -415,6 +526,16 @@
         try {
           const st = JSON.parse(e.data);
           applyTopbar(st);
+          const savedAt = st?.live?.context?.remoteSavedAt || "";
+          if (savedAt && savedAt !== lastRemoteSaveNotice) {
+            lastRemoteSaveNotice = savedAt;
+            try {
+              frame?.contentWindow?.postMessage({
+                type:"pkc:remote-data-saved",
+                context:st.live.context,
+              }, location.origin);
+            } catch {}
+          }
           if (panes.overview && panes.overview.classList.contains("on")) loadOverview();
         } catch {}
       };

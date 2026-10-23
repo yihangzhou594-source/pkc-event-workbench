@@ -1190,6 +1190,9 @@ async function runOCR(files){
     + esc(raws.join("\n\n")) + '</pre></details>';
   const sw = $("#btnSwapSide");
   if (sw) sw.onclick = swapSides;
+  if (n && typeof collapseImportToolsAfterSuccess === "function") {
+    collapseImportToolsAfterSuccess("识别完成 · 已填入 " + n + " 组，核对下方结果");
+  }
   ocrDebug = { mode, files: dbgFiles, sbBlocks, cliPages, merge: cliMerge };
   toast(n ? ("识别完成，填入 " + n + " 组对位数据") : "识别完成，但没解析出结构化数据");
 }
@@ -1253,6 +1256,9 @@ function applyAIResult(data, files){
     + '</div><div class="tbl-wrap" style="margin-top:8px"><table class="g"><thead><tr><th>位置</th><th>蓝方</th><th>红方</th></tr></thead><tbody>'
     + reviewRows + '</tbody></table></div>'
     + '<div class="hint" style="margin-top:6px">AI 结果仍建议扫一眼英雄和昵称；不满意的格子可直接在下方表格修改。</div>';
+  if (typeof collapseImportToolsAfterSuccess === "function") {
+    collapseImportToolsAfterSuccess("AI 识别完成 · 核对下方结果");
+  }
   ocrDebug = { mode:"ai", result:data };
   ocrMsg("AI 识别完成");
   ocrPct(1);
@@ -1393,6 +1399,7 @@ function saibaoReview(blocks, dur){
     + rows + '</tbody></table></div>';
 }
 function swapSides(){
+  window.PKC_RECOVERY?.snapshotBeforeChange("swap-sides", ["matches"], "交换当前局红蓝方");
   const g = S.game;
   g.rows.forEach(r => {                       // 连分路一起换，保证对位关系不乱
     const t = r.our; r.our = r.opp; r.opp = t;

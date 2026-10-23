@@ -81,7 +81,7 @@ assert.ok(aggregateHeroStats(data, { stage: "循环赛", minPicks: 3 }).heroes.e
 // CSV 带 BOM，方便 Excel 直接打开
 const csv = toCSV(aggregateHeroStats(data, { stage: "循环赛", minPicks: 0 }));
 assert.ok(csv.startsWith("\uFEFF"), "CSV 应带 BOM");
-assert.ok(csv.includes("英雄榜") && csv.includes("选手英雄池"), "CSV 应包含两张表");
+assert.ok(csv.includes("英雄榜") && csv.includes("选手英雄池") && csv.includes("英雄排行榜"), "CSV 应包含三类榜单");
 
 // 手动录入：可以空 ban，5 个选手 + 英雄，按阶段/组别/轮次/队名合并
 const manualInput = {
@@ -117,5 +117,38 @@ assert.throws(() => addManualGame(normalizeHeroStats(null), {
   ...manualInput,
   left: { ...manualInput.left, players: manualInput.left.players.map((p, i) => i === 1 ? { ...p, hero: "公孙离" } : p) },
 }), /重复选择/);
+
+// 选手前三英雄、英雄前三选手
+const rankingInputs = [
+  { gameNo: 1, leftHeroes: ["榜首", "甲二", "甲三", "甲四", "甲五"] },
+  { gameNo: 2, leftHeroes: ["次席", "甲二", "甲三", "甲四", "甲五"] },
+  { gameNo: 3, leftHeroes: ["第三", "甲二", "甲三", "甲四", "甲五"] },
+  { gameNo: 4, leftHeroes: ["候补", "榜首", "甲三", "甲四", "甲五"] },
+];
+let ranking = normalizeHeroStats(null);
+for (const item of rankingInputs) {
+  const leftNames = ["甲一", "甲二", "甲三", "甲四", "甲五"];
+  ranking = addManualGame(ranking, {
+    stage: "淘汰赛", group: "", round: "排行测试", gameNo: item.gameNo,
+    teamLeft: "排行甲", teamRight: "排行乙", winner: "left",
+    left: {
+      bans: [],
+      players: item.leftHeroes.map((hero, index) => ({ name: leftNames[index], hero })),
+    },
+    right: {
+      bans: [],
+      players: ["乙一", "乙二", "乙三", "乙四", "乙五"].map((name, index) => ({
+        name, hero: `乙英雄${index + 1}`,
+      })),
+    },
+  }).data;
+}
+const rankingAgg = aggregateHeroStats(ranking, { stage: "淘汰赛", minPicks: 0 });
+const playerOne = rankingAgg.players.find((player) => player.name === "甲一");
+assert.equal(playerOne.topHeroes.length, 3);
+assert.ok(playerOne.topHeroes.every((hero) => hero.winRate === 100));
+const topHero = rankingAgg.heroes.find((hero) => hero.hero === "榜首");
+assert.deepEqual(new Set(topHero.topPlayers.map((player) => player.name)), new Set(["甲一", "甲二"]));
+assert.ok(topHero.topPlayers.every((player) => player.games === 1 && player.winRate === 100));
 
 console.log("test-hero-stats: ok");

@@ -183,6 +183,30 @@
   .notice.warn{background:var(--warn-soft);color:#8a5406}
   .notice.ok{background:var(--ok-soft);color:#0f7a44}
   .notice.bad{background:var(--bad-soft);color:#a52a41}
+  .issue-more{margin-top:8px;border-top:1px dashed var(--line);padding-top:8px}
+  .issue-more>summary{cursor:pointer;color:var(--primary);font-size:12px;font-weight:700;padding:3px 0}
+  .issue-more>.issue-list{margin-top:7px}
+  #importTools[hidden]{display:none!important}
+  .bracket-help{margin-top:8px;color:var(--muted);font-size:12px}
+  .bracket-help>summary{cursor:pointer;font-weight:700;color:var(--primary);padding:3px 0}
+  .bracket-help p{margin:6px 0;line-height:1.65}
+  .pkc-recovery-backdrop{position:fixed;inset:0;z-index:10020;background:rgba(13,22,38,.46);display:flex;align-items:center;justify-content:center;padding:18px}
+  .pkc-recovery-dialog{width:min(780px,96vw);max-height:86vh;overflow:auto;background:#fff;border:1px solid var(--line);border-radius:16px;box-shadow:0 24px 80px rgba(15,24,40,.28);padding:18px}
+  .pkc-recovery-head{display:flex;align-items:flex-start;gap:12px;margin-bottom:12px}
+  .pkc-recovery-head h2{margin:0;font-size:19px}.pkc-recovery-head p{margin:4px 0 0;color:var(--muted);font-size:12px}
+  .pkc-recovery-close{margin-left:auto;border:0;background:transparent;font-size:23px;line-height:1;cursor:pointer;color:var(--muted)}
+  .pkc-recovery-tabs{display:flex;gap:6px;flex-wrap:wrap;margin:12px 0}
+  .pkc-recovery-tabs button{border:1px solid var(--line);background:#fff;border-radius:999px;padding:6px 10px;font:700 11px/1.3 inherit;cursor:pointer}
+  .pkc-recovery-tabs button.on{background:var(--primary);border-color:var(--primary);color:#fff}
+  .pkc-backup-list{display:flex;flex-direction:column;gap:7px;max-height:270px;overflow:auto;padding-right:3px}
+  .pkc-backup-row{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:10px;align-items:center;padding:9px 11px;border:1px solid var(--line);border-radius:10px;background:#fbfcff}
+  .pkc-backup-row b{display:block;font-size:12px}.pkc-backup-row span{color:var(--muted);font-size:11px}
+  .pkc-backup-row button{border:1px solid var(--line);background:#fff;border-radius:8px;padding:5px 9px;font:700 11px inherit;cursor:pointer}
+  .pkc-backup-row button:hover{border-color:#e0b85a;background:#fffaf0}
+  .pkc-audit-list{margin-top:14px;border-top:1px solid var(--line);padding-top:12px;max-height:170px;overflow:auto}
+  .pkc-audit-list h3{margin:0 0 8px;font-size:13px}.pkc-audit-item{display:grid;grid-template-columns:122px minmax(0,1fr);gap:8px;padding:5px 0;border-bottom:1px dashed var(--line2);font-size:11px;color:var(--muted)}
+  .pkc-recovery-msg{min-height:18px;margin-top:10px;color:var(--muted);font-size:12px}
+  @media(max-width:620px){.pkc-backup-row{grid-template-columns:1fr auto}.pkc-backup-row .size{display:none}.pkc-audit-item{grid-template-columns:1fr}}
   .hint{font-size:11.5px;color:var(--muted)}
   .drop{border:2px dashed var(--line);border-radius:12px;padding:18px;text-align:center;color:var(--muted);background:var(--surface2);cursor:pointer;transition:.14s}
   .drop:hover,.drop.over{border-color:var(--primary);background:var(--primary-soft);color:var(--primary)}
@@ -618,35 +642,40 @@
           </div>
         </div>
 
-        <div class="card" style="margin-bottom:14px">
-          <div class="card-h"><b>截图识别 / 粘贴导入</b><span class="sub">最快路径</span></div>
+        <div class="card import-card" id="importCard" style="margin-bottom:14px">
+          <div class="card-h">
+            <b>截图识别 / 粘贴导入</b><span class="sub" id="importSummary">最快路径</span>
+            <button class="mini" id="btnImportToggle" type="button" aria-expanded="true" aria-controls="importTools">收起导入工具</button>
+          </div>
           <div class="card-b">
-            <div class="drop" id="drop">
-              <div style="font-size:24px;line-height:1">🖼️</div>
-              <div style="margin-top:6px"><b>上传王者荣耀对局「战绩」页和「输出」页截图</b>，或点击选择图片</div>
-              <div class="hint" style="margin-top:4px">支持多张；识别后先核对，再一键填入表格</div>
-              <input type="file" id="fileShot" accept="image/*" multiple style="display:none">
-            </div>
-            <div class="row" style="margin-top:8px;align-items:center">
-              <button class="primary mini" id="btnAiOcr">✨ 用 DeepSeek 识别</button>
-              <button class="mini" id="btnAiKey">AI 设置</button>
-              <label class="sw"><input type="checkbox" id="swAiAuto" checked> 拖图后自动用 AI</label>
-              <span class="hint" id="aiStatus">正在检查 AI 接口…</span>
-            </div>
-            <div id="ocrBox" style="display:none;margin-top:12px">
-              <div class="bar" style="margin-bottom:6px"><i id="ocrBar"></i></div>
-              <div class="hint" id="ocrMsg">准备中…</div>
-            </div>
-            <div id="ocrReview" style="display:none;margin-top:12px"></div>
-            <div style="margin-top:12px">
-              <textarea id="pasteBox" rows="3" placeholder="也可以直接粘贴：位置 选手 英雄 击杀 死亡 助攻 总经济 分均经济 输出伤害 承受伤害 经济占比 参团率 经济转伤 总输出万　（可加“蓝方/红方”前缀，5/2/7 这种合并 KDA 也能识别；列要对齐，空位写 - ）"></textarea>
-              <div class="row" style="margin-top:8px">
-                <button class="primary mini" id="btnParse">解析粘贴内容</button>
-                <button class="mini" id="btnTpl">插入表头模板</button>
-                <button class="primary mini" id="btnSwap">⇄ 交换红蓝方</button>
-                <button class="mini" id="btnFillHero">按英雄名自动配图</button>
+            <div id="importTools">
+              <div class="drop" id="drop">
+                <div style="font-size:24px;line-height:1">🖼️</div>
+                <div style="margin-top:6px"><b>上传王者荣耀对局「战绩」页和「输出」页截图</b>，或点击选择图片</div>
+                <div class="hint" style="margin-top:4px">支持多张；识别后先核对，再一键填入表格</div>
+                <input type="file" id="fileShot" accept="image/*" multiple style="display:none">
+              </div>
+              <div class="row" style="margin-top:8px;align-items:center">
+                <button class="primary mini" id="btnAiOcr">✨ 用 DeepSeek 识别</button>
+                <button class="mini" id="btnAiKey">AI 设置</button>
+                <label class="sw"><input type="checkbox" id="swAiAuto" checked> 拖图后自动用 AI</label>
+                <span class="hint" id="aiStatus">正在检查 AI 接口…</span>
+              </div>
+              <div id="ocrBox" style="display:none;margin-top:12px">
+                <div class="bar" style="margin-bottom:6px"><i id="ocrBar"></i></div>
+                <div class="hint" id="ocrMsg">准备中…</div>
+              </div>
+              <div style="margin-top:12px">
+                <textarea id="pasteBox" rows="3" placeholder="也可以直接粘贴：位置 选手 英雄 击杀 死亡 助攻 总经济 分均经济 输出伤害 承受伤害 经济占比 参团率 经济转伤 总输出万　（可加“蓝方/红方”前缀，5/2/7 这种合并 KDA 也能识别；列要对齐，空位写 - ）"></textarea>
+                <div class="row" style="margin-top:8px">
+                  <button class="primary mini" id="btnParse">解析粘贴内容</button>
+                  <button class="mini" id="btnTpl">插入表头模板</button>
+                  <button class="primary mini" id="btnSwap">⇄ 交换红蓝方</button>
+                  <button class="mini" id="btnFillHero">按英雄名自动配图</button>
+                </div>
               </div>
             </div>
+            <div id="ocrReview" style="display:none;margin-top:12px"></div>
           </div>
         </div>
 
@@ -749,6 +778,18 @@
 
       <section class="panel" id="panel-out">
         <div class="card" style="margin-bottom:14px">
+          <div class="card-h"><b>数据安全</b><span class="sub" id="dataRecoveryStatus">版本恢复 · JSON 备份 · 操作记录</span></div>
+          <div class="card-b">
+            <div class="row">
+              <button class="mini primary" id="btnDataHistory" type="button">查看历史版本</button>
+              <button class="mini" id="btnBackupJson" type="button">导出完整备份（JSON）</button>
+              <label class="mini" for="fileDataImport" style="cursor:pointer">导入完整备份（JSON）</label>
+              <input type="file" id="fileDataImport" accept="application/json,.json" hidden>
+            </div>
+            <div class="hint" style="margin-top:8px">恢复和完整导入会先备份当前数据；赛程、对局、队伍、偏好和英雄胜率都会保留在一个文件中。</div>
+          </div>
+        </div>
+        <div class="card" style="margin-bottom:14px">
           <div class="card-h"><b>系列赛多局对比</b><span class="sub" id="mgStat"></span></div>
           <div class="card-b">
             <div class="row" style="margin-bottom:10px">
@@ -824,7 +865,10 @@
               <div class="card-b">
                 <div id="bkGroupWarn"></div>
                 <div class="tbl-wrap" id="bkGroups"></div>
-                <div class="hint" style="margin-top:8px">下拉里是<b>当前系列赛的队伍库</b>；队伍不在这里增删，去 <b>② 队伍库</b> 维护。</div>
+                <details class="bracket-help">
+                  <summary>分组说明</summary>
+                  <p>下拉里是<b>当前系列赛的队伍库</b>；队伍不在这里增删，去 <b>② 队伍库</b> 维护。</p>
+                </details>
               </div>
             </div>
 
@@ -832,11 +876,11 @@
               <div class="card-h"><b>② 抽签（抽队伍，不抽组）</b><span class="sub">8 场 16 强对阵</span>
                 <button class="mini" id="bkDrawClear">清空对阵</button></div>
               <div class="card-b">
-                <div class="hint" style="margin-bottom:8px">
-                  把<b>你们抽签抽出来的结果填进下面 8 场</b>就行——本工具不代替抽签。<br>
-                  位置上的「各组第 1 名 / 第 4 名 / 第 2 名 / 第 3 名」是赛制要求：<b>第 1 名打另一组的第 4 名、第 2 名打另一组的第 3 名</b>，<b>同组不碰面</b>；
-                  抽的是<b>队伍</b>，除了本组的队，其它哪个组都行，不限制哪两个组成对碰面。
-                </div>
+                <details class="bracket-help">
+                  <summary>查看抽签规则</summary>
+                  <p>把抽签结果填进下面 8 场即可，本工具不代替抽签。</p>
+                  <p>各组第 1 名打另一组第 4 名，第 2 名打另一组第 3 名；同组不碰面。抽的是队伍，不限制哪两个组成对碰面。</p>
+                </details>
                 <div id="bkDrawWarn"></div>
                 <div id="bkLinkWarn" style="display:none"></div>
                 <div id="bkDrawTable" style="margin-top:8px"></div>
@@ -858,7 +902,10 @@
                   <button class="mini" id="bkDownAll">⬇ 总览长图</button>
                   <button class="mini" id="bkText">复制文字版赛程</button>
                 </div>
-                <div class="hint" style="margin-top:8px">也可以在「④ 多局与导出」里勾选「附带淘汰赛赛程图」，和其它图一起打包下载。</div>
+                <details class="bracket-help">
+                  <summary>批量导出说明</summary>
+                  <p>在「多局与导出」里勾选「附带淘汰赛赛程图」，可和其他图一起打包下载。</p>
+                </details>
               </div>
             </div>
           </div>
@@ -880,6 +927,7 @@
 
 <script src="/assets/ocr-tools.js"></script>
 <script src="/assets/pkc-core.js"></script>
+<script src="/assets/pkc-recovery.js"></script>
 <script src="/assets/pkc-data.js"></script>
 <script src="/assets/pkc-draw.js"></script>
 <script src="/assets/pkc-hero.js"></script>

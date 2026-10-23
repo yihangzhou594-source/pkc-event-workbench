@@ -428,10 +428,10 @@ function drawRadar(ctx, cx, cy, R, row, ourColor, oppColor){
     const align = Math.abs(cos)<.22 ? "center" : (cos>0 ? "left" : "right");
     const ra0 = axisVal(row.our, AXES[i].key), rb0 = axisVal(row.opp, AXES[i].key);
     const empty = (ra0.num === null && rb0.num === null);
-    T(ctx, AXES[i].name, lx, ly, { size:24, weight:"700", align:align, color: empty ? t.faint : t.sub, alpha: empty?0.75:1 });
+    T(ctx, AXES[i].name, lx, ly, { size:26, weight:"700", align:align, color: empty ? t.faint : t.sub, alpha: empty?0.75:1 });
     if (DB.prefs.values){
-      const vy = sin>.5 ? ly+36 : (sin<-.5 ? ly-36 : ly+34);
-      pairNum(ctx, lx, vy, ra0.txt, rb0.txt, align, 22,
+      const vy = sin>.5 ? ly+39 : (sin<-.5 ? ly-39 : ly+37);
+      pairNum(ctx, lx, vy, ra0.txt, rb0.txt, align, 25,
         ourColor, oppColor, V.norm[i].our>=V.norm[i].opp, V.norm[i].opp>V.norm[i].our);
     }
   }
@@ -457,11 +457,11 @@ function drawCompare(ctx, row, ourColor, oppColor){
     const a = parseNum(row.our[r.key]), b = parseNum(row.opp[r.key]);
     const sa = a||0, sb = b||0, sum = sa+sb, ra = sum>0 ? sa/sum : .5;
     T(ctx, metricText(row.our, r.key), 806, y+14,
-      { size:37, weight:"700", align:"right", color:ourColor, family:FN,
+      { size:41, weight:"700", align:"right", color:ourColor, family:FN,
         shadow:"rgba(0,0,0,.3)", shadowBlur:6, shadowY:1 });
-    T(ctx, r.name, 960, y+14, { size:20, weight:"500", align:"center", color:t.sub });
+    T(ctx, r.name, 960, y+14, { size:22, weight:"600", align:"center", color:t.sub });
     T(ctx, metricText(row.opp, r.key), 1114, y+14,
-      { size:37, weight:"700", align:"left", color:oppColor, family:FN,
+      { size:41, weight:"700", align:"left", color:oppColor, family:FN,
         shadow:"rgba(0,0,0,.3)", shadowBlur:6, shadowY:1 });
     const bx0=88, bx1=DW-88, mid=960, maxL=mid-bx0;
     rr(ctx,bx0,y+42,bx1-bx0,11,6); ctx.fillStyle=t.track; ctx.fill();
@@ -592,7 +592,8 @@ function drawKplCard(ctx, g, posIdx){
   ctx.restore();
   drawKplStatChips(ctx, 70, 650, pw, row.our, C_BLUE, "蓝方数据");
   drawKplStatChips(ctx, DW-70-pw, 650, pw, row.opp, C_RED, "红方数据");
-  T(ctx, "对位雷达", 960, 158, { size:17, weight:"700", align:"center", color:"rgba(255,255,255,.56)", spacing:2 });
+  T(ctx, "对位雷达 · 蓝 ←→ 红", 960, 156, { size:18, weight:"700", align:"center", color:"rgba(255,255,255,.66)", spacing:1.4 });
+  T(ctx, "每项以双方较高值为 100%", 960, 179, { size:14, weight:"500", align:"center", color:"rgba(255,255,255,.42)" });
   drawRadar(ctx, 960, 505, 212, row, KPL_BLUE, KPL_RED);
   T(ctx, "核心数据对比", 960, 804, { size:16, weight:"700", align:"center", color:KPL_GOLD, spacing:2 });
   drawCompare(ctx, row, KPL_BLUE, KPL_RED);
@@ -794,7 +795,7 @@ function drawRadarMini(ctx, cx, cy, R, row, ourColor, oppColor, showLabels = tru
     const a=ang(i), cos=Math.cos(a), sin=Math.sin(a);
     const align = Math.abs(cos)<.22 ? "center" : (cos>0 ? "left" : "right");
     T(ctx, LABEL[AXES[i].key] || AXES[i].name, cx+cos*(R+22), cy+sin*(R+22),
-      { size:15, align:align, color:t.sub });
+      { size:17, weight:"600", align:align, color:t.sub });
   }
 }
 

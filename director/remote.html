@@ -1,0 +1,722 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#111827">
+  <title>PKC 手机导播</title>
+  <style>
+    :root{--ink:#172033;--sub:#627087;--line:#dfe5ef;--card:#fff;--blue:#2f6bff;--gold:#d8b35b;--ok:#159f61;--warn:#d99223;--bad:#d7475c;--bg:#edf1f7}
+    *{box-sizing:border-box}html,body{min-height:100%;margin:0}
+    body{font:15px/1.45 system-ui,-apple-system,"Segoe UI","Microsoft YaHei",sans-serif;color:var(--ink);background:
+      radial-gradient(circle at 15% 0,rgba(62,116,190,.28),transparent 36%),radial-gradient(circle at 90% 10%,rgba(153,67,80,.23),transparent 34%),var(--bg)}
+    button{font:inherit;color:inherit}button:focus-visible{outline:3px solid #ffd36a;outline-offset:2px}
+    .wrap{width:min(680px,100%);margin:0 auto;padding:max(14px,env(safe-area-inset-top)) 12px max(104px,env(safe-area-inset-bottom))}
+    .brand{display:flex;align-items:center;gap:10px;margin:4px 2px 14px;color:#fff}
+    .brand .mark{width:42px;height:42px;border-radius:13px;background:linear-gradient(145deg,#2f6bff,#183b8f);display:grid;place-items:center;font:900 15px/1 "Bahnschrift",sans-serif;box-shadow:0 9px 24px rgba(18,38,84,.25)}
+    .brand b{display:block;font-size:17px}.brand span{display:block;font-size:11px;opacity:.65;letter-spacing:.08em}
+    .card{background:rgba(255,255,255,.96);border:1px solid rgba(255,255,255,.72);border-radius:18px;box-shadow:0 10px 34px rgba(25,42,72,.12);padding:14px;margin-bottom:12px}
+    .status{display:flex;gap:8px;align-items:center;flex-wrap:wrap;color:#fff;font-size:12px;margin:0 2px 12px}
+    .pill{padding:5px 9px;border-radius:999px;background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.18)}
+    .pill.on{background:rgba(21,159,97,.28);border-color:rgba(90,230,160,.45)}.pill.bad{background:rgba(215,71,92,.3);border-color:rgba(255,130,150,.5)}
+    .pair-card{max-width:430px;margin:10vh auto 0}.pair-card h1{font-size:23px;margin:2px 0 5px}.pair-card p{margin:0 0 16px;color:var(--sub)}
+    label{display:block;font-size:12px;font-weight:700;color:var(--sub);margin:11px 0 5px}
+    input{width:100%;border:1px solid var(--line);border-radius:12px;padding:13px 14px;font:inherit;background:#f9fbfd;color:var(--ink)}
+    input:focus{outline:2px solid rgba(47,107,255,.35);border-color:var(--blue)}
+    .btn{width:100%;border:1px solid var(--line);border-radius:12px;padding:12px 14px;background:#fff;font-weight:800;cursor:pointer}
+    .btn.primary{border-color:var(--blue);background:linear-gradient(180deg,#3474ff,#255edb);color:#fff}
+    .btn.danger{border-color:#bb263d;background:linear-gradient(180deg,#e14f64,#bd2c43);color:#fff}
+    .btn:disabled{opacity:.42;cursor:not-allowed}
+    .hero{padding:16px}.hero-head{display:flex;justify-content:space-between;gap:10px;align-items:flex-start}
+    .hero h1{font-size:19px;margin:0}.hero p{margin:3px 0 0;color:var(--sub);font-size:12px}
+    .live-badge{padding:5px 9px;border-radius:999px;background:#eaf7ef;color:#0e7a47;font-size:11px;font-weight:800;white-space:nowrap}
+    .live-badge.dirty{background:#fff3dc;color:#9c650c}
+    .route{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:9px;margin-top:15px}
+    .route div{padding:12px;border-radius:12px;background:#f2f5fa;min-width:0}.route div:last-child{text-align:right}
+    .route span{display:block;color:var(--sub);font-size:10px;font-weight:700;letter-spacing:.08em}.route b{display:block;font-size:18px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .route em{font-style:normal;color:var(--sub);font-weight:800;font-size:11px}
+    .section-title{display:flex;justify-content:space-between;align-items:center;margin:2px 3px 9px}
+    .section-title b{font-size:14px}.section-title span{font-size:11px;color:var(--sub)}
+    .scenes{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}
+    .scene{position:relative;text-align:left;border:1px solid var(--line);border-radius:14px;background:#fbfcff;padding:12px;cursor:pointer;min-height:76px}
+    .scene.selected{border-color:var(--blue);background:#eef4ff;box-shadow:0 0 0 2px rgba(47,107,255,.12) inset}
+    .scene.live{border-color:#43b77a;background:#f0fbf5}
+    .scene b{display:block;font-size:15px}.scene small{display:block;color:var(--sub);font-size:10.5px;margin-top:4px;line-height:1.4}
+    .scene .dot{position:absolute;right:10px;top:10px;width:8px;height:8px;border-radius:50%;background:var(--ok)}.scene .dot.warning{background:var(--warn)}.scene .dot.blocked{background:var(--bad)}
+    .readiness-note{margin-top:9px;padding:9px 10px;border-radius:10px;background:#f5f7fb;color:var(--sub);font-size:11.5px}
+    .actions{position:fixed;left:0;right:0;bottom:0;z-index:20;padding:10px 12px max(10px,env(safe-area-inset-bottom));background:rgba(16,24,39,.94);backdrop-filter:blur(12px);border-top:1px solid rgba(255,255,255,.12)}
+    .actions-inner{width:min(680px,100%);margin:auto;display:grid;grid-template-columns:1fr auto auto;gap:8px;align-items:stretch}
+    .actions .btn{padding:13px 10px}.actions .btn:not(.primary){background:rgba(255,255,255,.1);border-color:rgba(255,255,255,.18);color:#fff}
+    .undo{min-width:82px}.hold{width:auto;padding:13px 12px!important;white-space:nowrap}
+    .message{min-height:18px;color:#fff;font-size:11.5px;text-align:center;margin-bottom:7px;opacity:.8}
+    .hidden{display:none!important}
+    .audit{font-size:11px;color:var(--sub)}.audit strong{color:var(--ink)}
+    .relink{margin-top:8px;border:1px solid var(--line);background:#fff;border-radius:8px;padding:5px 9px;color:var(--sub);font-size:11px;cursor:pointer}
+    .remote-tabs{display:grid;grid-template-columns:1fr 1fr;gap:6px;padding:5px;background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.16);border-radius:13px;margin-bottom:12px}
+    .remote-tabs button{border:0;border-radius:9px;padding:9px;background:transparent;color:rgba(255,255,255,.68);font-weight:800;cursor:pointer}.remote-tabs button.on{background:#fff;color:var(--ink)}
+    .entry-head{display:flex;align-items:flex-start;gap:10px}.entry-head h1{font-size:19px;margin:0}.entry-head p{color:var(--sub);font-size:11.5px;margin:4px 0 0}
+    .entry-step{display:inline-grid;place-items:center;width:25px;height:25px;border-radius:8px;background:#eef4ff;color:var(--blue);font-weight:900;flex:none}
+    .field-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}.field-grid.three{grid-template-columns:repeat(3,1fr)}
+    select{width:100%;border:1px solid var(--line);border-radius:10px;padding:11px;background:#f9fbfd;font:inherit;color:var(--ink)}
+    .target{border:1px solid var(--line);border-radius:12px;background:#f6f9fd;padding:10px;margin-top:10px;font-size:12px;color:var(--sub)}
+    .target b{color:var(--ink)}.upload-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}.upload-actions .btn{position:relative;overflow:hidden}.upload-actions input{position:absolute;inset:0;opacity:0;width:100%;height:100%;cursor:pointer}
+    .file-list{display:grid;grid-template-columns:repeat(4,1fr);gap:7px;margin-top:9px}.thumb{position:relative;aspect-ratio:1;border-radius:10px;overflow:hidden;background:#e9eef6}.thumb img{width:100%;height:100%;object-fit:cover}.thumb button{position:absolute;right:3px;top:3px;width:22px;height:22px;border:0;border-radius:50%;background:rgba(15,23,42,.75);color:#fff;font-size:14px;line-height:1;cursor:pointer}
+    .entry-note{font-size:11px;color:var(--sub);line-height:1.6;margin-top:8px}.entry-status{font-size:12px;color:var(--sub);margin-top:9px;min-height:18px}.entry-status.bad{color:var(--bad)}
+    .warn-box{padding:9px 10px;border-radius:10px;background:#fff8e7;color:#8b590d;font-size:11.5px;margin-top:8px}.warn-box ul{margin:5px 0 0;padding-left:18px}
+    .player-card{border:1px solid var(--line);border-radius:12px;background:#fbfcff;margin-top:8px;overflow:hidden}.player-card summary{cursor:pointer;padding:10px 11px;font-weight:800;font-size:12px;display:flex;gap:8px;align-items:center}.player-card summary span{font-weight:500;color:var(--sub);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.player-body{padding:0 10px 11px}.side-block{margin-top:8px;padding:9px;border-radius:10px;background:#f3f6fb}.side-block.blue{border-left:4px solid var(--blue)}.side-block.red{border-left:4px solid var(--bad)}
+    .mini-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin-top:6px}.mini-grid label{margin:0;font-size:10px}.mini-grid input{padding:8px;border-radius:8px;font-size:12px}.mini-grid .wide{grid-column:span 2}
+    .save-bar{padding-top:12px}
+    @media(max-width:420px){.actions-inner{grid-template-columns:1fr 74px 82px}.hold{font-size:12px}.scene{padding:11px}}
+  </style>
+</head>
+<body>
+  <main class="wrap">
+    <div class="brand"><div class="mark">PKC</div><div><b>手机导播</b><span>REMOTE CONTROL</span></div></div>
+    <div class="status"><span class="pill" id="conn">连接中</span><span class="pill" id="device">未配对</span><span class="pill" id="expiry">—</span></div>
+
+    <section class="card pair-card" id="pairView">
+      <h1>连接导播电脑</h1>
+      <p>输入电脑工作台显示的 6 位临时口令。手机与电脑需处于同一 Wi-Fi。</p>
+      <label for="pin">临时口令</label>
+      <input id="pin" inputmode="numeric" autocomplete="one-time-code" maxlength="6" pattern="[0-9]{6}" placeholder="000000">
+      <label for="deviceName">设备名称</label>
+      <input id="deviceName" maxlength="20" placeholder="例如：导播 iPhone">
+      <div style="height:12px"></div>
+      <button class="btn primary" id="pairBtn">连接</button>
+      <div class="message" id="pairMsg" style="color:var(--sub)" role="status" aria-live="polite"></div>
+    </section>
+
+    <section id="controlView" class="hidden">
+      <nav class="remote-tabs" aria-label="手机导播功能">
+        <button type="button" class="on" data-remote-tab="live">画面控制</button>
+        <button type="button" data-remote-tab="data">对局录入</button>
+      </nav>
+      <div id="livePane">
+      <section class="card hero">
+        <div class="hero-head">
+          <div><h1 id="matchTitle">当前直播</h1><p id="matchSub">等待赛事状态</p></div>
+          <span class="live-badge" id="dirty">同步</span>
+        </div>
+        <div class="route"><div><span>当前直播</span><b id="onAir">—</b></div><em>→</em><div><span>待推预览</span><b id="preview">—</b></div></div>
+      </section>
+      <div class="section-title"><b>选择预览场景</b><span>选择后仍需按“推送此画面”</span></div>
+      <section class="card"><div class="scenes" id="sceneList"></div><div class="readiness-note" id="readinessNote">正在读取场景预检…</div></section>
+      <section class="card audit"><strong>最近推送</strong><div id="lastPush">—</div><div id="remoteName"></div><button class="relink" id="repairBtn" type="button">重新配对或更换设备</button></section>
+      </div>
+      <section id="dataPane" class="hidden">
+        <section class="card">
+          <div class="entry-head"><span class="entry-step">1</span><div><h1>选择目标局次</h1><p>只能写入当前系列赛已排好双方的淘汰赛场次</p></div></div>
+          <div class="field-grid">
+            <label for="remoteMatchSelect">赛程场次<select id="remoteMatchSelect"></select></label>
+            <label for="remoteGameSelect">局次<select id="remoteGameSelect"></select></label>
+          </div>
+          <div class="target" id="remoteTarget">正在读取场次…</div>
+        </section>
+        <section class="card">
+          <div class="entry-head"><span class="entry-step">2</span><div><h1>上传客户端截图</h1><p>最多 4 张；图片只在电脑内存中识别，不保存原图</p></div></div>
+          <div class="upload-actions">
+            <label class="btn primary">拍照<input id="remoteCamera" type="file" accept="image/jpeg,image/png,image/webp" capture="environment"></label>
+            <label class="btn">从相册选择<input id="remoteGallery" type="file" accept="image/jpeg,image/png,image/webp" multiple></label>
+          </div>
+          <div class="file-list" id="remoteFiles"></div>
+          <div class="entry-note">手机先把长边压到 2560px 再上传。请优先使用客户端原始“战绩 + 数据”截图，不要使用聊天软件二次压缩图。</div>
+          <div style="height:9px"></div>
+          <button class="btn primary" id="remoteOcrBtn" disabled>上传并识别</button>
+          <div class="entry-status" id="remoteOcrStatus" role="status" aria-live="polite"></div>
+        </section>
+        <section class="card hidden" id="remoteReviewCard">
+          <div class="entry-head"><span class="entry-step">3</span><div><h1>核对并保存</h1><p>所有格子都可修改；不完整数据可保存为草稿</p></div></div>
+          <div class="field-grid three">
+            <label>蓝方比分<input id="remoteBlueScore" inputmode="numeric"></label>
+            <label>红方比分<input id="remoteRedScore" inputmode="numeric"></label>
+            <label>对局时长<input id="remoteDuration" inputmode="text" placeholder="12:30"></label>
+          </div>
+          <div class="field-grid">
+            <label>胜方<select id="remoteResult"><option value="win">蓝方获胜</option><option value="lose">红方获胜</option></select></label>
+            <label>识别目标<div class="target" id="remoteTargetSummary" style="margin:3px 0 0"></div></label>
+          </div>
+          <div id="remoteWarnings"></div>
+          <div id="remotePlayerCards"></div>
+          <div class="save-bar"><button class="btn primary" id="remoteSaveBtn">确认保存到电脑</button></div>
+          <div class="entry-status" id="remoteSaveStatus" role="status" aria-live="polite"></div>
+        </section>
+      </section>
+    </section>
+  </main>
+  <div class="actions hidden" id="actions">
+    <div class="actions-inner">
+      <button class="btn primary" id="pushBtn">推送此画面</button>
+      <button class="btn undo" id="undoBtn">撤回</button>
+      <button class="btn danger hold" id="blankBtn">长按切空</button>
+    </div>
+    <div class="message" id="message" role="status" aria-live="polite"></div>
+  </div>
+  <script>
+  (() => {
+    "use strict";
+    let state = null;
+    let csrf = sessionStorage.getItem("pkcRemoteCsrf") || "";
+    let source = null;
+    let online = false;
+    let syncing = false;
+    let holdTimer = null;
+    let remoteTab = "live";
+    let matchCatalog = null;
+    let selectedMatch = null;
+    let selectedGame = "";
+    let uploadFiles = [];
+    let draft = null;
+    let reviewTarget = null;
+    let ocrBusy = false;
+    let saving = false;
+    const $ = (id) => document.getElementById(id);
+    const sceneName = (id) => (state?.scenes || []).find((scene) => scene.id === id)?.label || id || "—";
+    const escHtml = (value) => String(value ?? "").replace(/[&<>"']/g, (char) => ({
+      "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;",
+    }[char]));
+    const setMessage = (text) => { $("message").textContent = text || ""; };
+    const setConnected = (value, text) => {
+      online = value;
+      $("conn").classList.toggle("on", value);
+      $("conn").classList.toggle("bad", !value);
+      $("conn").textContent = text || (value ? "已连接" : "连接中断");
+      paintActions();
+    };
+
+    async function request(url, options = {}) {
+      const headers = { ...(options.headers || {}) };
+      if (csrf) headers["X-PKC-CSRF"] = csrf;
+      if (options.body) headers["Content-Type"] = "application/json";
+      const response = await fetch(url, { cache:"no-store", ...options, headers });
+      const result = await response.json().catch(() => ({}));
+      return { ok:response.ok, status:response.status, result };
+    }
+
+    async function pair() {
+      const pin = $("pin").value.replace(/\D/g, "").slice(0, 6);
+      const deviceName = $("deviceName").value.trim() || "手机导播";
+      if (pin.length !== 6) { $("pairMsg").textContent = "请输入 6 位口令"; return; }
+      $("pairBtn").disabled = true;
+      $("pairMsg").textContent = "正在连接…";
+      const { ok, result } = await request("/api/remote/pair", {
+        method:"POST", body:JSON.stringify({ pin, deviceName }),
+      });
+      $("pairBtn").disabled = false;
+      if (!ok) {
+        const wait = result.retryAfterMs ? "（约 " + Math.ceil(result.retryAfterMs / 1000) + " 秒后）" : "";
+        $("pairMsg").textContent = (result.message || "连接失败") + wait;
+        return;
+      }
+      csrf = result.csrf;
+      sessionStorage.setItem("pkcRemoteCsrf", csrf);
+      $("pairView").classList.add("hidden");
+      $("controlView").classList.remove("hidden");
+      $("device").textContent = result.deviceName;
+      await loadState();
+      setRemoteTab("live");
+      connectStream();
+    }
+
+    async function loadState() {
+      if (syncing) return;
+      syncing = true;
+      try {
+        const { ok, status, result } = await request("/api/remote/state");
+        if (status === 401) return showPair();
+        if (!ok) throw new Error(result.message || result.error || "状态读取失败");
+        state = result;
+        if (state.remote?.csrf) {
+          csrf = state.remote.csrf;
+          sessionStorage.setItem("pkcRemoteCsrf", csrf);
+        }
+        $("pairView").classList.add("hidden");
+        $("controlView").classList.remove("hidden");
+        render();
+        setRemoteTab(remoteTab);
+        setConnected(true, "已连接");
+      } catch (error) {
+        setConnected(false, "连接中断");
+        setMessage(error.message);
+      } finally {
+        syncing = false;
+      }
+    }
+
+    function showPair() {
+      if (source) source.close();
+      source = null;
+      sessionStorage.removeItem("pkcRemoteCsrf");
+      csrf = "";
+      state = null;
+      $("controlView").classList.add("hidden");
+      $("actions").classList.add("hidden");
+      $("dataPane").classList.add("hidden");
+      $("livePane").classList.remove("hidden");
+      $("pairView").classList.remove("hidden");
+      $("device").textContent = "未配对";
+      setConnected(false, "未连接");
+    }
+    async function repair() {
+      try {
+        if (csrf) await request("/api/remote/logout", { method:"POST", body:"{}" });
+      } catch {}
+      showPair();
+      $("pin").focus();
+    }
+
+    function dataStatus(text, bad = false) {
+      $("remoteOcrStatus").textContent = text || "";
+      $("remoteOcrStatus").classList.toggle("bad", !!bad);
+    }
+
+    async function loadMatchCatalog(force = false) {
+      if (!state) return;
+      if (matchCatalog && !force) {
+        renderMatchCatalog();
+        return;
+      }
+      dataStatus("正在读取场次…");
+      const { ok, status, result } = await request("/api/remote/match-context");
+      if (status === 401) return showPair();
+      if (!ok) {
+        dataStatus(result.message || "无法读取场次", true);
+        return;
+      }
+      matchCatalog = result;
+      const previous = selectedMatch;
+      selectedMatch = result.matches.find((match) => match.matchKey === previous)
+        || result.matches.find((match) => match.matchKey === result.selectedMatchKey)
+        || result.matches[0]
+        || null;
+      if (!selectedGame && selectedMatch?.matchKey === result.currentMatchKey && result.currentGameId) {
+        selectedGame = result.currentGameId;
+      }
+      selectedGame = selectedMatch?.games.some((game) => game.id === selectedGame) ? selectedGame : "";
+      renderMatchCatalog();
+      dataStatus(matchCatalog.matches.length ? "" : "当前系列赛还没有双方队伍已排定的淘汰赛场次", !matchCatalog.matches.length);
+    }
+
+    function resetReview() {
+      draft = null;
+      reviewTarget = null;
+      $("remoteReviewCard").classList.add("hidden");
+      $("remoteSaveStatus").textContent = "";
+    }
+
+    function renderMatchCatalog() {
+      const matchSelect = $("remoteMatchSelect");
+      matchSelect.innerHTML = (matchCatalog?.matches || []).map((match) =>
+        `<option value="${escHtml(match.matchKey)}">${escHtml(match.roundLabel)} · ${escHtml(match.label)}</option>`
+      ).join("");
+      if (selectedMatch) matchSelect.value = selectedMatch.matchKey;
+      renderGameSelect();
+    }
+
+    function renderGameSelect() {
+      const select = $("remoteGameSelect");
+      select.innerHTML = "";
+      if (!selectedMatch) {
+        select.innerHTML = '<option value="">暂无场次</option>';
+        $("remoteTarget").textContent = "请先在电脑的淘汰赛赛程中排定双方队伍。";
+        $("remoteOcrBtn").disabled = true;
+        return;
+      }
+      selectedMatch.games.forEach((game) => {
+        select.append(new Option(game.label + (game.score?.join(":") ? " · " + game.score.join(":") : ""), game.id));
+      });
+      select.append(new Option("＋ 新建 " + selectedMatch.nextGameLabel, "__new__"));
+      if (!selectedGame || !selectedMatch.games.some((game) => game.id === selectedGame)) selectedGame = "";
+      select.value = selectedGame || "__new__";
+      $("remoteTarget").innerHTML = `<b>${escHtml(selectedMatch.blueName)} vs ${escHtml(selectedMatch.redName)}</b><br>`
+        + `${escHtml(selectedMatch.roundLabel)} · ${selectedGame
+          ? "覆盖 " + escHtml(selectedMatch.games.find((game) => game.id === selectedGame)?.label || "")
+          : "新建 " + escHtml(selectedMatch.nextGameLabel)}`;
+      $("remoteOcrBtn").disabled = !online || !uploadFiles.length || ocrBusy;
+    }
+
+    async function compressImage(file) {
+      if (!/^image\/(?:jpeg|png|webp)$/i.test(file.type)) throw new Error("只支持 JPG、PNG、WebP");
+      const bitmap = await createImageBitmap(file);
+      const scale = Math.min(1, 2560 / Math.max(bitmap.width, bitmap.height));
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.max(1, Math.round(bitmap.width * scale));
+      canvas.height = Math.max(1, Math.round(bitmap.height * scale));
+      canvas.getContext("2d").drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+      bitmap.close?.();
+      const blob = await new Promise((resolve) => canvas.toBlob(resolve, "image/jpeg", .9));
+      if (!blob) throw new Error("图片压缩失败");
+      return new File([blob], file.name.replace(/\.[^.]+$/, "") + ".jpg", { type:"image/jpeg" });
+    }
+
+    async function addFiles(fileList) {
+      const incoming = Array.from(fileList || []);
+      if (!incoming.length) return;
+      if (uploadFiles.length + incoming.length > 4) {
+        dataStatus("最多上传 4 张截图", true);
+        return;
+      }
+      dataStatus("正在压缩图片…");
+      try {
+        for (const file of incoming) uploadFiles.push(await compressImage(file));
+        renderFiles();
+        dataStatus("图片已准备，可以开始识别");
+      } catch (error) {
+        dataStatus(error.message, true);
+      }
+    }
+
+    function renderFiles() {
+      const host = $("remoteFiles");
+      for (const item of host.querySelectorAll("img[data-object-url]")) URL.revokeObjectURL(item.dataset.objectUrl);
+      host.replaceChildren();
+      uploadFiles.forEach((file, index) => {
+        const thumb = document.createElement("div");
+        thumb.className = "thumb";
+        const img = document.createElement("img");
+        img.dataset.objectUrl = URL.createObjectURL(file);
+        img.src = img.dataset.objectUrl;
+        img.alt = "截图 " + (index + 1);
+        const remove = document.createElement("button");
+        remove.type = "button";
+        remove.textContent = "×";
+        remove.setAttribute("aria-label", "移除第 " + (index + 1) + " 张");
+        remove.onclick = () => {
+          uploadFiles.splice(index, 1);
+          renderFiles();
+          renderGameSelect();
+        };
+        thumb.append(img, remove);
+        host.append(thumb);
+      });
+      $("remoteOcrBtn").disabled = !online || !uploadFiles.length || ocrBusy || !selectedMatch;
+    }
+
+    function fileDataUrl(file) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(String(reader.result || ""));
+        reader.onerror = () => reject(new Error("读取图片失败"));
+        reader.readAsDataURL(file);
+      });
+    }
+
+    async function startOcr() {
+      if (ocrBusy || !uploadFiles.length || !selectedMatch) return;
+      ocrBusy = true;
+      resetReview();
+      renderFiles();
+      dataStatus("正在上传到电脑…");
+      try {
+        const images = await Promise.all(uploadFiles.map(fileDataUrl));
+        dataStatus("电脑正在识别，请稍候…");
+        const { ok, status, result } = await request("/api/remote/ocr-draft", {
+          method:"POST",
+          body:JSON.stringify({
+            matchKey:selectedMatch.matchKey,
+            gameId:selectedGame || null,
+            images,
+          }),
+        });
+        if (status === 401) return showPair();
+        if (!ok) throw new Error(result.message || result.error || "识别失败");
+        draft = result.draft;
+        reviewTarget = result.target;
+        renderReview();
+        dataStatus("识别完成，请逐项核对后保存");
+      } catch (error) {
+        dataStatus(error.message, true);
+      } finally {
+        ocrBusy = false;
+        renderFiles();
+      }
+    }
+
+    const SIDE_FIELDS = [
+      ["name", "选手"], ["hero", "英雄"], ["k", "击杀"], ["d", "死亡"], ["a", "助攻"],
+      ["gold", "总经济"], ["dmgPct", "输出%"], ["tankPct", "承伤%"],
+      ["goldShare", "经济%"], ["kp", "参团%"], ["dmgWan", "输出(万)"],
+    ];
+
+    function sideEditor(side, label, row, index) {
+      return `<div class="side-block ${side === "our" ? "blue" : "red"}">
+        <label>${label}分路<select data-lane="${side}" data-row="${index}">${["上单","打野","中路","发育路","游走"].map((lane) =>
+          `<option${((side === "our" ? row.pos : row.posOpp) === lane) ? " selected" : ""}>${lane}</option>`).join("")}</select></label>
+        <div class="mini-grid">${SIDE_FIELDS.map(([field, title]) =>
+          `<label class="${field === "name" || field === "hero" ? "wide" : ""}">${title}<input data-side="${side}" data-row="${index}" data-field="${field}" value="${escHtml(row[side]?.[field] || "")}" ${["k","d","a","gold","dmgPct","tankPct","goldShare","kp","dmgWan"].includes(field) ? 'inputmode="decimal"' : ""}></label>`
+        ).join("")}</div></div>`;
+    }
+
+    function basicMissing() {
+      if (!draft) return [];
+      const missing = [];
+      for (const [side, label] of [["our", "蓝方"], ["opp", "红方"]]) {
+        draft.rows.forEach((row, index) => {
+          if (!String(row[side]?.name || "").trim()) missing.push(label + "第" + (index + 1) + "行缺选手");
+          if (!String(row[side]?.hero || "").trim()) missing.push(label + "第" + (index + 1) + "行缺英雄");
+        });
+      }
+      return missing;
+    }
+
+    function renderWarnings() {
+      const missing = basicMissing();
+      const warnings = draft?.warnings || [];
+      const host = $("remoteWarnings");
+      if (!missing.length && !warnings.length) {
+        host.innerHTML = '<div class="warn-box"><b>字段完整</b> · 保存后仍建议在电脑端快速复核。</div>';
+        return;
+      }
+      host.innerHTML = '<div class="warn-box"><b>保存前请检查</b><ul>'
+        + missing.slice(0, 8).map((item) => "<li>" + escHtml(item) + "</li>").join("")
+        + warnings.slice(0, 8).map((item) => "<li>" + escHtml(item) + "</li>").join("")
+        + "</ul>" + (missing.length + warnings.length > 8 ? "<div>还有更多提示，保存后可在电脑端继续修正。</div>" : "") + "</div>";
+    }
+
+    function renderReview() {
+      if (!draft) return;
+      $("remoteReviewCard").classList.remove("hidden");
+      $("remoteBlueScore").value = draft.blueScore ?? "";
+      $("remoteRedScore").value = draft.redScore ?? "";
+      $("remoteDuration").value = draft.duration ?? "";
+      $("remoteResult").value = draft.result === "lose" ? "lose" : "win";
+      $("remoteTargetSummary").textContent =
+        (selectedMatch?.label || "") + " · " + (reviewTarget?.gameLabel || selectedMatch?.nextGameLabel || "");
+      $("remotePlayerCards").innerHTML = draft.rows.map((row, index) =>
+        `<details class="player-card"${index === 0 ? " open" : ""}><summary>第 ${index + 1} 组对位
+          <span>${escHtml(row.our?.name || "蓝方待填")} vs ${escHtml(row.opp?.name || "红方待填")}</span></summary>
+          <div class="player-body">${sideEditor("our", "蓝方", row, index)}${sideEditor("opp", "红方", row, index)}</div>
+        </details>`
+      ).join("");
+      for (const input of $("remotePlayerCards").querySelectorAll("[data-field]")) {
+        input.addEventListener("input", () => {
+          const row = draft.rows[Number(input.dataset.row)];
+          if (row?.[input.dataset.side]) row[input.dataset.side][input.dataset.field] = input.value.trim();
+          renderWarnings();
+        });
+      }
+      for (const select of $("remotePlayerCards").querySelectorAll("[data-lane]")) {
+        select.addEventListener("change", () => {
+          const row = draft.rows[Number(select.dataset.row)];
+          if (select.dataset.lane === "our") row.pos = select.value;
+          else row.posOpp = select.value;
+        });
+      }
+      renderWarnings();
+    }
+
+    async function saveRemoteData() {
+      if (!draft || saving) return;
+      const gameLabel = reviewTarget?.gameLabel || selectedMatch?.nextGameLabel || "新局";
+      if (!confirm("保存到「" + selectedMatch.label + " · " + gameLabel + "」？\n"
+        + (selectedGame ? "将覆盖该局原有玩法数据。" : "将新建这一局。"))) return;
+      saving = true;
+      $("remoteSaveBtn").disabled = true;
+      $("remoteSaveStatus").textContent = "正在保存到电脑…";
+      try {
+        const { ok, status, result } = await request("/api/remote/match-data", {
+          method:"POST",
+          body:JSON.stringify({
+            seriesId:matchCatalog.seriesId,
+            matchKey:selectedMatch.matchKey,
+            gameId:selectedGame || null,
+            baseRev:matchCatalog.matchesRevision,
+            contextRevision:matchCatalog.contextRevision,
+            draft,
+          }),
+        });
+        if (status === 401) return showPair();
+        if (!ok) throw new Error(result.message || result.error || "保存失败");
+        $("remoteSaveStatus").textContent = "已保存 " + result.game.label + " · 缺失 " + result.missing.length
+          + " 项 · 请到电脑刷新本局后生成数据图";
+        selectedGame = result.game.id;
+        matchCatalog = null;
+        await loadState();
+        await loadMatchCatalog(true);
+        await loadState();
+      } catch (error) {
+        $("remoteSaveStatus").textContent = error.message;
+      } finally {
+        saving = false;
+        $("remoteSaveBtn").disabled = false;
+      }
+    }
+
+    function setRemoteTab(name) {
+      remoteTab = name === "data" ? "data" : "live";
+      document.querySelectorAll("[data-remote-tab]").forEach((button) => {
+        button.classList.toggle("on", button.dataset.remoteTab === remoteTab);
+      });
+      $("livePane").classList.toggle("hidden", remoteTab !== "live");
+      $("dataPane").classList.toggle("hidden", remoteTab !== "data");
+      $("actions").classList.toggle("hidden", !state || remoteTab !== "live");
+      if (remoteTab === "data") loadMatchCatalog();
+    }
+
+    function readiness(sceneId) {
+      return (state?.readiness?.scenes || []).find((scene) => scene.id === sceneId) || null;
+    }
+
+    function renderScenes() {
+      const host = $("sceneList");
+      host.replaceChildren();
+      (state?.scenes || []).filter((scene) => scene.id !== "blank").forEach((scene) => {
+        const ready = readiness(scene.id);
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "scene";
+        if (scene.id === state.preview.scene) button.classList.add("selected");
+        if (scene.id === state.onAir.scene) button.classList.add("live");
+        button.innerHTML = '<i class="dot ' + (ready?.status || "") + '"></i><b>' + scene.label + '</b><small>'
+          + (ready?.summary || "预检信息暂不可用") + '</small>';
+        button.onclick = () => act("select-scene", { scene:scene.id });
+        host.append(button);
+      });
+      const ready = readiness(state.preview.scene);
+      $("readinessNote").textContent = ready
+        ? "待推场景：" + ready.label + " · " + ready.summary
+        : "场景预检暂不可用";
+    }
+
+    function render() {
+      if (!state) return;
+      $("onAir").textContent = sceneName(state.onAir.scene);
+      $("preview").textContent = sceneName(state.preview.scene);
+      $("dirty").textContent = state.isPreviewDirty ? "未推送" : "已同步";
+      $("dirty").classList.toggle("dirty", !!state.isPreviewDirty);
+      $("matchTitle").textContent = state.live?.context?.matchLabel || "当前直播";
+      $("matchSub").textContent = [state.live?.context?.gameLabel, state.live?.context?.blueTeam, state.live?.context?.redTeam].filter(Boolean).join(" · ") || "未选择当前场次";
+      $("lastPush").textContent = state.lastPush ? new Date(state.lastPush.at).toLocaleString("zh-CN", { hour12:false }) + " · " + sceneName(state.lastPush.scene) : "还没有推送记录";
+      $("remoteName").textContent = state.remote ? "设备：" + state.remote.deviceName + " · 会话至 " + new Date(state.remote.expiresAt).toLocaleTimeString("zh-CN", { hour12:false }) : "";
+      renderScenes();
+      paintActions();
+    }
+
+    function paintActions() {
+      const disabled = !online || !state;
+      $("pushBtn").disabled = disabled || state?.preview?.scene === "blank";
+      $("undoBtn").disabled = disabled || !state?.canUndoPush;
+      $("blankBtn").disabled = disabled;
+    }
+
+    async function act(action, body = {}, force = false) {
+      if (!online || !state) return;
+      setMessage("正在执行…");
+      try {
+        let response = await request("/api/remote/action", {
+          method:"POST",
+          body:JSON.stringify({ action, ...body, force }),
+        });
+        if (response.status === 401) return showPair();
+        if (response.status === 409 && !force) {
+          if (!confirm((response.result.message || "当前画面预检未通过") + "\n\n确认仍要推送？")) {
+            setMessage("已取消推送");
+            return;
+          }
+          response = await request("/api/remote/action", {
+            method:"POST",
+            body:JSON.stringify({ action, ...body, force:true }),
+          });
+        }
+        if (!response.ok) throw new Error(response.result.message || response.result.error || "操作失败");
+        state = { ...state, ...response.result };
+        render();
+        setMessage(action === "push" ? "已推送" : action === "blank" ? "已切到空白" : action === "undo-push" ? "已撤回" : "预览已切换");
+      } catch (error) {
+        setMessage(error.message);
+      }
+    }
+
+    function connectStream() {
+      if (source) source.close();
+      try {
+        source = new EventSource("/api/remote/stream");
+        const update = (event) => {
+          try {
+            const incoming = JSON.parse(event.data);
+            if (!state) return;
+            state = {
+              ...state,
+              onAir:incoming.onAir,
+              preview:incoming.preview,
+              isPreviewDirty:incoming.isPreviewDirty,
+              canUndoPush:incoming.canUndoPush,
+              lastPush:incoming.lastPush,
+              live:incoming.live,
+              scenes:incoming.scenes || state.scenes,
+            };
+            render();
+            setConnected(true, "已连接");
+          } catch {}
+        };
+        ["hello","live","onAir","preview"].forEach((name) => source.addEventListener(name, update));
+        source.onerror = () => setConnected(false, "连接中断");
+      } catch {
+        setConnected(false, "连接中断");
+      }
+    }
+
+    function beginBlankHold(event) {
+      event.preventDefault();
+      if (!online || !state) return;
+      $("blankBtn").textContent = "按住…";
+      clearTimeout(holdTimer);
+      holdTimer = setTimeout(async () => {
+        $("blankBtn").textContent = "切空中…";
+        await act("blank");
+        $("blankBtn").textContent = "长按切空";
+      }, 1500);
+    }
+    function cancelBlankHold() {
+      clearTimeout(holdTimer);
+      holdTimer = null;
+      if (online) $("blankBtn").textContent = "长按切空";
+    }
+
+    $("pairBtn").onclick = pair;
+    document.querySelectorAll("[data-remote-tab]").forEach((button) => {
+      button.onclick = () => setRemoteTab(button.dataset.remoteTab);
+    });
+    $("remoteMatchSelect").onchange = () => {
+      selectedMatch = matchCatalog?.matches.find((match) => match.matchKey === $("remoteMatchSelect").value) || null;
+      selectedGame = selectedMatch?.matchKey === matchCatalog?.currentMatchKey ? matchCatalog?.currentGameId || "" : "";
+      resetReview();
+      renderGameSelect();
+    };
+    $("remoteGameSelect").onchange = () => {
+      selectedGame = $("remoteGameSelect").value === "__new__" ? "" : $("remoteGameSelect").value;
+      resetReview();
+      renderGameSelect();
+    };
+    ["remoteCamera","remoteGallery"].forEach((id) => {
+      $(id).addEventListener("change", (event) => {
+        addFiles(event.target.files);
+        event.target.value = "";
+      });
+    });
+    $("remoteOcrBtn").onclick = startOcr;
+    $("remoteSaveBtn").onclick = saveRemoteData;
+    $("remoteBlueScore").oninput = () => { if (draft) draft.blueScore = $("remoteBlueScore").value.trim(); renderWarnings(); };
+    $("remoteRedScore").oninput = () => { if (draft) draft.redScore = $("remoteRedScore").value.trim(); renderWarnings(); };
+    $("remoteDuration").oninput = () => { if (draft) draft.duration = $("remoteDuration").value.trim(); renderWarnings(); };
+    $("remoteResult").onchange = () => { if (draft) draft.result = $("remoteResult").value; };
+    $("pin").addEventListener("input", (event) => { event.target.value = event.target.value.replace(/\D/g, "").slice(0, 6); });
+    $("pin").addEventListener("keydown", (event) => { if (event.key === "Enter") pair(); });
+    $("pushBtn").onclick = () => act("push");
+    $("undoBtn").onclick = () => act("undo-push");
+    $("repairBtn").onclick = repair;
+    ["pointerdown"].forEach((name) => $("blankBtn").addEventListener(name, beginBlankHold));
+    ["pointerup","pointercancel","pointerleave"].forEach((name) => $("blankBtn").addEventListener(name, cancelBlankHold));
+    window.addEventListener("offline", () => setConnected(false, "网络已断开"));
+    window.addEventListener("online", () => loadState());
+
+    loadState().then(() => {
+      if (state) connectStream();
+      else showPair();
+    });
+    setInterval(() => {
+      if (state) loadState();
+    }, 15000);
+  })();
+  </script>
+</body>
+</html>

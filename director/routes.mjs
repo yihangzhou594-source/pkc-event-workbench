@@ -38,9 +38,11 @@ import {
   toDirectorTeams, fromDirectorTeams, previewLegacyTeams, importLegacyTeams,
 } from '../lib/competition-teams.mjs';
 import { readCompetitionContext, saveCompetitionContext } from '../lib/competition-context.mjs';
+import { buildProductionReadiness } from '../lib/production-readiness.mjs';
 
 const DIR = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.dirname(DIR);
+const DATA_DIR = process.env.PKC_DATA_DIR ? path.resolve(process.env.PKC_DATA_DIR) : path.join(ROOT, '数据');
 const DIRECTOR_PAGE = path.join(DIR, 'console.html');
 const OBS_PAGE = path.join(DIR, 'obs.html');
 const GENERATOR_PAGE = path.join(ROOT, 'PKC赛后数据图生成器.html');
@@ -154,6 +156,83 @@ function stateBody() {
   };
 }
 
+export function remoteDirectorState() {
+  const snapshot = store.snapshot();
+  return {
+    onAir: { scene: snapshot.onAir.scene, revision: snapshot.onAir.revision },
+    preview: { scene: snapshot.preview.scene, revision: snapshot.preview.revision },
+    isPreviewDirty: snapshot.isPreviewDirty,
+    canUndoPush: snapshot.canUndoPush,
+    lastPush: snapshot.lastPush,
+    live: { context: snapshot.live.context || null },
+    scenes: sceneList(),
+    readiness: readinessBody(),
+  };
+}
+
+export function setDirectorContext(context) {
+  store.setContext(context || null);
+}
+
+function pushPreview(force = false) {
+  const snapshot = store.snapshot();
+  const readiness = readinessBody();
+  const selected = readiness.scenes.find((item) => item.id === snapshot.preview.scene);
+  if (!force && snapshot.preview.scene === SceneId.BLANK && snapshot.onAir.scene !== SceneId.BLANK) {
+    return {
+      status: 409,
+      body: {
+        error: "blank_confirm_required",
+        message: "当前推送会把直播画面切为空白，请确认后再继续。",
+      },
+    };
+  }
+  if (!force && selected?.status === "blocked") {
+    return {
+      status: 409,
+      body: {
+        error: "readiness_blocked",
+        message: selected.blockers?.[0]?.label || selected.summary,
+        readiness,
+      },
+    };
+  }
+  store.push({ force });
+  return { status: 200, body: remoteDirectorState() };
+}
+
+export function remoteDirectorAction(body = {}) {
+  const action = String(body.action || "");
+  if (action === "select-scene") {
+    if (!isSceneId(body.scene)) return { status: 400, body: { error: "unknown_scene" } };
+    if (body.scene === SceneId.BLANK) return { status: 400, body: { error: "blank_requires_hold" } };
+    store.setScene(body.scene);
+    return { status: 200, body: remoteDirectorState() };
+  }
+  if (action === "push") return pushPreview(body.force === true);
+  if (action === "undo-push") {
+    store.undoPush();
+    return { status: 200, body: remoteDirectorState() };
+  }
+  if (action === "blank") {
+    store.setScene(SceneId.BLANK);
+    return pushPreview(true);
+  }
+  return { status: 400, body: { error: "unknown_remote_action" } };
+}
+
+export function directorStreamApi(res) {
+  streamApi(res);
+}
+
+function readinessBody() {
+  const library = readJsonSafe(path.join(DATA_DIR, 'library.json'));
+  const matches = readJsonSafe(path.join(DATA_DIR, 'matches.json'));
+  const bracket = readJsonSafe(path.join(DATA_DIR, 'bracket.json'));
+  const context = store.snapshot().live.context || readCompetitionContext().context;
+  return buildProductionReadiness({ library, matches, bracket, context });
+}
+
 function bracketEliminatedIds(bracket) {
   const eliminated = new Set();
   if (!bracket || typeof bracket !== 'object') return eliminated;
@@ -204,7 +283,7 @@ function withTeamAvailability(teams, seriesId) {
   const snapshot = store.snapshot();
   let bracket = snapshot.live.bracket?.seriesId === seriesId ? snapshot.live.bracket : null;
   if (!bracket) {
-    const saved = readJsonSafe(path.join(ROOT, '数据', 'bracket.json'));
+    const saved = readJsonSafe(path.join(DATA_DIR, 'bracket.json'));
     bracket = saved && (saved[seriesId] || null);
   }
   const out = bracketEliminatedIds(bracket);
@@ -259,6 +338,9 @@ export async function handleDirector(req, res, url, helpers) {
   /* ---------- 读状态 ---------- */
   if (p === '/api/director/state' && req.method === 'GET') {
     return sendJSON(res, stateBody()), true;
+  }
+  if (p === '/api/director/readiness' && req.method === 'GET') {
+    return sendJSON(res, readinessBody()), true;
   }
   if (p === '/api/tencent-heroes' && req.method === 'GET') {
     try { return sendJSON(res, { heroes: await getTencentHeroes() }), true; }
@@ -401,7 +483,13 @@ export async function handleDirector(req, res, url, helpers) {
         store.setSceneSettings(body.id, body.patch ?? {});
         break;
       case 'push':
-        store.push();
+        {
+          const pushed = pushPreview(body.force === true);
+          if (pushed.status !== 200) return sendJSON(res, pushed.body, pushed.status), true;
+        }
+        break;
+      case 'undo-push':
+        store.undoPush();
         break;
       case 'discard':
         store.discardPreview();
@@ -496,8 +584,8 @@ function readJsonSafe(file) {
   try { return JSON.parse(fs.readFileSync(file, 'utf8')); } catch { return null; }
 }
 function seedBracketFromDisk() {
-  const lib = readJsonSafe(path.join(ROOT, '数据', 'library.json'));
-  const brackets = readJsonSafe(path.join(ROOT, '数据', 'bracket.json'));
+  const lib = readJsonSafe(path.join(DATA_DIR, 'library.json'));
+  const brackets = readJsonSafe(path.join(DATA_DIR, 'bracket.json'));
   const series = lib && Array.isArray(lib.series)
     ? (lib.series.find((s) => s.id === lib.currentId) || lib.series[0])
     : null;

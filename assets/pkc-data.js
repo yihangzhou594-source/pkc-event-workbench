@@ -13,6 +13,38 @@ function renderSeriesSelect(){
 }
 function esc(s){ return String(s==null?"":s).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
 
+function setImportToolsOpen(open, summary){
+  const tools = $("#importTools");
+  const button = $("#btnImportToggle");
+  const card = $("#importCard");
+  const note = $("#importSummary");
+  if (!tools || !button) return;
+  tools.hidden = !open;
+  button.setAttribute("aria-expanded", String(open));
+  button.textContent = open ? "收起导入工具" : "展开重新识别";
+  if (card) card.classList.toggle("import-collapsed", !open);
+  if (note && summary) note.textContent = summary;
+}
+
+function collapseImportToolsAfterSuccess(summary){
+  setImportToolsOpen(false, summary || "已填入数据 · 可展开重新识别");
+}
+
+function initImportToolsToggle(){
+  const button = $("#btnImportToggle");
+  if (!button || button.dataset.ready) return;
+  button.dataset.ready = "true";
+  button.addEventListener("click", () => {
+    setImportToolsOpen($("#importTools")?.hidden === true);
+  });
+}
+
+if (document.readyState === "loading") {
+  document.addEventListener("DOMContentLoaded", initImportToolsToggle, { once:true });
+} else {
+  initImportToolsToggle();
+}
+
 /* ---------- 赛程场次索引 ---------- */
 function bkMatchList(){
   return bkTree().list.map(m => ({ ...m, ready: !!(m.a && m.b) }));
@@ -137,8 +169,9 @@ function renderGameBar(){
   if (list.length > 1){
     const del = document.createElement("button");
     del.className = "mini"; del.textContent = "删除本局";
-    del.onclick = () => {
+    del.onclick = async () => {
       if (!confirm("删除「"+S.game.label+"」？")) return;
+      await window.PKC_RECOVERY?.snapshotBeforeChange("delete-game", ["matches"], "删除 " + S.game.label);
       s.games.splice(s.current,1);
       s.current = clamp(s.current,0,s.games.length-1);
       renderMatchBar(); renderGameBar(); renderGameForm(); renderTables(); renderPreview();
@@ -317,8 +350,9 @@ function renderTeamGrid(){
       });
     });
     mk("编辑","",(e)=>{ e.stopPropagation(); editTeam(t); });
-    mk("删","",(e)=>{ e.stopPropagation();
+    mk("删","",async (e)=>{ e.stopPropagation();
       if(!confirm("删除队伍「"+t.name+"」？")) return;
+      await window.PKC_RECOVERY?.snapshotBeforeChange("delete-team", ["library", "matches"], "删除队伍 " + t.name);
       S.series.teams = S.series.teams.filter(x => x.id !== t.id);
       S.series.games.forEach(g => { if(g.ourId===t.id) g.ourId=""; if(g.oppId===t.id) g.oppId=""; });
       renderTeamGrid(); renderGameForm(); renderPreview(); bkOnTeamsChanged(); scheduleSave();
@@ -408,6 +442,11 @@ async function applyLegacyTeamMigration(){
     const result = await response.json();
     if (!response.ok) throw new Error(result.message || result.error || "导入失败");
     toast("迁移完成：新增 " + result.imported + " 支，更新 " + result.updated + " 支；" + (result.auditId ? "操作已记入迁移记录" : "资料未变化，未新增迁移记录") + "，旧文件已保留");
+    window.PKC_RECOVERY?.audit(
+      "import-teams",
+      "迁移导入：新增 " + result.imported + " 支，更新 " + result.updated + " 支",
+      "library",
+    );
     setTimeout(() => location.reload(), 700);
   } catch (error) {
     toast("迁移失败：" + error.message);
@@ -993,6 +1032,7 @@ function collectIssues(){
   ["our", "opp"].forEach(side => {
     const label = side === "our" ? "蓝方" : "红方";
     const seen = new Map();
+    const seenPlayers = new Map();
     g.rows.forEach((r, i) => {
       const p = r[side] || {};
       const where = label + " 第" + (i + 1) + "行";
@@ -1007,6 +1047,11 @@ function collectIssues(){
         if (seen.has(k)) out.push({ text: where + " 英雄重复：" + p.hero, side, row: i });
         else seen.set(k, i);
       }
+      if (!isBlank(p.name)){
+        const key = String(p.name).replace(/[\s\u200b-\u200f\ufeff]/g, "").toLocaleLowerCase();
+        if (seenPlayers.has(key)) out.push({ text: where + " 选手重复：" + p.name, side, row: i });
+        else seenPlayers.set(key, i);
+      }
     });
     const dmg = sumPct(g.rows.map(r => r[side] && r[side].dmgPct));
     if (dmg !== null && Math.abs(dmg - 100) > 2) {
@@ -1018,7 +1063,29 @@ function collectIssues(){
     }
   });
   if (isBlank(g.ourScore) || isBlank(g.oppScore)) out.push({ text: "本局比分没填" });
+  else {
+    ["蓝方", "红方"].forEach((label, i) => {
+      const value = i === 0 ? g.ourScore : g.oppScore;
+      const text = String(value).trim();
+      if (!/^\d+$/.test(text)) {
+        out.push({ text: label + "比分格式不正确：" + value });
+      }
+    });
+  }
   if (isBlank(g.duration)) out.push({ text: "对局时长没填" });
+  else {
+    const parts = String(g.duration).trim().split(/[:：]/);
+    if (parts.length !== 2 || !/^\d{1,2}$/.test(parts[0]) || !/^\d{1,2}$/.test(parts[1])
+      || Number(parts[1]) > 59) {
+      out.push({ text: "对局时长格式应为 12:11：" + g.duration });
+    }
+  }
+  if (g.matchKey) {
+    const duplicate = S.series.games.find(item => item !== g
+      && item.matchKey === g.matchKey
+      && String(item.label || "") === String(g.label || ""));
+    if (duplicate) out.push({ text: "同场次存在重复局次：" + g.label + "（" + g.matchKey + "）" });
+  }
   return out;
 }
 function renderIssues(){
@@ -1031,9 +1098,14 @@ function renderIssues(){
     host.innerHTML = '<div class="notice ok">数据看起来齐了，可以出图。</div>';
     return;
   }
-  host.innerHTML = list.slice(0, 24).map((x, i) =>
-    '<button type="button" class="issue" data-idx="' + i + '">⚠ ' + esc(x.text) + "</button>").join("")
-    + (list.length > 24 ? '<div class="hint">还有 ' + (list.length - 24) + " 项…</div>" : "");
+  const issueButton = (x, index) =>
+    '<button type="button" class="issue" data-idx="' + index + '">⚠ ' + esc(x.text) + "</button>";
+  host.innerHTML = list.slice(0, 3).map((x, i) => issueButton(x, i)).join("")
+    + (list.length > 3 ? '<details class="issue-more"><summary>查看其余 ' + (list.length - 3)
+      + ' 项</summary><div class="issue-list">'
+      + list.slice(3, 27).map((x, i) => issueButton(x, i + 3)).join("")
+      + (list.length > 27 ? '<div class="hint">还有 ' + (list.length - 27) + " 项未展开。</div>" : "")
+      + "</div></details>" : "");
   $$(".issue", host).forEach(b => {
     b.onclick = () => {
       const x = list[Number(b.dataset.idx)];
