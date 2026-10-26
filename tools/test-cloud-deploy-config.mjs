@@ -17,7 +17,7 @@ assert.match(render, /key:\s*PKC_REMOTE/);
 assert.match(render, /key:\s*SUPABASE_URL/);
 assert.match(render, /key:\s*SUPABASE_ANON_KEY/);
 assert.match(render, /key:\s*SUPABASE_SERVICE_ROLE_KEY/);
-assert.match(render, /key:\s*PKC_ALLOWED_EMAILS/);
+assert.match(render, /key:\s*PKC_PUBLIC_URL/);
 assert.match(render, /key:\s*DEEPSEEK_API_KEY/);
 assert.doesNotMatch(render, /eyJ[A-Za-z0-9_-]{20,}/, "render.yaml must not contain Supabase tokens");
 
@@ -36,7 +36,7 @@ for (const key of [
   "SUPABASE_URL",
   "SUPABASE_ANON_KEY",
   "SUPABASE_SERVICE_ROLE_KEY",
-  "PKC_ALLOWED_EMAILS",
+  "PKC_PUBLIC_URL",
   "DEEPSEEK_API_KEY",
 ]) {
   assert.match(example, new RegExp("^" + key + "=", "m"), key + " missing from .env.example");
@@ -51,7 +51,7 @@ for (const text of [
   "SQL Editor",
   "pkc_write_record",
   "SUPABASE_SERVICE_ROLE_KEY",
-  "PKC_ALLOWED_EMAILS",
+  "邮箱注册",
   "/healthz",
   "登录",
   "休眠",

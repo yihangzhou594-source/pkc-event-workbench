@@ -589,6 +589,33 @@ const server = http.createServer(async (req, res) => {
       await appendDataAudit("login", "staff login", "auth", result.user?.email || "");
       return sendJSON(res, { ok: true, user: result.user });
     }
+    if (p === "/api/auth/register" && req.method === "POST") {
+      const body = JSON.parse((await readBody(req)) || "{}");
+      const configuredOrigin = String(process.env.PKC_PUBLIC_URL || "").replace(/\/+$/, "");
+      const forwardedProto = String(req.headers["x-forwarded-proto"] || "").split(",")[0].trim();
+      const protocol = forwardedProto || (req.socket.encrypted ? "https" : "http");
+      const origin = configuredOrigin || protocol + "://" + String(req.headers.host || "localhost");
+      const result = await authGate.register(
+        body.email,
+        body.password,
+        origin + "/login?confirmed=1",
+      );
+      if (!result.ok) return sendJSON(res, result, result.status || 400);
+      appendCookies(res, authGate.sessionCookies(result));
+      await appendDataAudit(
+        "register-request",
+        result.requiresConfirmation ? "confirmation email sent" : "auto confirmed",
+        "auth",
+        result.user?.email || result.email || "",
+      );
+      return sendJSON(res, {
+        ok: true,
+        requiresConfirmation: result.requiresConfirmation,
+        email: result.email || result.user?.email || "",
+        message: result.message,
+        user: result.user || null,
+      });
+    }
     if (p === "/api/auth/logout" && req.method === "POST") {
       await authGate.logout(accessToken);
       appendCookies(res, authGate.clearCookies());

@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <meta name="robots" content="noindex,nofollow" />
-  <title>PKC 赛事工作台 · 登录</title>
+  <title>PKC 赛事工作台 · 登录或注册</title>
   <style>
     :root {
       color-scheme: dark;
@@ -59,6 +59,25 @@
     }
     h1 { margin: 0; font-size: 22px; letter-spacing: .02em; }
     .sub { margin: 4px 0 0; color: var(--muted); font-size: 13px; }
+    .tabs {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 5px;
+      margin: 0 0 22px;
+      padding: 5px;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: rgba(0, 0, 0, .18);
+    }
+    .tabs button {
+      height: 38px;
+      margin: 0;
+      border-radius: 10px;
+      color: var(--muted);
+      background: transparent;
+      transition: color .18s, background .18s;
+    }
+    .tabs button.on { color: var(--text); background: rgba(255, 255, 255, .1); }
     label { display: block; margin: 16px 0 7px; color: #c9d9de; font-size: 13px; font-weight: 700; }
     input {
       width: 100%;
@@ -76,7 +95,7 @@
       border-color: rgba(53, 214, 162, .7);
       box-shadow: 0 0 0 3px rgba(53, 214, 162, .12);
     }
-    button {
+    #submit {
       width: 100%;
       height: 49px;
       margin-top: 22px;
@@ -88,8 +107,10 @@
       font-weight: 900;
       cursor: pointer;
     }
-    button:disabled { cursor: wait; opacity: .65; }
+    #submit:disabled { cursor: wait; opacity: .65; }
     .status { min-height: 22px; margin: 13px 0 0; color: var(--danger); font-size: 13px; }
+    .status.success { color: var(--accent); }
+    .hidden { display: none !important; }
     .foot { margin: 22px 0 0; color: #78919a; font-size: 12px; line-height: 1.65; }
   </style>
 </head>
@@ -99,55 +120,113 @@
       <div class="mark-icon">PKC</div>
       <div>
         <h1>赛事工作台</h1>
-        <p class="sub">PKC Cloud · 工作人员入口</p>
+        <p class="sub">PKC Cloud · 邮箱登录与注册</p>
       </div>
     </div>
-    <form id="loginForm" autocomplete="on">
-      <label for="email">工作人员邮箱</label>
+    <div class="tabs" role="tablist" aria-label="账号操作">
+      <button id="loginTab" class="on" type="button" role="tab" aria-selected="true">登录</button>
+      <button id="registerTab" type="button" role="tab" aria-selected="false">注册</button>
+    </div>
+    <form id="authForm" autocomplete="on">
+      <label for="email">邮箱</label>
       <input id="email" name="email" type="email" autocomplete="username" required />
       <label for="password">密码</label>
       <input id="password" name="password" type="password" autocomplete="current-password" required />
+      <div id="confirmWrap" class="hidden">
+        <label for="confirmPassword">确认密码</label>
+        <input id="confirmPassword" name="confirmPassword" type="password" autocomplete="new-password" />
+      </div>
       <button id="submit" type="submit">登录工作台</button>
       <p id="status" class="status" role="alert"></p>
     </form>
-    <p class="foot">仅限获授权的赛事工作人员使用。若账号无法登录，请联系管理员在 Supabase 中开通或重置账号。</p>
+    <p class="foot">使用任何有效邮箱注册，完成邮箱验证后即可获得当前工作台的全部功能权限。</p>
   </main>
   <script>
     (() => {
-      const form = document.getElementById("loginForm");
+      const form = document.getElementById("authForm");
       const email = document.getElementById("email");
       const password = document.getElementById("password");
+      const confirmPassword = document.getElementById("confirmPassword");
+      const confirmWrap = document.getElementById("confirmWrap");
       const button = document.getElementById("submit");
       const status = document.getElementById("status");
+      const loginTab = document.getElementById("loginTab");
+      const registerTab = document.getElementById("registerTab");
       const params = new URLSearchParams(location.search);
       const next = params.get("next") || "/";
       const target = next.startsWith("/") && !next.startsWith("//") ? next : "/";
+      let mode = "login";
+
+      function showStatus(message, success = false) {
+        status.textContent = message;
+        status.classList.toggle("success", success);
+      }
+
+      function setMode(nextMode) {
+        mode = nextMode;
+        const registering = mode === "register";
+        loginTab.classList.toggle("on", !registering);
+        registerTab.classList.toggle("on", registering);
+        loginTab.setAttribute("aria-selected", String(!registering));
+        registerTab.setAttribute("aria-selected", String(registering));
+        confirmWrap.classList.toggle("hidden", !registering);
+        confirmPassword.required = registering;
+        password.autocomplete = registering ? "new-password" : "current-password";
+        button.textContent = registering ? "创建账号" : "登录工作台";
+        showStatus("");
+      }
+
+      loginTab.addEventListener("click", () => setMode("login"));
+      registerTab.addEventListener("click", () => setMode("register"));
+
+      if (params.get("confirmed") === "1") {
+        showStatus("邮箱验证成功，请使用刚才的邮箱和密码登录。", true);
+      }
+      if (location.hash.includes("access_token=")) {
+        history.replaceState(null, "", "/login?confirmed=1");
+        showStatus("邮箱验证成功，请使用刚才的邮箱和密码登录。", true);
+      }
 
       form.addEventListener("submit", async (event) => {
         event.preventDefault();
-        status.textContent = "";
+        showStatus("");
+        if (mode === "register" && password.value !== confirmPassword.value) {
+          showStatus("两次输入的密码不一致");
+          return;
+        }
         button.disabled = true;
-        button.textContent = "正在验证…";
+        button.textContent = mode === "register" ? "正在创建…" : "正在验证…";
         try {
-          const response = await fetch("/api/auth/login", {
+          const response = await fetch(
+            mode === "register" ? "/api/auth/register" : "/api/auth/login",
+            {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
               email: email.value.trim(),
               password: password.value,
             }),
-          });
+            },
+          );
           const body = await response.json().catch(() => ({}));
           if (!response.ok) {
-            status.textContent = body.message || body.error || "登录失败";
+            showStatus(body.message || body.error || (mode === "register" ? "注册失败" : "登录失败"));
+            return;
+          }
+          if (mode === "register" && body.requiresConfirmation) {
+            const registeredEmail = body.email || email.value.trim();
+            setMode("login");
+            email.value = registeredEmail;
+            password.value = "";
+            showStatus(body.message || "验证邮件已发送，请前往邮箱完成验证后登录。", true);
             return;
           }
           location.replace(target);
         } catch {
-          status.textContent = "无法连接服务器，请稍后重试";
+          showStatus("无法连接服务器，请稍后重试");
         } finally {
           button.disabled = false;
-          button.textContent = "登录工作台";
+          button.textContent = mode === "register" ? "创建账号" : "登录工作台";
         }
       });
     })();

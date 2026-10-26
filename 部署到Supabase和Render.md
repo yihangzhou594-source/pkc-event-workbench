@@ -33,17 +33,25 @@ Render 免费服务不适合作为必须保证直播 SLA 的生产服务。若�
 迁移会禁止浏览器角色直接访问三张业务表，只有 Render 服务端的 Service Role
 可以读写。
 
-## 三、创建工作人员账号
+## 三、启用邮箱注册
 
-1. 打开 **Authentication > Users**。
-2. 选择 **Add user > Create new user**。
-3. 为账号所有者创建邮箱和密码，并设为已确认用户。
-4. 按同样方式为少数工作人员创建账号。
-5. 在 **Authentication > Providers > Email** 关闭公开注册
-   （Enable sign ups / Allow new users to sign up）。
+1. 打开 **Authentication > Sign In / Providers**。
+2. 开启 **Allow new users to sign up**。
+3. 保持 **Confirm email** 开启，确保用户必须验证邮箱后才能登录。
+4. 打开 **Authentication > URL Configuration**，把 **Site URL** 设置为：
 
-不要公开分享登录地址。虽然应用要求登录，但项目级用户注册仍在 Supabase
-侧管理。
+```text
+https://pkc-event-workbench.onrender.com/login?confirmed=1
+```
+
+5. 在 **Redirect URLs** 加入：
+
+```text
+https://pkc-event-workbench.onrender.com/login?confirmed=1
+```
+
+用户在工作台登录页点击“注册”，提交邮箱、密码并通过邮箱验证后即可登录。
+每个已验证邮箱默认拥有当前工作台的全部功能权限。
 
 ## 四、获取 Supabase 环境变量
 
@@ -68,15 +76,15 @@ Render 免费服务不适合作为必须保证直播 SLA 的生产服务。若�
 ```env
 PKC_CLOUD=1
 PKC_REMOTE=1
+PKC_PUBLIC_URL=https://pkc-event-workbench.onrender.com
 SUPABASE_URL=https://<project-ref>.supabase.co
 SUPABASE_ANON_KEY=<public-anon-key>
 SUPABASE_SERVICE_ROLE_KEY=<server-only-service-role-key>
-PKC_ALLOWED_EMAILS=owner@example.com,staff@example.com
 DEEPSEEK_API_KEY=<optional-deepseek-key>
 ```
 
-`PKC_ALLOWED_EMAILS` 必须填写获授权的邮箱，逗号分隔。`DEEPSEEK_API_KEY`
-为空时其他功能仍可运行，但截图 OCR 不可用。
+`PKC_PUBLIC_URL` 用于生成注册验证邮件的返回地址。`DEEPSEEK_API_KEY` 为空时
+其他功能仍可运行，但截图 OCR 不可用。
 
 6. 点击部署。服务启动时会自动把 Git 仓库 `数据/*.json` 中的当前赛事数据
    导入空的 Supabase 表。
@@ -90,7 +98,9 @@ DEEPSEEK_API_KEY=<optional-deepseek-key>
 GET /healthz                         -> 200，cloud=true，auth=true
 未登录打开 /                          -> 跳转到 /login
 未登录请求 /api/store/library         -> 401
-工作人员登录                          -> 进入工作台
+登录页注册新邮箱                      -> 收到验证邮件
+点击验证邮件                          -> 返回登录页并显示验证成功
+新用户登录                            -> 进入完整工作台
 修改并保存数据                        -> Supabase pkc_records 的 revision 增加
 另一台设备登录                        -> 读取到同一份数据
 ```

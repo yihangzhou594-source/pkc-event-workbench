@@ -16,6 +16,7 @@
 - Never expose `SUPABASE_SERVICE_ROLE_KEY` or `DEEPSEEK_API_KEY` to the browser.
 - Use Node.js 20 or newer and avoid runtime npm dependencies unless strictly required.
 - Cloud mode must fail closed when required Supabase configuration is missing.
+- Email self-registration is public; every verified email receives full workbench permissions.
 - All event writes must preserve current revision-conflict semantics.
 - Existing baseline failure `tools/test-start-script.mjs` must be investigated without masking new failures.
 
@@ -205,7 +206,7 @@ git add server.mjs director/routes.mjs lib/competition-context.mjs lib/competiti
 git commit -m "feat: store event data in Supabase"
 ```
 
-### Task 4: Supabase Auth and private route gate
+### Task 4: Supabase Auth, registration, and route gate
 
 **Files:**
 - Create: `lib/auth-gate.mjs`
@@ -216,13 +217,14 @@ git commit -m "feat: store event data in Supabase"
 
 **Interfaces:**
 - Produces: `createAuthGate(options) => {enabled, authenticate, login, logout, publicPath}`.
-- Consumes: `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `PKC_ALLOWED_EMAILS`.
+- Consumes: `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `PKC_PUBLIC_URL`.
 
 - [ ] **Step 1: Write failing auth tests**
 
-Test successful password login, wrong password, allowlist rejection, expired access
-with refresh, unauthenticated HTML redirect, unauthenticated API 401, health access,
-and logout cookie clearing.
+Test successful password login, wrong password, public email registration,
+confirmation email redirect, weak password rejection, expired access with refresh,
+unauthenticated HTML redirect, unauthenticated API 401, health access, and logout
+cookie clearing.
 
 - [ ] **Step 2: Run tests and verify failure**
 
@@ -356,7 +358,7 @@ sign-up, and verify the owner/staff accounts.
 
 Create or update the Render web service from the GitHub branch. Set
 `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`,
-`PKC_ALLOWED_EMAILS`, and `DEEPSEEK_API_KEY`.
+`PKC_PUBLIC_URL`, and `DEEPSEEK_API_KEY`.
 
 - [ ] **Step 5: Verify live behavior**
 

@@ -8,8 +8,9 @@ Deploy the existing PKC event workbench to Render and store its shared event dat
 Supabase so that administrators, staff, mobile control, and OBS browser sources can
 use the same data from different devices.
 
-The deployment must be private: only the owner and explicitly invited staff can log
-in. The existing local mode must remain available for offline operation.
+The deployment must require an authenticated, email-verified account. Any verified
+email address can register and receives the current full workbench permissions. The
+existing local mode must remain available for offline operation.
 
 ## Cost Target
 
@@ -29,7 +30,7 @@ filesystem.
 
 ## Non-goals
 
-- Public read-only pages or anonymous visitor access.
+- Anonymous visitor access.
 - GitHub Pages hosting.
 - Moving image, audio, or OCR engine assets to Supabase Storage.
 - Supporting multiple Render instances or horizontal scaling.
@@ -109,9 +110,10 @@ All application pages, assets, APIs, and OBS routes require a valid session exce
 - `/api/auth/login`
 - `/healthz`
 
-`PKC_ALLOWED_EMAILS` is an optional comma-separated allowlist. If it is present,
-sign-in is accepted only for listed addresses. Supabase public sign-up must be
-disabled in the project dashboard.
+Supabase email sign-up is enabled. The login page provides a registration view that
+posts to `/api/auth/register`; the server calls Supabase's sign-up endpoint and sends
+the confirmation redirect back to `/login?confirmed=1`. A user can sign in only after
+verifying the email address. There is no invitation or email allowlist.
 
 Invalid or expired sessions receive an HTML redirect for navigation requests and
 HTTP 401 JSON for API requests. Logout revokes the Supabase session and clears local
@@ -153,6 +155,8 @@ updated. The first startup imports local JSON documents into empty Supabase tabl
   record is unchanged.
 - Revision conflict: existing HTTP 409 behavior is preserved.
 - Invalid authentication: no event API executes.
+- Unverified email registration: the account remains unable to sign in until the
+  verification link is completed.
 - Render cold start: the service reloads all durable records from Supabase.
 - DeepSeek key missing: OCR reports the existing configuration error; other data
   operations remain usable.

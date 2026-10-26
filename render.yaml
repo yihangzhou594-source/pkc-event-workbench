@@ -21,7 +21,7 @@ services:
         sync: false
       - key: SUPABASE_SERVICE_ROLE_KEY
         sync: false
-      - key: PKC_ALLOWED_EMAILS
-        sync: false
+      - key: PKC_PUBLIC_URL
+        value: https://pkc-event-workbench.onrender.com
       - key: DEEPSEEK_API_KEY
         sync: false

@@ -50,6 +50,20 @@ const fakeSupabase = http.createServer(async (req, res) => {
     }
     return sendJson(res, 400, { error_description: "Invalid login credentials" });
   }
+  if (url.pathname === "/auth/v1/signup") {
+    if (body.password.length < 8) {
+      return sendJson(res, 422, {
+        code: "weak_password",
+        message: "Password should be at least 8 characters.",
+      });
+    }
+    return sendJson(res, 200, {
+      id: "new-user-1",
+      email: body.email,
+      confirmation_sent_at: "2026-10-27T00:00:00Z",
+      session: null,
+    });
+  }
   if (url.pathname === "/auth/v1/user") {
     if (req.headers.authorization === "Bearer good-token") {
       return sendJson(res, 200, { id: "staff-1", email: "staff@example.com" });
@@ -90,7 +104,6 @@ try {
       PKC_REMOTE: "1",
       PKC_PORT: String(serverPort),
       PKC_DATA_DIR: temp,
-      PKC_ALLOWED_EMAILS: "staff@example.com",
       SUPABASE_URL: `http://127.0.0.1:${fakePort}`,
       SUPABASE_ANON_KEY: "anon-test",
       SUPABASE_SERVICE_ROLE_KEY: "service-role-test",
@@ -109,6 +122,20 @@ try {
 
   const denied = await fetch(`http://127.0.0.1:${serverPort}/api/store/library`);
   assert.equal(denied.status, 401);
+
+  const loginPage = await fetch(`http://127.0.0.1:${serverPort}/login`);
+  assert.equal(loginPage.status, 200);
+  assert.match(await loginPage.text(), /注册/);
+
+  const registration = await fetch(`http://127.0.0.1:${serverPort}/api/auth/register`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email: "new@example.com", password: "strong-password" }),
+  });
+  assert.equal(registration.status, 200);
+  const registrationBody = await registration.json();
+  assert.equal(registrationBody.ok, true);
+  assert.equal(registrationBody.requiresConfirmation, true);
 
   const login = await fetch(`http://127.0.0.1:${serverPort}/api/auth/login`, {
     method: "POST",

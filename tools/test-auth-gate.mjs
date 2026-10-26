@@ -23,6 +23,15 @@ const remote = async (url, init = {}) => {
       user: { id: "user-1", email: body.email },
     });
   }
+  if (url.startsWith("/auth/v1/signup")) {
+    const body = JSON.parse(init.body);
+    return jsonResponse({
+      id: "new-user-1",
+      email: body.email,
+      confirmation_sent_at: "2026-10-27T00:00:00.000Z",
+      session: null,
+    });
+  }
   if (url.includes("grant_type=refresh_token")) {
     return jsonResponse({
       access_token: "access-2",
@@ -46,7 +55,6 @@ const gate = createAuthGate({
   enabled: true,
   supabaseUrl: "https://example.supabase.co",
   anonKey: "anon-test",
-  allowedEmails: "owner@example.com, staff@example.com",
   fetchImpl: remote,
   now: () => 1_000_000,
   secureCookies: false,
@@ -54,6 +62,7 @@ const gate = createAuthGate({
 
 assert.equal(gate.publicPath("/login"), true);
 assert.equal(gate.publicPath("/api/auth/login"), true);
+assert.equal(gate.publicPath("/api/auth/register"), true);
 assert.equal(gate.publicPath("/healthz"), true);
 assert.equal(gate.publicPath("/api/store/library"), false);
 
@@ -66,24 +75,42 @@ assert.ok(loginCookies.some((cookie) => cookie.startsWith("pkc_auth_access=acces
 assert.ok(loginCookies.every((cookie) => cookie.includes("HttpOnly")));
 assert.ok(loginCookies.every((cookie) => cookie.includes("SameSite=Strict")));
 
-const rejected = await gate.login("unknown@example.com", "correct-password");
-assert.deepEqual(rejected, {
-  ok: false,
-  status: 403,
-  error: "email_not_allowed",
-  message: "该邮箱没有工作台访问权限",
-});
+const ordinaryUser = await gate.login("new@example.com", "correct-password");
+assert.equal(ordinaryUser.ok, true);
+assert.equal(ordinaryUser.user.email, "new@example.com");
 
 const badPassword = await gate.login("owner@example.com", "wrong-password");
 assert.equal(badPassword.ok, false);
 assert.equal(badPassword.status, 401);
+
+const registration = await gate.register(
+  "new@example.com",
+  "strong-password",
+  "https://pkc.example.com/login?confirmed=1",
+);
+assert.equal(registration.ok, true);
+assert.equal(registration.requiresConfirmation, true);
+assert.equal(registration.email, "new@example.com");
+assert.match(registration.message, /验证邮件/);
+const signupCall = calls.find((call) => call.url.startsWith("/auth/v1/signup"));
+assert.ok(signupCall.url.includes(encodeURIComponent("https://pkc.example.com/login?confirmed=1")));
+assert.deepEqual(JSON.parse(signupCall.init.body), {
+  email: "new@example.com",
+  password: "strong-password",
+  data: {},
+});
+
+const weakRegistration = await gate.register("new@example.com", "short", "https://pkc.example.com/login");
+assert.equal(weakRegistration.ok, false);
+assert.equal(weakRegistration.status, 400);
+assert.equal(weakRegistration.error, "weak_password");
 
 const valid = await gate.resolveSession({
   accessToken: "access-1",
   refreshToken: "refresh-1",
 });
 assert.equal(valid.ok, true);
-assert.equal(valid.user.email, "owner@example.com");
+assert.equal(valid.user.email, "new@example.com");
 
 const refreshed = await gate.resolveSession({
   accessToken: "expired-access",
