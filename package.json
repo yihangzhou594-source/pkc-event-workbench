@@ -1,0 +1,14 @@
+{
+  "name": "pkc-event-workbench",
+  "version": "1.0.0",
+  "private": true,
+  "description": "PKC event data charts, director workbench, OBS scenes, and cloud data entry.",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "start": "node server.mjs",
+    "test": "node tools/test-all.mjs --fast",
+    "check": "node --check server.mjs"
+  }
+}

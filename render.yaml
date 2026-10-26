@@ -1,0 +1,27 @@
+services:
+  - type: web
+    name: pkc-event-workbench
+    runtime: node
+    plan: free
+    region: singapore
+    buildCommand: npm install --ignore-scripts
+    startCommand: npm start
+    healthCheckPath: /healthz
+    autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PKC_CLOUD
+        value: "1"
+      - key: PKC_REMOTE
+        value: "1"
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_ANON_KEY
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: PKC_ALLOWED_EMAILS
+        sync: false
+      - key: DEEPSEEK_API_KEY
+        sync: false
