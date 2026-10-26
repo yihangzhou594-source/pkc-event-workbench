@@ -81,29 +81,27 @@ assert.ok(aggregateHeroStats(data, { stage: "循环赛", minPicks: 3 }).heroes.e
 // CSV 带 BOM，方便 Excel 直接打开
 const csv = toCSV(aggregateHeroStats(data, { stage: "循环赛", minPicks: 0 }));
 assert.ok(csv.startsWith("\uFEFF"), "CSV 应带 BOM");
-assert.ok(csv.includes("英雄榜") && csv.includes("选手英雄池") && csv.includes("英雄排行榜"), "CSV 应包含三类榜单");
+assert.ok(csv.includes("英雄榜") && csv.includes("队伍英雄池") && csv.includes("英雄排行榜"), "CSV 应包含三类榜单");
 
-// 手动录入：可以空 ban，5 个选手 + 英雄，按阶段/组别/轮次/队名合并
+// 手动录入：可以空 ban，每队 5 个英雄，按阶段/组别/轮次/队名合并
 const manualInput = {
   stage: "循环赛", group: "1组", round: "第1轮", date: "10/01", gameNo: 1,
   teamLeft: "测试A", teamRight: "测试B", winner: "left",
-  left: { bans: ["妲己", ""], players: [
-    { name: "a1", hero: "公孙离" }, { name: "a2", hero: "貂蝉" }, { name: "a3", hero: "嫦娥" },
-    { name: "a4", hero: "西施" }, { name: "a5", hero: "王昭君" }] },
-  right: { bans: ["赵云"], players: [
-    { name: "b1", hero: "杨玉环" }, { name: "b2", hero: "小乔" }, { name: "b3", hero: "大乔" },
-    { name: "b4", hero: "瑶" }, { name: "b5", hero: "海月" }] },
+  left: { bans: ["妲己", ""], picks: ["公孙离", "貂蝉", "嫦娥", "西施", "王昭君"] },
+  right: { bans: ["赵云"], picks: ["杨玉环", "小乔", "大乔", "瑶", "海月"] },
 };
 let manual = addManualGame(normalizeHeroStats(null), manualInput);
 assert.equal(manual.data.series.length, 1);
 assert.equal(manual.data.series[0].games.length, 1);
 assert.equal(manual.data.series[0].games[0].left.bans.length, 1, "空 ban 应被忽略");
-assert.equal(manual.data.series[0].games[0].left.players.length, 5);
+assert.equal(manual.data.series[0].games[0].left.players.length, 0, "不再保存选手");
+assert.equal(manual.data.series[0].games[0].left.picks.length, 5);
 const mAgg1 = aggregateHeroStats(manual.data, { stage: "循环赛", minPicks: 0 });
 assert.equal(mAgg1.summary.games, 1);
 assert.equal(mAgg1.summary.picks, 10);
-assert.equal(mAgg1.summary.players, 10);
+assert.equal(mAgg1.summary.teams, 2);
 assert.equal(mAgg1.summary.unresolvedClusters, 0, "手动英雄应自动登记为已确认簇");
+assert.ok(mAgg1.teams.every((row) => row.name === "测试A" || row.name === "测试B"));
 
 manual = addManualGame(manual.data, { ...manualInput, gameNo: 2, winner: "right" });
 assert.equal(manual.data.series.length, 1, "同系列赛应合并");
@@ -115,40 +113,68 @@ assert.equal(manual.data.series[0].games.length, 2, "覆盖同局不应增加局
 
 assert.throws(() => addManualGame(normalizeHeroStats(null), {
   ...manualInput,
-  left: { ...manualInput.left, players: manualInput.left.players.map((p, i) => i === 1 ? { ...p, hero: "公孙离" } : p) },
+  left: { picks: ["公孙离", "公孙离", "嫦娥", "西施", "王昭君"] },
 }), /重复选择/);
 
-// 选手前三英雄、英雄前三选手
+const legacy = normalizeHeroStats({
+  series: [{
+    stage: "循环赛", group: "1组", round: "旧数据", teams: ["旧甲", "旧乙"],
+    games: [{
+      no: 1, winner: "left",
+      left: {
+        team: "旧甲",
+        picks: [],
+        players: ["甲一", "甲二", "甲三", "甲四", "甲五"].map((name, index) => ({
+          name, cluster: `manual-pick-${encodeURIComponent("旧英雄" + (index + 1))}`,
+        })),
+      },
+      right: {
+        team: "旧乙",
+        picks: ["乙英雄1", "乙英雄2", "乙英雄3", "乙英雄4", "乙英雄5"].map((hero, index) => ({
+          order: index + 1, cluster: `manual-pick-${encodeURIComponent(hero)}`,
+        })),
+        players: [{ name: "乙一", cluster: "manual-pick-ignored" }],
+      },
+    }],
+  }],
+  clusters: Object.fromEntries([1, 2, 3, 4, 5].map((n) => [
+    `manual-pick-${encodeURIComponent("旧英雄" + n)}`,
+    { hero: "旧英雄" + n, confirmed: true },
+  ]).concat(["乙英雄1", "乙英雄2", "乙英雄3", "乙英雄4", "乙英雄5"].map((hero) => [
+    `manual-pick-${encodeURIComponent(hero)}`,
+    { hero, confirmed: true },
+  ]))),
+});
+assert.equal(legacy.series[0].games[0].left.players.length, 0, "旧选手名应被清掉");
+assert.equal(legacy.series[0].games[0].left.picks.length, 5, "没有 picks 时从旧选手记录补齐");
+assert.equal(legacy.series[0].games[0].right.players.length, 0);
+assert.equal(legacy.series[0].games[0].right.picks.length, 5, "已有 picks 时不被选手记录覆盖");
+const legacyAgg = aggregateHeroStats(legacy, { minPicks: 0 });
+assert.deepEqual(legacyAgg.teams.map((row) => row.name).sort(), ["旧乙", "旧甲"]);
+
+// 队伍前三英雄、英雄前三队伍
 const rankingInputs = [
-  { gameNo: 1, leftHeroes: ["榜首", "甲二", "甲三", "甲四", "甲五"] },
-  { gameNo: 2, leftHeroes: ["次席", "甲二", "甲三", "甲四", "甲五"] },
-  { gameNo: 3, leftHeroes: ["第三", "甲二", "甲三", "甲四", "甲五"] },
-  { gameNo: 4, leftHeroes: ["候补", "榜首", "甲三", "甲四", "甲五"] },
+  { gameNo: 1, left: "排行甲", right: "排行乙", leftHeroes: ["榜首", "甲二", "甲三", "甲四", "甲五"], rightHeroes: ["乙英雄1", "乙英雄2", "乙英雄3", "乙英雄4", "乙英雄5"] },
+  { gameNo: 2, left: "排行甲", right: "排行乙", leftHeroes: ["榜首", "次席", "甲三", "甲四", "甲五"], rightHeroes: ["乙英雄6", "乙英雄7", "乙英雄8", "乙英雄9", "乙英雄10"] },
+  { gameNo: 1, left: "排行丙", right: "排行丁", leftHeroes: ["榜首", "丙二", "丙三", "丙四", "丙五"], rightHeroes: ["丁英雄1", "丁英雄2", "丁英雄3", "丁英雄4", "丁英雄5"] },
 ];
 let ranking = normalizeHeroStats(null);
 for (const item of rankingInputs) {
-  const leftNames = ["甲一", "甲二", "甲三", "甲四", "甲五"];
   ranking = addManualGame(ranking, {
-    stage: "淘汰赛", group: "", round: "排行测试", gameNo: item.gameNo,
-    teamLeft: "排行甲", teamRight: "排行乙", winner: "left",
-    left: {
-      bans: [],
-      players: item.leftHeroes.map((hero, index) => ({ name: leftNames[index], hero })),
-    },
-    right: {
-      bans: [],
-      players: ["乙一", "乙二", "乙三", "乙四", "乙五"].map((name, index) => ({
-        name, hero: `乙英雄${index + 1}`,
-      })),
-    },
+    stage: "淘汰赛", group: "", round: item.left + item.right, gameNo: item.gameNo,
+    teamLeft: item.left, teamRight: item.right, winner: "left",
+    left: { bans: [], picks: item.leftHeroes },
+    right: { bans: [], picks: item.rightHeroes },
   }).data;
 }
 const rankingAgg = aggregateHeroStats(ranking, { stage: "淘汰赛", minPicks: 0 });
-const playerOne = rankingAgg.players.find((player) => player.name === "甲一");
-assert.equal(playerOne.topHeroes.length, 3);
-assert.ok(playerOne.topHeroes.every((hero) => hero.winRate === 100));
+const teamOne = rankingAgg.teams.find((row) => row.name === "排行甲");
+assert.equal(teamOne.topHeroes[0].hero, "榜首");
+assert.equal(teamOne.topHeroes.length, 3);
+assert.ok(teamOne.topHeroes.every((hero) => hero.winRate === 100));
 const topHero = rankingAgg.heroes.find((hero) => hero.hero === "榜首");
-assert.deepEqual(new Set(topHero.topPlayers.map((player) => player.name)), new Set(["甲一", "甲二"]));
-assert.ok(topHero.topPlayers.every((player) => player.games === 1 && player.winRate === 100));
+assert.deepEqual(topHero.topTeams.map((row) => row.name), ["排行甲", "排行丙"]);
+assert.equal(topHero.topTeams[0].games, 2);
+assert.equal(topHero.topTeams[1].games, 1);
 
 console.log("test-hero-stats: ok");

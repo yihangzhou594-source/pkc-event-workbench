@@ -34,7 +34,7 @@
     director: { title: "导播台", sub: "预览、推送与现场操作", pane: "director", nav: "director" },
     spotlight: { title: "宣传轮播", sub: "编辑选手名单、预览并控制直播轮播", pane: "director", nav: "spotlight" },
     data:     { title: "对局数据", sub: "截图识别、五路数据与本局信息", pane: "engine", tab: "data", nav: "data" },
-    herostats:{ title: "英雄胜率", sub: "自动生成小组赛赛程 + 手动录入", pane: "herostats", nav: "herostats" },
+    herostats:{ title: "英雄胜率", sub: "上传数据自动同步 · 禁用手工填写", pane: "herostats", nav: "herostats" },
     season:   { title: "赛季仪表盘", sub: "队伍、英雄池与 BP 分析图", pane: "season", nav: "season" },
     promo:    { title: "赛前宣传图", sub: "群发海报与主视觉", pane: "promo", nav: "promo" },
     bracket:  { title: "淘汰赛赛程", sub: "分组、抽签、赛果与赛程图", pane: "engine", tab: "bracket", nav: "bracket" },
@@ -135,6 +135,14 @@
     } else {
       showPane(v.pane);
     }
+    if (name === "herostats") {
+      try {
+        $("#herostatsFrame")?.contentWindow?.postMessage(
+          { type: "pkc:refresh-hero-stats" },
+          location.origin,
+        );
+      } catch {}
+    }
     const pv = $("#wkPreviewToggle");
     if (pv) pv.hidden = v.pane !== "engine" || name === "help" || name === "bracket";
     document.title = v.title + " · PKC 赛事工作台";
@@ -201,6 +209,15 @@
   /* 生成器内部切换 tab 时回传，侧栏跟随 */
   window.addEventListener("message", (e) => {
     const d = e.data;
+    if (d && d.type === "pkc:data-saved" && panes.herostats?.classList.contains("on")) {
+      try {
+        $("#herostatsFrame")?.contentWindow?.postMessage(
+          { type:"pkc:refresh-hero-stats" },
+          location.origin,
+        );
+      } catch {}
+      return;
+    }
     if (!d || d.type !== "pkc:tab") return;
     if (!VIEWS[d.tab]) return;
     if (!panes.engine || !panes.engine.classList.contains("on")) return;

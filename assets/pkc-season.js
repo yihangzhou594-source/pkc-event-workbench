@@ -187,7 +187,7 @@
     panel(ctx, 72, 470, 898, 430, "数据完整度与口径");
     const rows = [
       ["有效局", q.validGames, "双方 5 人、10 英雄不重复、胜方明确"],
-      ["暂无数据", q.noDataGames, "不计入选手、英雄和 BP 分母"],
+      ["暂无数据", q.noDataGames, "不计入队伍、英雄和 BP 分母"],
       ["冲突局", q.conflictGames, "需回到原始数据核对"],
       ["弃权/判负", insights.meta.forfeitMatches, "计入官方胜负，不计英雄数据"],
       ["缺失局", q.missingGames, "字段不全，未参与统计"],
@@ -308,7 +308,7 @@
   }
 
   function drawPlayers(ctx) {
-    base(ctx, "选手英雄池", "首发五路 · 每名选手前三英雄");
+    base(ctx, "队伍英雄池", "按队伍汇总 · 每队胜率最高的三个英雄");
     const left = teamById(insights.headToHead.leftId);
     const right = teamById(insights.headToHead.rightId);
     if (!left || !right) {
@@ -321,7 +321,7 @@
       text(ctx, team.name, x + 26, 176, 28, 800, color);
       const players = insights.players.filter((player) => player.team === team.name).slice(0, 5);
       if (!players.length) {
-        text(ctx, "暂无选手数据", x + 448, 520, 26, 700, MUTED, "center");
+        text(ctx, "暂无队伍英雄数据", x + 448, 520, 26, 700, MUTED, "center");
         return;
       }
       players.forEach((player, index) => {
@@ -419,7 +419,7 @@
     });
     text(ctx, "MVP 候选 · 按出场与胜场", 78, 760, 20, 800, GOLD);
     const mvp = insights.mvp.slice(0, 3);
-    if (!mvp.length) text(ctx, "暂无完整选手数据", 78, 824, 22, 600, MUTED);
+    if (!mvp.length) text(ctx, "暂无完整队伍数据", 78, 824, 22, 600, MUTED);
     mvp.forEach((player, index) => {
       const y = 820 + index * 64;
       text(ctx, String(index + 1).padStart(2, "0"), 82, y, 17, 800, GOLD);
@@ -448,7 +448,7 @@
   };
   const NAMES = {
     overview:"赛季总览", teams:"队伍状态", compare:"双方对比",
-    players:"选手英雄池", heroes:"BP与英雄热度", poster:"赛季总结海报",
+    players:"队伍英雄池", heroes:"BP与英雄热度", poster:"赛季总结海报",
   };
 
   function drawAll() {

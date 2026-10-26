@@ -597,7 +597,7 @@
                 </select>
                 <input type="text" id="cmAchTitle" placeholder="成就名，如 联赛 100 胜" style="margin-top:6px" />
                 <input type="text" id="cmAchContent" placeholder="成就内容 / 说明" style="margin-top:6px" />
-                <input type="text" id="cmAchPlayer" list="cmPlayerList" placeholder="选手名（可选，可搜索）" style="margin-top:6px" />
+                <input type="text" id="cmAchPlayer" list="cmPlayerList" placeholder="队伍名（查胜率时填写，可搜索）" style="margin-top:6px" />
                 <div class="row" style="margin-top:6px">
                   <input type="text" id="cmAchHero" list="cmHeroList" placeholder="英雄（可选）" style="flex:1" />
                   <button class="btn" id="cmAchLookup" style="padding:6px 10px">查胜率</button>
@@ -1348,12 +1348,12 @@ async function loadCmHeroes() {
 async function cmLookupHeroRate() {
   const player = ($("cmAchPlayer") && $("cmAchPlayer").value || "").trim();
   const hero = ($("cmAchHero") && $("cmAchHero").value || "").trim();
-  if (!player || !hero) return alert("先填选手名和英雄名");
+  if (!player || !hero) return alert("先填队伍名和英雄名");
   try {
-    const q = new URLSearchParams({ stage: "all", player, minPicks: "0" });
+    const q = new URLSearchParams({ stage: "all", team: player, minPicks: "0" });
     const agg = await (await fetch("/api/hero-stats?" + q.toString(), { cache: "no-store" })).json();
-    const p = (agg.players || []).find((x) => x.name === player);
-    const h = p && (p.heroes || []).find((x) => x.hero === hero);
+    const row = (agg.teams || []).find((x) => x.name === player);
+    const h = row && (row.heroes || []).find((x) => x.hero === hero);
     if (!h) return alert(`没有找到「${player} · ${hero}」的胜率数据`);
     const rate = h.winRate == null ? "" : h.winRate.toFixed(1);
     if ($("cmAchRate")) $("cmAchRate").value = rate;

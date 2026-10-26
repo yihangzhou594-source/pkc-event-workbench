@@ -100,11 +100,11 @@ assert.equal(zhaojun.winRate, 100);
 assert.equal(zhaojun.smallSample, true);
 assert.ok(insights.heroes.some((hero) => hero.hero === "盾山" && hero.bans === 1));
 
-const player = insights.players.find((item) => item.player === "甲三");
-assert.equal(player.team, "甲队");
-assert.equal(player.games, 1);
-assert.equal(player.heroes[0].hero, "王昭君");
-assert.equal(insights.mvp[0].player, "甲一");
+const teamPool = insights.players.find((item) => item.player === "甲队");
+assert.equal(teamPool.team, "甲队");
+assert.equal(teamPool.games, 1);
+assert.ok(teamPool.heroes.some((hero) => hero.hero === "王昭君"));
+assert.equal(insights.mvp[0].player, "甲队");
 
 const empty = buildSeasonInsights({ library, matches: { games: { s1: [] } }, bracket, heroStats: { series: [] }, seriesId: "s1" });
 assert.equal(empty.meta.officialMatches, 0);

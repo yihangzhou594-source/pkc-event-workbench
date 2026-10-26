@@ -1,4 +1,4 @@
-/* PKC · 英雄胜率：小组赛手动录入、选手英雄池与英雄排行榜 */
+/* PKC · 英雄胜率：手动录入、上传局自动同步、赛事禁用手填与榜单 */
 (function () {
   "use strict";
 
@@ -9,7 +9,7 @@
   }[char]));
   const rateText = (value) => value == null ? "—" : `${Number(value).toFixed(1).replace(/\.0$/, "")}%`;
   const topHeroText = (row) => row ? `${row.hero}（胜率${rateText(row.winRate)}）` : "—";
-  const topPlayerText = (row) => row
+  const topTeamText = (row) => row
     ? `${row.name}（使用${row.games}场，胜率${rateText(row.winRate)}）`
     : "—";
   const teamText = (team) => team
@@ -25,15 +25,16 @@
     heroNames: [],
     libraryTeams: [],
     selectedMatchId: "",
+    uploaded: null,
+    selectedUploadedId: "",
     busy: false,
   };
 
   function filters() {
     return {
-      stage: $("#fStage").value || "循环赛",
+      stage: $("#fStage").value || "淘汰赛",
       group: $("#fGroup").value || "all",
       team: $("#fTeam").value || "all",
-      player: $("#fPlayer").value || "all",
       minPicks: $("#fMin").value || "0",
     };
   }
@@ -56,12 +57,17 @@
   }
 
   async function loadAll(keepFilters) {
-    const [raw, agg] = await Promise.all([
-      getJSON("/api/hero-stats/raw"),
+    const seriesQuery = state.schedule?.seriesId
+      ? "?seriesId=" + encodeURIComponent(state.schedule.seriesId)
+      : "";
+    const [raw, agg, uploaded] = await Promise.all([
+      getJSON("/api/hero-stats/raw" + seriesQuery),
       getJSON("/api/hero-stats?" + qs()),
+      getJSON("/api/hero-stats/matches" + seriesQuery),
     ]);
     state.raw = raw;
     state.agg = agg;
+    state.uploaded = uploaded;
     renderFilters(keepFilters);
     renderAll();
   }
@@ -73,7 +79,6 @@
       stage: $("#fStage").value,
       group: $("#fGroup").value,
       team: $("#fTeam").value,
-      player: $("#fPlayer").value,
     };
     const fill = (selector, values, current, allLabel) => {
       const select = $(selector);
@@ -90,12 +95,10 @@
     fill("#fStage", agg.options.stages.length ? agg.options.stages : ["循环赛"], previous.stage, "全部阶段");
     fill("#fGroup", agg.options.groups, previous.group, "全部组别");
     fill("#fTeam", agg.options.teams, previous.team, "全部队伍");
-    fill("#fPlayer", (agg.players || []).map((player) => player.name), previous.player, "全部选手");
     if (!keep) {
       $("#fStage").value = agg.stage && agg.stage !== "all" ? agg.stage : "all";
       $("#fGroup").value = "all";
       $("#fTeam").value = "all";
-      $("#fPlayer").value = "all";
     }
   }
 
@@ -107,10 +110,11 @@
     $("#kPicks").textContent = agg.summary.picks || 0;
     $("#kHeroes").textContent = agg.summary.heroes || 0;
     renderHeroes();
-    renderPlayers();
+    renderTeams();
     renderHeroRanking();
     renderMatchOptions();
     renderManualOptions();
+    renderUploadedOptions();
   }
 
   function sortRows(rows) {
@@ -129,7 +133,7 @@
     const agg = state.agg;
     const rows = sortRows(agg.heroes || []);
     if (!rows.length) {
-      $("#viewHeroes").innerHTML = '<div class="empty">还没有英雄数据。请在「手动录入」选择一场小组赛并填写完整阵容。</div>';
+      $("#viewHeroes").innerHTML = '<div class="empty">还没有英雄数据。请先在「对局数据」上传完整对局，或在「手动录入」填写一场比赛。</div>';
       return;
     }
     const heading = (key, label, numeric) =>
@@ -163,27 +167,26 @@
     });
   }
 
-  function renderPlayers() {
-    const rows = state.agg.players || [];
+  function renderTeams() {
+    const rows = state.agg.teams || [];
     if (!rows.length) {
-      $("#viewPlayers").innerHTML = '<div class="empty">还没有选手英雄池。请在选择小队后填写选手名和英雄。</div>';
+      $("#viewTeams").innerHTML = '<div class="empty">还没有队伍英雄池。对局数据上传后会自动出现，也可以使用手动录入。</div>';
       return;
     }
-    $("#viewPlayers").innerHTML = `
+    $("#viewTeams").innerHTML = `
       <table>
-        <thead><tr><th>选手</th><th>队伍</th><th>胜率最高英雄 1</th><th>胜率最高英雄 2</th><th>胜率最高英雄 3</th></tr></thead>
-        <tbody>${rows.map((player) => {
-          const top = player.topHeroes || [];
+        <thead><tr><th>队伍</th><th>胜率最高英雄 1</th><th>胜率最高英雄 2</th><th>胜率最高英雄 3</th></tr></thead>
+        <tbody>${rows.map((team) => {
+          const top = team.topHeroes || [];
           return `<tr>
-            <td><b>${esc(player.name)}</b></td>
-            <td>${esc(player.team)}</td>
+            <td><b>${esc(team.name)}</b></td>
             <td>${esc(topHeroText(top[0]))}</td>
             <td>${esc(topHeroText(top[1]))}</td>
             <td>${esc(topHeroText(top[2]))}</td>
           </tr>`;
         }).join("")}</tbody>
       </table>
-      <div class="hint">每位选手最多显示三个英雄，按胜率优先排序；胜率相同时依次比较胜场和出场。</div>`;
+      <div class="hint">每支队伍最多显示三个英雄，按胜率优先排序；胜率相同时依次比较胜场和出场。</div>`;
   }
 
   function renderHeroRanking() {
@@ -194,18 +197,18 @@
     }
     $("#viewHeroRank").innerHTML = `
       <table>
-        <thead><tr><th>英雄</th><th>获胜最多选手 1</th><th>获胜最多选手 2</th><th>获胜最多选手 3</th></tr></thead>
+        <thead><tr><th>英雄</th><th>获胜最多队伍 1</th><th>获胜最多队伍 2</th><th>获胜最多队伍 3</th></tr></thead>
         <tbody>${rows.map((hero) => {
-          const top = hero.topPlayers || [];
+          const top = hero.topTeams || [];
           return `<tr>
             <td><b>${esc(hero.hero)}</b></td>
-            <td>${esc(topPlayerText(top[0]))}</td>
-            <td>${esc(topPlayerText(top[1]))}</td>
-            <td>${esc(topPlayerText(top[2]))}</td>
+            <td>${esc(topTeamText(top[0]))}</td>
+            <td>${esc(topTeamText(top[1]))}</td>
+            <td>${esc(topTeamText(top[2]))}</td>
           </tr>`;
         }).join("")}</tbody>
       </table>
-      <div class="hint">按使用该英雄的获胜场次排序，格式为「选手（使用场次，胜率）」。</div>`;
+      <div class="hint">按使用该英雄的获胜场次排序，格式为「队伍（使用场次，胜率）」。</div>`;
   }
 
   function switchTab(tab) {
@@ -216,9 +219,10 @@
       button.setAttribute("aria-pressed", String(current));
     });
     $("#viewHeroes").hidden = tab !== "heroes";
-    $("#viewPlayers").hidden = tab !== "players";
+    $("#viewTeams").hidden = tab !== "teams";
     $("#viewHeroRank").hidden = tab !== "heroRank";
     $("#viewManual").hidden = tab !== "manual";
+    $("#viewUploaded").hidden = tab !== "uploaded";
   }
 
   function selectedMatch() {
@@ -265,22 +269,99 @@
     if (heroes) heroes.innerHTML = state.heroNames.map((name) => `<option value="${esc(name)}">`).join("");
   }
 
-  function fillPlayerOptions(side) {
-    const match = selectedMatch();
-    const team = match && match[side]
-      ? state.libraryTeams.find((item) => item.name === match[side].name)
-      : null;
-    const list = $(side === "left" ? "#playerNamesLeft" : "#playerNamesRight");
-    if (list) list.innerHTML = team ? team.players.map((name) => `<option value="${esc(name)}">`).join("") : "";
-    const inputs = $$(`#mPicks${side === "left" ? "Left" : "Right"} .pname`);
-    const previousTeam = inputs[0] && inputs[0].dataset.team || "";
-    const nextTeam = team ? team.name : "";
-    inputs.forEach((input) => {
-      if (!input.value.trim() || input.dataset.team === previousTeam) {
-        input.value = team ? team.players[inputs.indexOf(input)] || "" : "";
-      }
-      input.dataset.team = nextTeam;
+  function renderUploadedOptions() {
+    const select = $("#uGame");
+    if (!select) return;
+    const previous = state.selectedUploadedId || select.value;
+    const games = state.uploaded?.games || [];
+    select.innerHTML = '<option value="">请选择已上传的对局</option>';
+    games.forEach((game) => {
+      const banCount = (game.bans?.left || []).length + (game.bans?.right || []).length;
+      const stateText = game.countable ? (banCount ? `已填禁用 ${banCount}` : "待填禁用") : "数据不完整";
+      const option = new Option(`${game.round} · ${game.leftTeam || "未识别蓝队"} vs ${game.rightTeam || "未识别红队"} · ${game.label}（${stateText}）`, game.id);
+      option.disabled = !game.countable;
+      select.appendChild(option);
     });
+    if (previous && Array.from(select.options).some((option) => option.value === previous)) {
+      select.value = previous;
+    }
+    selectUploadedGame(select.value);
+  }
+
+  function buildBanInputs(side) {
+    const root = $(`#uBans${side}`);
+    if (!root || root.children.length) return;
+    for (let index = 0; index < 5; index++) {
+      const input = document.createElement("input");
+      input.setAttribute("list", "heroNamesManual");
+      input.placeholder = `禁用 ${index + 1}（可空）`;
+      root.appendChild(input);
+    }
+  }
+
+  function renderLineup(selector, heroes) {
+    const root = $(selector);
+    if (!root) return;
+    root.innerHTML = heroes.map((hero, index) =>
+      `<span class="hero-chip${hero ? "" : " empty"}">${esc(hero || `英雄 ${index + 1} 未同步`)}</span>`
+    ).join("");
+  }
+
+  function selectUploadedGame(id) {
+    state.selectedUploadedId = id || "";
+    const game = (state.uploaded?.games || []).find((item) => item.id === id) || null;
+    $("#uFields").hidden = !game;
+    if (!game) {
+      $("#uSource").textContent = (state.uploaded?.games || []).length
+        ? "请选择一局已上传的淘汰赛。"
+        : "还没有已上传的对局。先在「对局数据」保存一局完整战绩。";
+      return;
+    }
+    $("#uSource").textContent = `${state.uploaded.seriesName || "当前赛事"} · 淘汰赛 · ${game.round} · ${game.label} · 选择与胜方已自动同步`;
+    $("#uTeamLeftName").textContent = game.leftTeam || "未识别蓝队";
+    $("#uTeamRightName").textContent = game.rightTeam || "未识别红队";
+    $("#uTeamLeftCard").textContent = game.leftTeam || "未识别蓝队";
+    $("#uTeamRightCard").textContent = game.rightTeam || "未识别红队";
+    renderLineup("#uLineupLeft", game.leftHeroes);
+    renderLineup("#uLineupRight", game.rightHeroes);
+    buildBanInputs("Left");
+    buildBanInputs("Right");
+    $$("#uBansLeft input").forEach((input, index) => { input.value = game.bans.left[index] || ""; });
+    $$("#uBansRight input").forEach((input, index) => { input.value = game.bans.right[index] || ""; });
+    $("#uSaveHint").textContent = game.winner === "left"
+      ? `${game.leftTeam} 本局获胜；双方各最多 5 个禁用，可空。`
+      : `${game.rightTeam} 本局获胜；双方各最多 5 个禁用，可空。`;
+  }
+
+  function collectUploadedBans(side) {
+    return $$(`#uBans${side} input`).map((input) => input.value.trim()).filter(Boolean);
+  }
+
+  async function saveUploadedBans() {
+    if (state.busy) return;
+    const game = (state.uploaded?.games || []).find((item) => item.id === state.selectedUploadedId);
+    if (!game) return alert("请先选择一局已上传的淘汰赛");
+    state.busy = true;
+    $("#uSave").disabled = true;
+    try {
+      await getJSON("/api/hero-stats/bans", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          seriesId: game.seriesId,
+          gameId: game.gameId,
+          left: collectUploadedBans("Left"),
+          right: collectUploadedBans("Right"),
+        }),
+      });
+      await loadAll(true);
+      alert("禁用已保存，英雄榜已同步更新。");
+    } catch (error) {
+      alert("保存禁用失败：" + error.message);
+    } finally {
+      state.busy = false;
+      $("#uSave").disabled = false;
+    }
   }
 
   function selectMatch(id) {
@@ -294,8 +375,6 @@
     $("#mTeamLeftNameCard").textContent = teamText(match.left);
     $("#mTeamRightNameCard").textContent = teamText(match.right);
     $("#mMatchInfo").textContent = `${match.group} · ${match.round}`;
-    fillPlayerOptions("left");
-    fillPlayerOptions("right");
   }
 
   async function loadLibrary() {
@@ -307,15 +386,8 @@
       renderMatchOptions();
       return;
     }
-    const [roster, schedule] = await Promise.all([
-      getJSON("/api/competition/teams?seriesId=" + encodeURIComponent(series.id)),
-      getJSON("/api/hero-stats/schedule?seriesId=" + encodeURIComponent(series.id)),
-    ]);
-    state.libraryTeams = (roster.teams || []).map((team) => ({
-      name: String(team.name || ""),
-      players: Array.isArray(team.players) ? team.players.map((name) => String(name || "")).filter(Boolean) : [],
-    })).filter((team) => team.name);
-    state.schedule = schedule;
+    state.libraryTeams = [];
+    state.schedule = await getJSON("/api/hero-stats/schedule?seriesId=" + encodeURIComponent(series.id));
     renderMatchOptions();
   }
 
@@ -343,7 +415,7 @@
         bans.appendChild(ban);
         const pick = document.createElement("div");
         pick.className = "manual-pick";
-        pick.innerHTML = `<input class="pname" list="playerNames${side}" placeholder="选手 ${index + 1}"><input class="phero" list="heroNamesManual" placeholder="英雄">`;
+        pick.innerHTML = `<input class="phero" list="heroNamesManual" placeholder="选择英雄 ${index + 1}">`;
         picks.appendChild(pick);
       }
     };
@@ -354,11 +426,8 @@
 
   function collectSide(side) {
     const bans = $$(`#mBans${side} input`).map((input) => input.value.trim()).filter(Boolean);
-    const players = $$(`#mPicks${side} .manual-pick`).map((row) => ({
-      name: row.querySelector(".pname").value.trim(),
-      hero: row.querySelector(".phero").value.trim(),
-    }));
-    return { bans, players };
+    const picks = $$(`#mPicks${side} .phero`).map((input) => input.value.trim());
+    return { bans, picks };
   }
 
   async function saveManual() {
@@ -367,7 +436,7 @@
     if (!match) return alert("请先选择一场小组赛");
     const left = collectSide("Left");
     const right = collectSide("Right");
-    if (left.players.some((player) => !player.hero) || right.players.some((player) => !player.hero)) {
+    if (left.picks.some((hero) => !hero) || right.picks.some((hero) => !hero)) {
       return alert("双方各 5 个选择英雄都要填");
     }
     state.busy = true;
@@ -391,6 +460,9 @@
       alert(`已保存：${match.label} · 第${out.gameNo}局${out.replaced ? "（覆盖已有同局）" : ""}`);
       $("#mGameNo").value = Math.min(7, (Number($("#mGameNo").value) || 1) + 1);
       $$("#mBansLeft input,#mBansRight input,#mPicksLeft .phero,#mPicksRight .phero").forEach((input) => { input.value = ""; });
+      if (Array.from($("#fStage").options).some((option) => option.value === "循环赛")) {
+        $("#fStage").value = "循环赛";
+      }
       await loadAll(true);
     } catch (error) {
       alert("保存失败：" + error.message);
@@ -400,7 +472,7 @@
   }
 
   async function clearManual() {
-    const answer = prompt("这会清空全部英雄胜率记录。\n确认请输入「清除」：");
+    const answer = prompt("这会清空手动录入和全部手填禁用；对局数据上传的选择与胜负不会被删除。\n确认请输入「清除」：");
     if (answer !== "清除") return;
     try {
       await getJSON("/api/hero-stats/reset", {
@@ -409,7 +481,7 @@
         body: JSON.stringify({ confirm: "清除" }),
       });
       await loadAll(false);
-      alert("已清空。");
+      alert("已清空手动录入和手填禁用。");
     } catch (error) {
       alert("清空失败：" + error.message);
     }
@@ -472,11 +544,16 @@
     $("#mSave").onclick = saveManual;
     $("#mClear").onclick = clearManual;
     $("#mMatch").onchange = (event) => selectMatch(event.target.value);
+    $("#uGame").onchange = (event) => selectUploadedGame(event.target.value);
+    $("#uSave").onclick = saveUploadedBans;
+    $("#uRefresh").onclick = async () => {
+      await loadLibrary();
+      await loadAll(true);
+    };
     $$(".tab").forEach((button) => { button.onclick = () => switchTab(button.dataset.tab); });
     $("#fStage").onchange = () => loadAll(false);
     $("#fGroup").onchange = () => loadAll(true);
     $("#fTeam").onchange = () => loadAll(true);
-    $("#fPlayer").onchange = () => loadAll(true);
     $("#fMin").onchange = () => loadAll(true);
     $("#btnRefresh").onclick = async () => {
       await loadLibrary();
@@ -484,6 +561,10 @@
     };
     $("#btnCsv").onclick = exportCsv;
     $("#btnPng").onclick = exportPng;
+    window.addEventListener("message", (event) => {
+      if (event.origin !== location.origin || event.data?.type !== "pkc:refresh-hero-stats") return;
+      loadLibrary().then(() => loadAll(true)).catch(() => {});
+    });
   }
 
   async function init() {

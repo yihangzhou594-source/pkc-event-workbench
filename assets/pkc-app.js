@@ -12,7 +12,14 @@ function renderMgInfo(){
     .filter(x => (x.g.matchKey || "") === key);
   const gs = rows.map(x => x.g).filter(gameHasData);
   const winN = gs.filter(g => g.result === "win").length;
+  const summary = bigMatchSummary();
   $("#mgStat").textContent = gs.length + " 局有效数据" + (key ? " · 本场" : " · 未关联");
+  const bigBtn = $("#btnBigMatchDown");
+  if (bigBtn) bigBtn.disabled = !summary.games;
+  const bigHint = $("#bigMatchHint");
+  if (bigHint) bigHint.textContent = summary.games
+    ? summary.games + " 局累计重算 · 总时长 " + summaryDuration(summary.durationMin) + " · 不含跨场数据"
+    : "当前大场还没有可汇总的有效局数据";
   $("#mgInfo").innerHTML = rows.map(({ g }) => {
     const our = S.team(g.ourId), opp = S.team(g.oppId);
     const ok = gameHasData(g);
@@ -140,10 +147,10 @@ function renderHelp(){
       </details>
 
       <details class="hp-sec" id="hp-export" data-keywords="导出 打包 zip 下载 文件名 固定名 多局 总览 对比 尺寸 深色 浅色 kpl">
-        <summary><span class="hp-num">3</span><b>出图与导出</b><em>7 张图怎么拿</em></summary>
+        <summary><span class="hp-num">3</span><b>出图与导出</b><em>单局图与大场汇总怎么拿</em></summary>
         <div class="hp-body">
           <h4>会出哪些图</h4>
-          <p>一局默认 <b>5 张对位图</b>（上单 / 打野 / 中路 / 发育路 / 游走）+ <b>1 张五路总览</b>；多局再附 <b>1 张多局对比</b>。勾「附带淘汰赛赛程图」会多两张赛程图。</p>
+          <p>一局默认 <b>5 张对位图</b>（上单 / 打野 / 中路 / 发育路 / 游走）+ <b>1 张五路总览</b>；当前大场可另出一张 <b>大场数据汇总</b>，多局再附 <b>1 张多局对比</b>。勾「附带淘汰赛赛程图」会多两张赛程图。</p>
           <table class="hp-table">
             <thead><tr><th>方式</th><th>文件名</th><th>适合</th></tr></thead>
             <tbody>
@@ -157,7 +164,8 @@ function renderHelp(){
           <p>顶部「🏆 KPL 风格」会切到单场电竞数据面板版式：蓝红比分条、左右英雄卡、中央双向雷达、选手数据卡和底部对比条。只使用现有字段，不编造补刀数、团战伤害等没有的数据。</p>
           <ul>
             <li>多局导出时，对位图序号会变成 <code>PKC_1_…</code>、<code>PKC_2_…</code>，按局依次排。</li>
-            <li>「导出包含本场所有局」只取当前场次的局；多局对比、逐张下载和 ZIP 都不会跨场拼接。</li>
+            <li>大场数据汇总先按选手累计各局 KDA、总经济与总伤害，再用整场总时长重算分均经济和分均伤害，不会直接平均各局分均值；ZIP 会自动附带这张图。</li>
+            <li>「导出包含本场所有局」只取当前场次的局；大场汇总、多局对比、逐张下载和 ZIP 都不会跨场拼接。</li>
             <li>右侧预览可点右上角「收起预览」，对位表 14 列能一屏放下；尺寸、深色 / 浅色底图、KPL 风格、英雄图提亮都在「多局与导出」里调。</li>
           </ul>
         </div>
@@ -717,6 +725,7 @@ async function init(){
   $("#btnZip2").onclick = () => exportZip($("#swAllGames").checked);
   $("#btnEach").onclick = () => downloadFixed($("#swAllGames").checked);
   $("#btnMgDown").onclick = downloadMulti;
+  $("#btnBigMatchDown").onclick = downloadBigMatch;
 
   /* ---- ⑤ 淘汰赛赛程图 ---- */
   $("#bkTitle").oninput = () => { B().title = $("#bkTitle").value; scheduleBkRender(220); scheduleSave(); publishBracketLive({ kind:"meta" }, 220); };
@@ -812,7 +821,7 @@ async function init(){
     bkMatchList, bkMatchByKey, bkSelectableMatches, gamesOfMatch, openMatch,
     renderMatchBar, renderGameBar, renderGameForm, renderBracket, matchTeamMismatch, matchRecord, bkLinkIssues,
     teamGroupOf, bkTeamStatus, bkTeamMatchKey, syncTeamGroups,
-    multiGames, gamesForExport,
+    multiGames, gamesForExport, bigMatchSummary, summaryPercent,
     parseLines, heroCandidates, heroPickRec, exportList, chartItems, drawExport, drawMulti,
     switchTab, showCands, focusHero, runOCR, runAIOCR, swapSides, save: saveAll, lanePair,
     bracket: B, bkTree, bkR16Pairs, bkChampion, drawBk, drawBk16, drawBkDE, drawBkAll,

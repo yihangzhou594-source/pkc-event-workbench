@@ -790,11 +790,15 @@
           </div>
         </div>
         <div class="card" style="margin-bottom:14px">
-          <div class="card-h"><b>系列赛多局对比</b><span class="sub" id="mgStat"></span></div>
+          <div class="card-h"><b>大场数据汇总 / 多局对比</b><span class="sub" id="mgStat"></span></div>
           <div class="card-b">
             <div class="row" style="margin-bottom:10px">
               <button class="mini primary" id="btnMgDown">生成并下载多局对比图</button>
               <span class="hint">把每局数据录好后，生成一张横向对比大图</span>
+            </div>
+            <div class="row" style="margin-bottom:10px">
+              <button class="mini primary" id="btnBigMatchDown">生成并下载大场数据汇总图</button>
+              <span class="hint" id="bigMatchHint">把当前大场各局数据累计后重算分均、参团率与经济转伤</span>
             </div>
             <div id="mgInfo" class="hint"></div>
           </div>

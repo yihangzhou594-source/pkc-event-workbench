@@ -505,7 +505,11 @@ async function saveAll(){
   if (!await saveCoreData()) return false;
   const prefsSaved = await STORE.save("prefs", DB.prefs);
   const heroSaved = await STORE.save("heroPick", DB.heroPick);
-  return prefsSaved && heroSaved;
+  const saved = prefsSaved && heroSaved;
+  if (saved && window.parent !== window) {
+    try { window.parent.postMessage({ type:"pkc:data-saved" }, location.origin); } catch {}
+  }
+  return saved;
 }
 
 /* ---------- 当前场次上下文（生成器 → 导播台 / OBS） ---------- */

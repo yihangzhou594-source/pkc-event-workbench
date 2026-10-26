@@ -62,6 +62,7 @@ function drawExport(item, W, H){
   ctx.setTransform(sc,0,0,sc,0,0);
   if (item.kind === "card") drawCard(ctx, item.game, item.idx);
   else if (item.kind === "overview") drawOverview(ctx, item.game);
+  else if (item.kind === "bigMatch") drawBigMatchSummary(ctx);
   else drawMulti(ctx);
   return c;
 }
@@ -126,6 +127,18 @@ async function exportZip(allGames){
     const c = drawExport(it, W, H);
     files.push({ name: it.name, data: await canvasBytes(c) });
   }
+  const summary = bigMatchSummary();
+  if (summary.games){
+    const c = drawExport({ kind:"bigMatch" }, W, H);
+    files.push({
+      name: sanitizeName([
+        (summary.blue.name || "蓝方") + "_vs_" + (summary.red.name || "红方"),
+        S.series.name,
+        "大场数据汇总",
+      ].filter(Boolean).join("_")) + ".png",
+      data: await canvasBytes(c),
+    });
+  }
   if (multiGames().length > 1){
     const c = drawExport({ kind:"multi" }, W, H);
     files.push({ name: sanitizeName(S.series.name) + "_多局对比.png", data: await canvasBytes(c) });
@@ -161,6 +174,19 @@ function downloadMulti(){
   const [W,H] = targetSize();
   const c = drawExport({ kind:"multi" }, W, H);
   c.toBlob(b => downloadBlob(b, sanitizeName(S.series.name) + "_多局对比.png"), "image/png");
+}
+function downloadBigMatch(){
+  const summary = bigMatchSummary();
+  if (!summary.games) return toast("当前大场还没有可汇总的有效局数据");
+  const [W,H] = targetSize();
+  const c = drawExport({ kind:"bigMatch" }, W, H);
+  const name = sanitizeName([
+    (summary.blue.name || "蓝方") + "_vs_" + (summary.red.name || "红方"),
+    S.series.name,
+    "大场数据汇总",
+  ].filter(Boolean).join("_")) + ".png";
+  c.toBlob(b => downloadBlob(b, name), "image/png");
+  status("正在导出大场数据汇总图…");
 }
 
 /* ============================================================

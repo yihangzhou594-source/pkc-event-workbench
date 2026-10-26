@@ -804,6 +804,150 @@ function multiGames(){
   const key = S.game ? (S.game.matchKey || "") : "";
   return S.series.games.filter(g => (g.matchKey || "") === key && gameHasData(g));
 }
+/** 当前大场按选手合并：先累加原始数据，再从累计值重算分均、参团率与伤转。 */
+function bigMatchSummary(){
+  const games = multiGames();
+  const anchor = games.find(g => g === S.game) || games[games.length - 1] || S.game;
+  const blueId = anchor ? (anchor.ourId || "") : "";
+  const redId = anchor ? (anchor.oppId || "") : "";
+  const teamAcc = (name) => ({
+    name,
+    players: [],
+    games: 0,
+    k: 0, d: 0, a: 0, kdaFields: false,
+    gold: 0, damage: 0,
+    goldMinutes: 0, damageMinutes: 0, durationMinutes: 0,
+    teamKills: 0, playerKa: 0,
+  });
+  const blue = teamAcc(blueId ? S.team(blueId).name : "");
+  const red = teamAcc(redId ? S.team(redId).name : "");
+  const byId = { blue: new Map(), red: new Map() };
+  let durationMinTotal = 0;
+  let blueWins = 0, redWins = 0;
+
+  const playerKey = (name) => String(name || "")
+    .replace(/[\s\u200b-\u200f\ufeff]+/g, "")
+    .toLocaleLowerCase();
+  const playerAcc = (team, teamSide, name) => {
+    const key = playerKey(name);
+    const mapKey = key || (teamSide + ":unnamed:" + team.players.length);
+    if (!byId[teamSide].has(mapKey)){
+      const p = {
+        name: String(name || "").trim() || "（未命名）",
+        lanes: [], games: 0,
+        k: 0, d: 0, a: 0, kdaFields: false,
+        gold: 0, damage: 0,
+        goldMinutes: 0, damageMinutes: 0,
+        playerKa: 0, teamKills: 0,
+      };
+      byId[teamSide].set(mapKey, p);
+      team.players.push(p);
+    }
+    return byId[teamSide].get(mapKey);
+  };
+  const addDuration = (minutes) => Number.isFinite(minutes) && minutes > 0 ? minutes : 0;
+  const scoreOf = (g, side, rows) => {
+    const score = parseNum(side === "opp" ? g.oppScore : g.ourScore);
+    if (score !== null) return score;
+    return rows.reduce((sum, p) => sum + (parseNum(p.k) || 0), 0);
+  };
+
+  games.forEach(g => {
+    const minutes = addDuration(durationMin(g));
+    durationMinTotal += minutes;
+    const swapped = g.oppId === blueId && g.ourId === redId;
+    const mapping = {
+      blue: swapped ? "opp" : "our",
+      red: swapped ? "our" : "opp",
+    };
+    const winner = g.result === "win" ? "our" : (g.result === "lose" ? "opp" : "");
+    if (mapping.blue === winner) blueWins += 1;
+    if (mapping.red === winner) redWins += 1;
+    blue.games += 1;
+    red.games += 1;
+
+    [["blue", blue], ["red", red]].forEach(([teamSide, team]) => {
+      const actualSide = mapping[teamSide];
+      const rows = g.rows.map(r => r[actualSide]).filter(Boolean);
+      if (rows.some(p => parseNum(p.k) !== null || parseNum(p.d) !== null || parseNum(p.a) !== null))
+        team.kdaFields = true;
+      const teamKills = scoreOf(g, actualSide, rows);
+      team.teamKills += teamKills;
+      team.durationMinutes += minutes;
+      let hasTeamGold = false, hasTeamDamage = false;
+
+      rows.forEach((p, rowIndex) => {
+        if (isBlank(p.name) && isBlank(p.hero) && isBlank(p.k) && isBlank(p.gold) && isBlank(p.dmgWan))
+          return;
+        const acc = playerAcc(team, teamSide, p.name || ("未命名" + (rowIndex + 1)));
+        const lane = actualSide === "opp" ? g.rows[rowIndex].posOpp : g.rows[rowIndex].pos;
+        if (lane && !acc.lanes.includes(lane)) acc.lanes.push(lane);
+        acc.games += 1;
+
+        const k = parseNum(p.k), d = parseNum(p.d), a = parseNum(p.a);
+        if (k !== null || d !== null || a !== null) acc.kdaFields = true;
+        if (k !== null) acc.k += k;
+        if (d !== null) acc.d += d;
+        if (a !== null) acc.a += a;
+        acc.playerKa += (k || 0) + (a || 0);
+        acc.teamKills += teamKills;
+
+        const gold = parseNum(p.gold);
+        if (gold !== null){
+          acc.gold += gold;
+          team.gold += gold;
+          hasTeamGold = true;
+          if (minutes > 0) acc.goldMinutes += minutes;
+        }
+        const damage = effDmgWan(p, g, actualSide);
+        if (damage !== null){
+          acc.damage += damage;
+          team.damage += damage;
+          hasTeamDamage = true;
+          if (minutes > 0) acc.damageMinutes += minutes;
+        }
+      });
+      if (minutes > 0 && hasTeamGold) team.goldMinutes += minutes;
+      if (minutes > 0 && hasTeamDamage) team.damageMinutes += minutes;
+
+      team.k += rows.reduce((sum, p) => sum + (parseNum(p.k) || 0), 0);
+      team.d += rows.reduce((sum, p) => sum + (parseNum(p.d) || 0), 0);
+      team.a += rows.reduce((sum, p) => sum + (parseNum(p.a) || 0), 0);
+      team.playerKa += rows.reduce((sum, p) => sum + (parseNum(p.k) || 0) + (parseNum(p.a) || 0), 0);
+    });
+  });
+
+  const sortedPlayers = (team, teamId) => {
+    const roster = (S.team(teamId).players || []).map(n => playerKey(n));
+    return team.players.slice().sort((a, b) => {
+      const ai = roster.indexOf(playerKey(a.name)), bi = roster.indexOf(playerKey(b.name));
+      return (ai < 0 ? 999 : ai) - (bi < 0 ? 999 : bi);
+    });
+  };
+  const finalTeam = (team, teamId) => {
+    const players = sortedPlayers(team, teamId);
+    const finished = Object.assign({}, team, { players });
+    const finalize = (p, isTeam) => Object.assign(p, {
+      gpm: p.goldMinutes > 0 ? p.gold / p.goldMinutes : null,
+      dmgPerMin: p.damageMinutes > 0 ? p.damage / p.damageMinutes : null,
+      kda: p.kdaFields ? (p.k + p.a) / Math.max(1, p.d) : null,
+      kp: !isTeam && p.teamKills > 0 ? p.playerKa / p.teamKills * 100 : null,
+      dmgPerGold: p.gold > 0 ? p.damage * 10000 / p.gold : null,
+    });
+    players.forEach(p => finalize(p, false));
+    finalize(finished, true);
+    return finished;
+  };
+
+  return {
+    games: games.length,
+    matchKey: anchor ? (anchor.matchKey || "") : "",
+    durationMin: durationMinTotal,
+    blueWins, redWins,
+    blue: finalTeam(blue, blueId),
+    red: finalTeam(red, redId),
+  };
+}
 function gamesForExport(allGames){
   return allGames ? multiGames() : [S.game];
 }
@@ -862,6 +1006,141 @@ function drawMulti(ctx){
     });
   });
   if (DB.prefs.footer) fitText(ctx, DB.prefs.footer, 960, 1054, { size:21, align:"center", color:t.faint, maxWidth:DW-200 });
+}
+
+/* ---------- 当前大场数据汇总 ---------- */
+function summaryInt(v){ return v === null || v === undefined || !isFinite(v) ? "—" : String(Math.round(v)); }
+function summaryDec(v, digits){
+  return v === null || v === undefined || !isFinite(v) ? "—" : v.toFixed(digits);
+}
+function summaryPercent(v){
+  return v === null || v === undefined || !isFinite(v) ? "—" : v.toFixed(1) + "%";
+}
+function summaryDuration(minutes){
+  if (!minutes) return "时长未录";
+  const total = Math.round(minutes);
+  return total >= 60 ? Math.floor(total/60) + "时" + (total%60) + "分" : total + "分";
+}
+function drawBigMatchSummary(ctx){
+  const summary = bigMatchSummary();
+  const t = th();
+  drawBG(ctx, C_BLUE, C_RED);
+  const anchor = multiGames().find(g => g === S.game) || multiGames().slice(-1)[0] || S.game;
+  const blueId = anchor ? (anchor.ourId || "") : "";
+  const redId = anchor ? (anchor.oppId || "") : "";
+  const blueTeam = S.team(blueId), redTeam = S.team(redId);
+  drawHead(ctx,
+    Object.assign({}, blueTeam, { color:C_BLUE, score:summary.blueWins }),
+    Object.assign({}, redTeam, { color:C_RED, score:summary.redWins }),
+    S.series.name + " · 大场数据汇总",
+    summary.games + " 局有效数据  ·  总时长 " + summaryDuration(summary.durationMin) + "  ·  全部数据按整场重算",
+    { text:summary.matchKey || "未关联赛程", win:false, color:C_BLUE });
+
+  if (!summary.games){
+    T(ctx, "当前大场还没有可汇总的有效局数据", 960, 560,
+      { size:38, weight:"700", align:"center", color:t.faint });
+    return;
+  }
+
+  const gap = 22, margin = 54;
+  const cardW = (DW - margin*2 - gap) / 2;
+  const cardY = 214, cardH = 816;
+  drawSummaryTeamCard(ctx, margin, cardY, cardW, cardH, summary.blue, C_BLUE);
+  drawSummaryTeamCard(ctx, margin + cardW + gap, cardY, cardW, cardH, summary.red, C_RED);
+  if (DB.prefs.footer) fitText(ctx, DB.prefs.footer, 960, 1054,
+    { size:17, align:"center", color:t.faint, maxWidth:DW-240 });
+}
+function drawSummaryTeamCard(ctx, x, y, w, h, team, color){
+  const t = th();
+  rr(ctx, x, y, w, h, 18);
+  ctx.fillStyle = t.isDark ? "rgba(255,255,255,.055)" : "rgba(255,255,255,.86)";
+  ctx.fill();
+  ctx.strokeStyle = rgba(color, t.isDark ? .46 : .34);
+  ctx.lineWidth = 1.8; ctx.stroke();
+  ctx.fillStyle = rgba(color, .9); ctx.fillRect(x, y, w, 5);
+  rr(ctx, x+18, y+20, 5, 34, 3); ctx.fillStyle = color; ctx.fill();
+  fitText(ctx, team.name || "（未选择队伍）", x+34, y+36,
+    { size:29, weight:"700", color:t.ink, maxWidth:w-250 });
+  fitText(ctx, team.players.length + " 名上场选手  ·  " + team.games + " 局合并",
+    x+w-22, y+36, { size:17, align:"right", color:t.sub, maxWidth:210 });
+
+  const innerX = x+20, innerW = w-40;
+  const headerY = y+76;
+  const col = [180, 130, 90, 94, 94, 92, 96, 86];
+  const scale = innerW / col.reduce((a,b) => a+b, 0);
+  const widths = col.map(v => v*scale);
+  const colX = [];
+  let xx = innerX;
+  widths.forEach(cw => { colX.push(xx); xx += cw; });
+  const labels = ["选手", "KDA", "参团率", "总经济", "分均经济", "总伤害", "分均伤害", "伤转"];
+  rr(ctx, innerX, headerY, innerW, 40, 8);
+  ctx.fillStyle = rgba(color, t.isDark ? .18 : .11); ctx.fill();
+  labels.forEach((label, i) => T(ctx, label, colX[i] + (i ? widths[i]/2 : 10), headerY+20,
+    { size:i === 0 ? 17 : 15, weight:"700", align:i ? "center" : "left", color:i ? color : t.sub }));
+
+  const bodyTop = headerY + 48;
+  const totalRowH = 62;
+  const available = h - (bodyTop-y) - totalRowH - 30;
+  const rowH = clamp(available / Math.max(1, team.players.length), 42, 70);
+  const valueSize = rowH < 48 ? 16 : (rowH < 58 ? 18 : 20);
+  const secondarySize = rowH < 48 ? 11 : 13;
+  const rows = team.players.length ? team.players : [{ name:"暂无选手数据", lanes:[], games:0 }];
+  rows.forEach((p, i) => {
+    const ry = bodyTop + i*rowH;
+    if (i % 2) {
+      rr(ctx, innerX, ry, innerW, rowH-2, 7);
+      ctx.fillStyle = t.isDark ? "rgba(255,255,255,.025)" : "rgba(22,32,46,.025)";
+      ctx.fill();
+    }
+    fitText(ctx, p.name || "（未命名）", colX[0]+10, ry+rowH*.37,
+      { size:valueSize, weight:"700", color:p.name ? t.ink : t.faint, maxWidth:widths[0]-16 });
+    const laneText = [p.lanes && p.lanes.join(" / "), p.games ? p.games + "局" : ""].filter(Boolean).join(" · ");
+    if (laneText) fitText(ctx, laneText, colX[0]+10, ry+rowH*.68,
+      { size:secondarySize, color:t.faint, maxWidth:widths[0]-16 });
+
+    T(ctx, p.kdaFields === false ? "—" : (summaryInt(p.k)+"/"+summaryInt(p.d)+"/"+summaryInt(p.a)),
+      colX[1]+widths[1]/2, ry+rowH*.36,
+      { size:valueSize, weight:"700", align:"center", family:FN, color:p.kdaFields === false ? t.faint : t.ink });
+    fitText(ctx, p.kda === null ? "KDA —" : "KDA " + summaryDec(p.kda, 2),
+      colX[1]+widths[1]/2, ry+rowH*.69,
+      { size:secondarySize, align:"center", color:color, maxWidth:widths[1]-8 });
+
+    const cells = [
+      summaryPercent(p.kp),
+      fmtK(p.gold/1000),
+      summaryInt(p.gpm),
+      p.damage ? summaryDec(p.damage, 2) + "万" : "—",
+      fmtK(p.dmgPerMin*10),
+      summaryDec(p.dmgPerGold, 2),
+    ];
+    cells.forEach((text, ci) => T(ctx, text, colX[ci+2]+widths[ci+2]/2, ry+rowH/2,
+      { size:ci === 3 ? Math.max(13, valueSize-1) : valueSize, weight:"700",
+        align:"center", family:FN, color:ci >= 5 ? color : t.ink }));
+  });
+
+  const totalY = bodyTop + Math.max(1, team.players.length)*rowH + 8;
+  rr(ctx, innerX, totalY, innerW, totalRowH, 10);
+  ctx.fillStyle = rgba(color, t.isDark ? .20 : .12); ctx.fill();
+  ctx.strokeStyle = rgba(color, .28); ctx.lineWidth = 1.2; ctx.stroke();
+  T(ctx, "队伍合计", colX[0]+12, totalY+20, { size:17, weight:"700", color:color });
+  T(ctx, team.playerKa + " 次击杀参与", colX[0]+12, totalY+42,
+    { size:12, color:t.sub });
+  T(ctx, summaryInt(team.k)+"/"+summaryInt(team.d)+"/"+summaryInt(team.a),
+    colX[1]+widths[1]/2, totalY+22,
+    { size:17, weight:"700", align:"center", family:FN, color:t.ink });
+  T(ctx, "KDA " + summaryDec(team.kda, 2), colX[1]+widths[1]/2, totalY+43,
+    { size:12, align:"center", color:color });
+  const totals = [
+    summaryPercent(team.kp),
+    fmtK(team.gold/1000),
+    summaryInt(team.gpm),
+    team.damage ? summaryDec(team.damage, 2) + "万" : "—",
+    fmtK(team.dmgPerMin*10),
+    summaryDec(team.dmgPerGold, 2),
+  ];
+  totals.forEach((text, ci) => T(ctx, text, colX[ci+2]+widths[ci+2]/2, totalY+31,
+    { size:ci === 3 ? 15 : 17, weight:"700", align:"center", family:FN,
+      color:ci >= 5 ? color : t.ink }));
 }
 
 /* ============================================================
