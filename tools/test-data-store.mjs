@@ -112,6 +112,30 @@ try {
 
   {
     const { root, dataDir } = tempDataDir();
+    const calls = [];
+    const remote = async (url, init = {}) => {
+      calls.push({ url, init });
+      if (url.startsWith("/rest/v1/pkc_records?select=")) return jsonResponse([]);
+      if (url === "/rest/v1/pkc_records?on_conflict=key") return jsonResponse([]);
+      throw new Error("unexpected request: " + url);
+    };
+    const gateway = createDataGateway({
+      root,
+      dataDir,
+      cloud: true,
+      fetchImpl: remote,
+      supabaseUrl: "https://example.supabase.co",
+      serviceRoleKey: "sb_secret_test_server_key",
+      refresh: false,
+    });
+    await gateway.initialize();
+    assert.equal(calls[0].init.headers.apikey, "sb_secret_test_server_key");
+    assert.equal(calls[0].init.headers.Authorization, undefined);
+    gateway.stop();
+  }
+
+  {
+    const { root, dataDir } = tempDataDir();
     const remote = async (url) => {
       if (url.startsWith("/rest/v1/pkc_records?select=")) {
         return jsonResponse([{ key: "library", data: {}, revision: 2, updated_at: "2026-10-26T00:00:00Z" }]);
