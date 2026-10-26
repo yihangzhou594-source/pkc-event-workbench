@@ -15,10 +15,15 @@ import { fileURLToPath } from "node:url";
 import {
   handleDirector, closeDirectorStreams, remoteDirectorState,
   remoteDirectorAction, directorStreamApi, setDirectorContext,
+  refreshDirectorDataFromStore,
 } from "./director/routes.mjs";
-import { writeJsonAtomic, listBackupVersions, restoreJsonBackup, snapshotJsonFile } from "./lib/json-store.mjs";
+import { writeJsonAtomic } from "./lib/json-store.mjs";
+import { getSharedDataStore } from "./lib/data-store.mjs";
 import { aggregateHeroStats, toCSV, addManualGame } from "./lib/hero-stats.mjs";
 import { readHeroStats, writeHeroStats } from "./lib/hero-stats-store.mjs";
+import {
+  applyMatchBans, buildHeroStatsWithMatchData, listMatchGamesForHeroStats,
+} from "./lib/hero-stats-sync.mjs";
 import { buildGroupSchedule } from "./lib/group-schedule.mjs";
 import { buildSeasonInsights } from "./lib/season-insights.mjs";
 import { createRemoteControl, RemoteControlError } from "./lib/remote-control.mjs";
@@ -29,9 +34,10 @@ import {
 import { readCompetitionContext, saveCompetitionContext } from "./lib/competition-context.mjs";
 
 const ROOT = path.dirname(fileURLToPath(import.meta.url));
-const PORT = Number(process.env.PKC_PORT || 8971);
+const PORT = Number(process.env.PORT || process.env.PKC_PORT || 8971);
 const REMOTE_MODE = process.env.PKC_REMOTE === "1";
-const LISTEN_HOST = REMOTE_MODE ? "0.0.0.0" : "127.0.0.1";
+const CLOUD_HOSTED = REMOTE_MODE || !!process.env.RENDER || process.env.PKC_CLOUD === "1";
+const LISTEN_HOST = CLOUD_HOSTED ? "0.0.0.0" : "127.0.0.1";
 const DIR_HERO = path.join(ROOT, "英雄半身像");
 const DIR_THUMB = path.join(ROOT, "英雄缩略图");
 const DIR_OPT = path.join(ROOT, "英雄优化");
@@ -47,9 +53,8 @@ const REMOTE_PAGE = path.join(ROOT, "director", "remote.html");
 const HERO_LIST = path.join(ROOT, "tools", "_herolist.txt");
 const AI_CONFIG_FILE = path.join(DIR_DATA, "ai-config.json");
 const AI_SECRET_HELPER = path.join(ROOT, "tools", "ai-secret.ps1");
-const BACKUP_DIR = path.join(DIR_DATA, "_backup");
-const AUDIT_FILE = path.join(BACKUP_DIR, "audit.json");
 const remoteAccess = createRemoteControl();
+const dataStore = getSharedDataStore();
 
 fs.mkdirSync(DIR_DATA, { recursive: true });
 
@@ -316,56 +321,29 @@ const BACKUP_KEYS = new Set([...STORE_KEYS, "heroStats"]);
    context 只是“当前选中哪一局”的现场指针，按后写覆盖即可。 */
 const STORE_CONFLICT_KEYS = new Set(["library", "matches", "bracket", "heroPick", "heroStats"]);
 
-/** 用文件内容哈希当版本号：服务重启后依然有效，不需要额外状态。 */
-function storeRev(file) {
-  try {
-    return crypto.createHash("sha1").update(fs.readFileSync(file)).digest("hex").slice(0, 12);
-  } catch {
-    return "";
-  }
+function storeRev(key) {
+  return dataStore.revisionOf(key);
 }
-const storeFile = key => path.join(DIR_DATA, key + ".json");
 
 function readStoreJson(key, fallback = null) {
-  try {
-    return JSON.parse(fs.readFileSync(storeFile(key), "utf8").replace(/^\uFEFF/, ""));
-  } catch {
-    return fallback;
-  }
+  return dataStore.readData(key, fallback);
 }
 
-function appendDataAudit(action, detail = "", key = "") {
-  fs.mkdirSync(BACKUP_DIR, { recursive: true });
-  const entry = {
-    at: new Date().toISOString(),
-    action: String(action || "unknown").slice(0, 80),
-    key: String(key || "").slice(0, 40),
-    detail: String(detail || "").slice(0, 500),
-  };
-  let entries = [];
-  try {
-    const current = JSON.parse(fs.readFileSync(AUDIT_FILE, "utf8"));
-    if (Array.isArray(current)) entries = current;
-  } catch { /* first audit entry */ }
-  entries.push(entry);
-  try {
-    writeJsonAtomic(AUDIT_FILE, JSON.stringify(entries.slice(-200), null, 2), { backup: false });
-  } catch (error) {
-    entry.persisted = false;
-    entry.persistError = String(error?.message || error);
-  }
-  return entry;
+function combinedHeroStatsData(seriesId = "") {
+  return buildHeroStatsWithMatchData({
+    library: readStoreJson("library", null),
+    matches: readStoreJson("matches", { games: {} }),
+    manual: readHeroStats(),
+    seriesId,
+  });
 }
 
-function readDataAudit(limit = 50) {
-  try {
-    const entries = JSON.parse(fs.readFileSync(AUDIT_FILE, "utf8"));
-    return (Array.isArray(entries) ? entries : [])
-      .slice(-Math.max(1, Math.min(100, Number(limit) || 50)))
-      .reverse();
-  } catch {
-    return [];
-  }
+async function appendDataAudit(action, detail = "", key = "", actor = "") {
+  return dataStore.appendAudit(action, detail, key, actor);
+}
+
+async function readDataAudit(limit = 50) {
+  return dataStore.readAudit(limit);
 }
 
 function readCookie(req, name) {
@@ -423,7 +401,7 @@ function remoteMatchCatalog() {
     matches:source.matches,
     bracket:source.bracket,
     context:source.context,
-    matchesRevision:storeRev(storeFile("matches")),
+    matchesRevision:storeRev("matches"),
     contextRevision:source.contextRevision,
   });
   return { ...catalog, source };
@@ -449,7 +427,7 @@ function validateRemoteImages(images) {
   });
 }
 
-function saveRemoteMatchData(body) {
+async function saveRemoteMatchData(body) {
   const catalog = remoteMatchCatalog();
   const source = catalog.source;
   const series = (source.library?.series || []).find((item) => String(item.id) === catalog.seriesId);
@@ -498,13 +476,18 @@ function saveRemoteMatchData(body) {
         : [...games, built.game],
     },
   };
-  const matchesFile = storeFile("matches");
-  const previousRaw = fs.existsSync(matchesFile) ? fs.readFileSync(matchesFile, "utf8") : null;
-  writeJsonAtomic(matchesFile, JSON.stringify(nextMatches, null, 2), {
-    backupDir:path.join(DIR_DATA, "_backup"),
-    key:"matches",
+  const previousMatches = source.matches;
+  const matchWrite = await dataStore.writeData("matches", nextMatches, {
+    baseRevision:storeRev("matches"),
     forceBackup:true,
+    actor:body.actor || "remote",
   });
+  if (!matchWrite.ok && matchWrite.conflict) {
+    throw Object.assign(new Error("对局数据已在其他页面更新，请重新读取"), {
+      code:"revision_conflict",
+      revision:matchWrite.revision,
+    });
+  }
   try {
     const candidate = {
       ...(source.context || {}),
@@ -523,12 +506,21 @@ function saveRemoteMatchData(body) {
       redScore:built.game.oppScore,
       remoteSavedAt:new Date().toISOString(),
     };
-    const contextResult = saveCompetitionContext(candidate, catalog.contextRevision);
+    const contextResult = await saveCompetitionContext(candidate, catalog.contextRevision, {
+      actor:body.actor || "remote",
+    });
+    if (contextResult.conflict) {
+      throw Object.assign(new Error("当前场次已在其他页面更新，请重新读取"), {
+        code:"context_conflict",
+        revision:contextResult.revision,
+      });
+    }
     setDirectorContext(contextResult.context);
-    appendDataAudit(
+    await appendDataAudit(
       "remote-upload-save",
       (existingGame ? "覆盖" : "新建") + " " + built.game.label + " · 缺失 " + built.missing.length + " 项",
       "matches",
+      body.actor || "remote",
     );
     return {
       ok:true,
@@ -536,16 +528,14 @@ function saveRemoteMatchData(body) {
       game:built.game,
       missing:built.missing,
       warnings:built.warnings,
-      revision:storeRev(matchesFile),
+      revision:storeRev("matches"),
       contextRevision:contextResult.revision,
       context:contextResult.context,
     };
   } catch (error) {
-    if (previousRaw !== null) {
-      try {
-        writeJsonAtomic(matchesFile, previousRaw, { backup:false });
-      } catch { /* original file remains backed up before writing */ }
-    }
+    try {
+      await dataStore.writeData("matches", previousMatches, { actor:"rollback" });
+    } catch { /* original write remains backed up in Supabase */ }
     throw error;
   }
 }
@@ -557,6 +547,13 @@ const server = http.createServer(async (req, res) => {
   const localRequest = isLoopbackAddress(req.socket.remoteAddress);
   let remoteSession = null;
   try {
+    if (p === "/healthz") {
+      return sendJSON(res, {
+        ok: true,
+        cloud: dataStore.hasCloudDataStore(),
+        uptime: Math.round(process.uptime()),
+      });
+    }
     if (REMOTE_MODE && !localRequest && !remoteRequestAllowed(p)) {
       return sendJSON(res, { error: "remote_only_endpoint", message: "局域网远程模式只开放手机控制接口" }, 403);
     }
@@ -586,7 +583,7 @@ const server = http.createServer(async (req, res) => {
           deviceName: body.deviceName,
         });
         res.setHeader("Set-Cookie", remoteCookie(paired.sessionId));
-        appendDataAudit("remote-pair", paired.deviceName, "remote");
+        await appendDataAudit("remote-pair", paired.deviceName, "remote");
         return sendJSON(res, {
           ok: true,
           csrf: paired.csrf,
@@ -621,7 +618,7 @@ const server = http.createServer(async (req, res) => {
       const result = remoteDirectorAction(body);
       if (result.status >= 200 && result.status < 300) {
         if (["push", "undo-push", "blank"].includes(body.action)) {
-          appendDataAudit("remote-" + body.action, remoteSession.deviceName, "remote");
+          await appendDataAudit("remote-" + body.action, remoteSession.deviceName, "remote");
         }
       }
       return sendJSON(res, result.body, result.status);
@@ -705,7 +702,7 @@ const server = http.createServer(async (req, res) => {
       }
       try {
         const body = JSON.parse((await readBodyLimited(req, 2 * 1024 * 1024)) || "{}");
-        return sendJSON(res, saveRemoteMatchData(body));
+        return sendJSON(res, await saveRemoteMatchData(body));
       } catch (error) {
         const status = error.code === "revision_conflict" || error.code === "context_conflict" ? 409
           : ["series_not_found", "match_not_found", "game_not_found"].includes(error.code) ? 404
@@ -766,33 +763,32 @@ const server = http.createServer(async (req, res) => {
     if (p === "/api/store/backups" && req.method === "GET") {
       const key = url.searchParams.get("key") || "";
       if (!BACKUP_KEYS.has(key)) return sendJSON(res, { error: "invalid_backup_key" }, 400);
-      const versions = listBackupVersions(BACKUP_DIR, key);
+      const versions = await dataStore.listBackups(key);
       return sendJSON(res, { ok: true, key, versions });
     }
     if (p === "/api/store/restore" && req.method === "POST") {
       const body = JSON.parse((await readBody(req)) || "{}");
       const key = String(body.key || "");
       if (!BACKUP_KEYS.has(key)) return sendJSON(res, { error: "invalid_backup_key" }, 400);
-      const file = storeFile(key);
-      const current = storeRev(file);
+      const current = storeRev(key);
       if (body.baseRev && body.baseRev !== current) {
         return sendJSON(res, { error: "conflict", key, rev: current }, 409);
       }
       try {
-        const restored = restoreJsonBackup(file, BACKUP_DIR, key, body.name);
-        const rev = storeRev(file);
-        appendDataAudit("restore-version", "恢复版本 " + restored.name, key);
+        const restored = await dataStore.restoreBackup(key, body.name);
+        const rev = storeRev(key);
+        await appendDataAudit("restore-version", "恢复版本 " + restored.name, key);
         return sendJSON(res, { ok: true, key, rev, restored });
       } catch (error) {
         return sendJSON(res, { error: "restore_failed", message: error.message }, 400);
       }
     }
     if (p === "/api/store/audit" && req.method === "GET") {
-      return sendJSON(res, { ok: true, entries: readDataAudit(url.searchParams.get("limit")) });
+      return sendJSON(res, { ok: true, entries: await readDataAudit(url.searchParams.get("limit")) });
     }
     if (p === "/api/store/audit" && req.method === "POST") {
       const body = JSON.parse((await readBody(req)) || "{}");
-      const entry = appendDataAudit(body.action, body.detail, body.key);
+      const entry = await appendDataAudit(body.action, body.detail, body.key);
       return sendJSON(res, { ok: true, entry });
     }
     if (p === "/api/store/snapshot" && req.method === "POST") {
@@ -802,11 +798,11 @@ const server = http.createServer(async (req, res) => {
       for (const key of keys) {
         if (!BACKUP_KEYS.has(key)) continue;
         try {
-          const snapshot = snapshotJsonFile(storeFile(key), BACKUP_DIR, key);
+          const snapshot = await dataStore.snapshot(key);
           if (snapshot) snapshots.push(snapshot);
         } catch { /* current file may be absent or malformed; keep other snapshots */ }
       }
-      const audit = appendDataAudit(body.action || "snapshot", body.detail || "创建操作前快照", keys.join(","));
+      const audit = await appendDataAudit(body.action || "snapshot", body.detail || "创建操作前快照", keys.join(","));
       return sendJSON(res, { ok: true, snapshots, audit });
     }
     /* ---------------- 英雄胜率 / 手动录入 ---------------- */
@@ -820,9 +816,9 @@ const server = http.createServer(async (req, res) => {
       return serveFile(res, path.join(ROOT, "director", "promo.html"), { "Cache-Control": "no-store" });
     }
     if (p === "/api/hero-stats" && req.method === "GET") {
-      const data = readHeroStats();
+      const data = combinedHeroStatsData(url.searchParams.get("seriesId") || "");
       const q = url.searchParams;
-      const stage = q.get("stage") || data.stage || "循环赛";
+      const stage = q.get("stage") || "淘汰赛";
       return sendJSON(res, {
         ok: true,
         ...aggregateHeroStats(data, {
@@ -835,8 +831,22 @@ const server = http.createServer(async (req, res) => {
       });
     }
     if (p === "/api/hero-stats/raw" && req.method === "GET") {
-      const data = readHeroStats();
+      const data = combinedHeroStatsData(url.searchParams.get("seriesId") || "");
       return sendJSON(res, { ok: true, ...data });
+    }
+    if (p === "/api/hero-stats/matches" && req.method === "GET") {
+      const library = readStoreJson("library", null);
+      const seriesId = url.searchParams.get("seriesId")
+        || String(library && library.currentId || "");
+      return sendJSON(res, {
+        ok: true,
+        ...listMatchGamesForHeroStats({
+          library,
+          matches: readStoreJson("matches", { games: {} }),
+          manual: readHeroStats(),
+          seriesId,
+        }),
+      });
     }
     if (p === "/api/hero-stats/schedule" && req.method === "GET") {
       const library = readStoreJson("library", null);
@@ -874,7 +884,7 @@ const server = http.createServer(async (req, res) => {
       const body = JSON.parse(await readBody(req));
       try {
         const out = addManualGame(readHeroStats(), body);
-        writeHeroStats(out.data);
+        await writeHeroStats(out.data);
         return sendJSON(res, {
           ok: true, seriesId: out.seriesId, gameNo: out.gameNo,
           replaced: out.replaced, mergedInto: out.mergedInto,
@@ -883,19 +893,50 @@ const server = http.createServer(async (req, res) => {
         return sendJSON(res, { ok: false, error: String(e && e.message || e) }, 400);
       }
     }
+    if (p === "/api/hero-stats/bans" && req.method === "POST") {
+      const body = JSON.parse(await readBody(req) || "{}");
+      try {
+        const library = readStoreJson("library", null);
+        const matches = readStoreJson("matches", { games: {} });
+        const manual = readHeroStats();
+        const catalog = listMatchGamesForHeroStats({
+          library,
+          matches,
+          manual,
+          seriesId:body.seriesId || "",
+        });
+        const game = catalog.games.find((item) =>
+          item.seriesId === String(body.seriesId || "") && item.gameId === String(body.gameId || ""));
+        if (!game) return sendJSON(res, { ok:false, error:"找不到要填写禁用数据的对局" }, 404);
+        if (!game.countable) return sendJSON(res, { ok:false, error:"这局选择或胜方不完整，暂不能填写禁用" }, 400);
+        const next = applyMatchBans(manual, body, game);
+        await writeHeroStats(next);
+        await appendDataAudit("hero-stats-bans", `${game.leftTeam} vs ${game.rightTeam} · ${game.label}`, "heroStats");
+        return sendJSON(res, { ok:true, bans:next.banGames[`${game.seriesId}::${game.gameId}`] || null });
+      } catch (error) {
+        return sendJSON(res, { ok:false, error:String(error && error.message || error) }, 400);
+      }
+    }
     if (p === "/api/hero-stats/reset" && req.method === "POST") {
       const body = JSON.parse(await readBody(req) || "{}");
       if (String(body.confirm || "") !== "清除") {
         return sendJSON(res, { ok: false, error: "需要确认：confirm 必须是「清除」" }, 400);
       }
-      writeHeroStats(null);
+      const data = readHeroStats();
+      if (body.scope === "bans") {
+        data.banGames = {};
+        data.updatedAt = new Date().toISOString();
+        await writeHeroStats(data);
+        return sendJSON(res, { ok: true, clearedBans: true });
+      }
+      await writeHeroStats(null);
       return sendJSON(res, { ok: true, cleared: true });
     }
     if (p === "/api/hero-stats/export.csv" && req.method === "GET") {
-      const data = readHeroStats();
+      const data = combinedHeroStatsData(url.searchParams.get("seriesId") || "");
       const q = url.searchParams;
       const agg = aggregateHeroStats(data, {
-        stage: q.get("stage") || data.stage || "循环赛",
+        stage: q.get("stage") || "淘汰赛",
         group: q.get("group") || "all",
         team: q.get("team") || "all",
         player: q.get("player") || "all",
@@ -920,22 +961,16 @@ const server = http.createServer(async (req, res) => {
     if (p.startsWith("/api/store/")) {
       const key = p.slice("/api/store/".length);
       if (!STORE_KEYS.has(key)) return sendJSON(res, { error: "unknown key" }, 400);
-      const file = storeFile(key);
       if (req.method === "GET") {
-        try {
-          const raw = fs.readFileSync(file, "utf8");
-          res.setHeader("X-PKC-Rev", storeRev(file));
-          return sendJSON(res, JSON.parse(raw));
-        } catch {
-          return sendJSON(res, null);
-        }
+        res.setHeader("X-PKC-Rev", storeRev(key));
+        return sendJSON(res, readStoreJson(key, null));
       }
       if (req.method === "POST") {
         let raw = await readBody(req);
         const incoming = JSON.parse(raw);                  // 校验 JSON
         if (key === "library" && incoming && typeof incoming === "object" && !Array.isArray(incoming)) {
           try {
-            const current = JSON.parse(fs.readFileSync(file, "utf8"));
+            const current = readStoreJson(key, null);
             if (Array.isArray(current.migrationAudit)) {
               incoming.migrationAudit = current.migrationAudit;
               raw = JSON.stringify(incoming, null, 2);
@@ -943,17 +978,20 @@ const server = http.createServer(async (req, res) => {
           } catch { /* 首次写入或旧文件损坏时按请求体处理 */ }
         }
         const base = String(req.headers["x-pkc-base-rev"] || "");
-        const cur = storeRev(file);
+        const cur = storeRev(key);
         if (STORE_CONFLICT_KEYS.has(key) && base && cur && base !== cur) {
           res.setHeader("X-PKC-Rev", cur);
           return sendJSON(res, { error: "conflict", key, rev: cur }, 409);
         }
-        writeJsonAtomic(file, raw, {
-          backupDir: path.join(DIR_DATA, "_backup"),
-          key,
+        const written = await dataStore.writeData(key, incoming, {
+          baseRevision: STORE_CONFLICT_KEYS.has(key) && base ? base : undefined,
           forceBackup: req.headers["x-pkc-force-backup"] === "1",
         });
-        res.setHeader("X-PKC-Rev", storeRev(file));
+        if (!written.ok && written.conflict) {
+          res.setHeader("X-PKC-Rev", written.revision);
+          return sendJSON(res, { error: "conflict", key, rev: written.revision }, 409);
+        }
+        res.setHeader("X-PKC-Rev", written.revision);
         return sendJSON(res, { ok: true, key, bytes: raw.length });
       }
     }
@@ -991,6 +1029,9 @@ server.on("error", (err) => {
   process.exit(1);
 });
 
+await dataStore.initialize();
+refreshDirectorDataFromStore();
+
 server.listen(PORT, LISTEN_HOST, () => {
   const st = scanHeroes(true);
   const heroes = Object.keys(st.heroes).length;
@@ -1005,7 +1046,7 @@ server.listen(PORT, LISTEN_HOST, () => {
     console.log("  局域网远程控制未开启；请重新运行「启动.bat」并选择手机远程模式");
   }
   console.log("  英雄素材: " + (fs.existsSync(DIR_HERO) ? heroes + " 个英雄 / " + st.total + " 个文件" : "未找到 英雄半身像 目录"));
-  console.log("  数据目录: " + DIR_DATA);
+  console.log("  数据存储: " + (dataStore.hasCloudDataStore() ? "Supabase" : DIR_DATA));
   console.log("  关闭本窗口即停止服务");
   console.log("──────────────────────────────────────────────");
 

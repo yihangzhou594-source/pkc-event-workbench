@@ -39,10 +39,10 @@ import {
 } from '../lib/competition-teams.mjs';
 import { readCompetitionContext, saveCompetitionContext } from '../lib/competition-context.mjs';
 import { buildProductionReadiness } from '../lib/production-readiness.mjs';
+import { getSharedDataStore } from '../lib/data-store.mjs';
 
 const DIR = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.dirname(DIR);
-const DATA_DIR = process.env.PKC_DATA_DIR ? path.resolve(process.env.PKC_DATA_DIR) : path.join(ROOT, '数据');
 const DIRECTOR_PAGE = path.join(DIR, 'console.html');
 const OBS_PAGE = path.join(DIR, 'obs.html');
 const GENERATOR_PAGE = path.join(ROOT, 'PKC赛后数据图生成器.html');
@@ -226,9 +226,10 @@ export function directorStreamApi(res) {
 }
 
 function readinessBody() {
-  const library = readJsonSafe(path.join(DATA_DIR, 'library.json'));
-  const matches = readJsonSafe(path.join(DATA_DIR, 'matches.json'));
-  const bracket = readJsonSafe(path.join(DATA_DIR, 'bracket.json'));
+  const store = getSharedDataStore();
+  const library = store.readData('library', null);
+  const matches = store.readData('matches', null);
+  const bracket = store.readData('bracket', null);
   const context = store.snapshot().live.context || readCompetitionContext().context;
   return buildProductionReadiness({ library, matches, bracket, context });
 }
@@ -283,7 +284,7 @@ function withTeamAvailability(teams, seriesId) {
   const snapshot = store.snapshot();
   let bracket = snapshot.live.bracket?.seriesId === seriesId ? snapshot.live.bracket : null;
   if (!bracket) {
-    const saved = readJsonSafe(path.join(DATA_DIR, 'bracket.json'));
+    const saved = getSharedDataStore().readData('bracket', null);
     bracket = saved && (saved[seriesId] || null);
   }
   const out = bracketEliminatedIds(bracket);
@@ -294,8 +295,8 @@ function withTeamAvailability(teams, seriesId) {
   }));
 }
 
-function persistContext(candidate, revision, opts) {
-  const result = saveCompetitionContext(candidate, revision, opts);
+async function persistContext(candidate, revision, opts) {
+  const result = await saveCompetitionContext(candidate, revision, opts);
   if (!result.conflict) store.setContext(result.context);
   return result;
 }
@@ -374,7 +375,7 @@ export async function handleDirector(req, res, url, helpers) {
         return sendJSON(res, { ...result, teams: withTeamAvailability(result.teams, seriesId) }), true;
       }
       const body = JSON.parse((await readBody(req)) || '{}');
-      return sendJSON(res, replaceCompetitionTeams(seriesId, body.teams, body.revision)), true;
+      return sendJSON(res, await replaceCompetitionTeams(seriesId, body.teams, body.revision)), true;
     } catch (err) {
       if (err.code === 'team_revision_conflict') {
         return sendJSON(res, { error: err.code, message: err.message, revision: err.revision }, 409), true;
@@ -391,7 +392,7 @@ export async function handleDirector(req, res, url, helpers) {
   if (p === '/api/competition/teams/import' && req.method === 'POST') {
     try {
       const body = JSON.parse((await readBody(req)) || '{}');
-      return sendJSON(res, importLegacyTeams(body)), true;
+      return sendJSON(res, await importLegacyTeams(body)), true;
     } catch (err) {
       const status = err.code === 'series_not_found' ? 404
         : ['confirmation_required', 'series_id_required'].includes(err.code) ? 400 : 500;
@@ -406,7 +407,7 @@ export async function handleDirector(req, res, url, helpers) {
   if (p === '/api/competition/context' && req.method === 'POST') {
     try {
       const body = JSON.parse((await readBody(req)) || '{}');
-      const result = persistContext(body.context, body.revision);
+      const result = await persistContext(body.context, body.revision);
       if (result.conflict) return sendJSON(res, { error: 'context_conflict', context: result.context, revision: result.revision }, 409), true;
       return sendJSON(res, result), true;
     } catch (err) {
@@ -423,7 +424,7 @@ export async function handleDirector(req, res, url, helpers) {
     try {
       const body = JSON.parse((await readBody(req)) || 'null');
       const revision = body && typeof body === 'object' ? body.revision : undefined;
-      const result = persistContext(body, revision, { allowLegacy: !Number.isFinite(Number(revision)) });
+      const result = await persistContext(body, revision, { allowLegacy: !Number.isFinite(Number(revision)) });
       if (result.conflict) return sendJSON(res, { error: 'context_conflict', context: result.context, revision: result.revision }, 409), true;
       return sendJSON(res, { ok: true, context: result.context, revision: result.revision }), true;
     } catch (err) {
@@ -445,7 +446,7 @@ export async function handleDirector(req, res, url, helpers) {
       try {
         const body = JSON.parse((await readBody(req)) || '{}');
         const incoming = Array.isArray(body?.teams) ? body.teams : [];
-        const result = replaceCompetitionTeams(seriesId, fromDirectorTeams(incoming), body.revision);
+        const result = await replaceCompetitionTeams(seriesId, fromDirectorTeams(incoming), body.revision);
         const teams = toDirectorTeams(result.teams);
         return sendJSON(res, { teams, seriesId, revision: result.revision }), true;
       } catch (err) {
@@ -519,7 +520,7 @@ export async function handleDirector(req, res, url, helpers) {
         {
           const context = body.context || body;
           const revision = body.revision ?? context.revision;
-          const result = persistContext(context, revision, { allowLegacy: !Number.isFinite(Number(revision)) });
+          const result = await persistContext(context, revision, { allowLegacy: !Number.isFinite(Number(revision)) });
           if (result.conflict) return sendJSON(res, { error: 'context_conflict', context: result.context, revision: result.revision }, 409), true;
         }
         break;
@@ -580,12 +581,10 @@ export async function handleDirector(req, res, url, helpers) {
  * 服务启动时先把 数据/library.json 的当前系列 + 数据/bracket.json 读进 live，
  * 避免抽签开始前画面是空的。之后生成器每次改动都会覆盖这份快照。
  */
-function readJsonSafe(file) {
-  try { return JSON.parse(fs.readFileSync(file, 'utf8')); } catch { return null; }
-}
 function seedBracketFromDisk() {
-  const lib = readJsonSafe(path.join(DATA_DIR, 'library.json'));
-  const brackets = readJsonSafe(path.join(DATA_DIR, 'bracket.json'));
+  const dataStore = getSharedDataStore();
+  const lib = dataStore.readData('library', null);
+  const brackets = dataStore.readData('bracket', null);
   const series = lib && Array.isArray(lib.series)
     ? (lib.series.find((s) => s.id === lib.currentId) || lib.series[0])
     : null;
@@ -616,6 +615,11 @@ function seedContextFromDisk() {
   if (ctx && ctx.seriesId) store.setContext(ctx);
 }
 seedContextFromDisk();
+
+export function refreshDirectorDataFromStore() {
+  seedBracketFromDisk();
+  seedContextFromDisk();
+}
 
 export { SceneId, SCENES };
 
