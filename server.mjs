@@ -19,6 +19,7 @@ import {
 } from "./director/routes.mjs";
 import { writeJsonAtomic } from "./lib/json-store.mjs";
 import { getSharedDataStore } from "./lib/data-store.mjs";
+import { createAuthGate } from "./lib/auth-gate.mjs";
 import { aggregateHeroStats, toCSV, addManualGame } from "./lib/hero-stats.mjs";
 import { readHeroStats, writeHeroStats } from "./lib/hero-stats-store.mjs";
 import {
@@ -50,11 +51,13 @@ const DIR_DOCS = path.join(ROOT, "docs");
 const DIR_PREVIEW = path.join(ROOT, "预览");
 const APP_PAGE = path.join(ROOT, "director", "console.html");
 const REMOTE_PAGE = path.join(ROOT, "director", "remote.html");
+const LOGIN_PAGE = path.join(ROOT, "director", "login.html");
 const HERO_LIST = path.join(ROOT, "tools", "_herolist.txt");
 const AI_CONFIG_FILE = path.join(DIR_DATA, "ai-config.json");
 const AI_SECRET_HELPER = path.join(ROOT, "tools", "ai-secret.ps1");
 const remoteAccess = createRemoteControl();
 const dataStore = getSharedDataStore();
+const authGate = createAuthGate();
 
 fs.mkdirSync(DIR_DATA, { recursive: true });
 
@@ -357,6 +360,18 @@ function readCookie(req, name) {
   return "";
 }
 
+function appendCookies(res, cookies) {
+  if (!Array.isArray(cookies) || !cookies.length) return;
+  const current = res.getHeader("Set-Cookie");
+  const existing = Array.isArray(current) ? current : current ? [String(current)] : [];
+  res.setHeader("Set-Cookie", [...existing, ...cookies]);
+}
+
+function redirect(res, location) {
+  res.writeHead(303, { Location: location, "Cache-Control": "no-store" });
+  res.end();
+}
+
 function lanAddresses() {
   const output = [];
   for (const [alias, entries] of Object.entries(os.networkInterfaces())) {
@@ -551,10 +566,49 @@ const server = http.createServer(async (req, res) => {
       return sendJSON(res, {
         ok: true,
         cloud: dataStore.hasCloudDataStore(),
+        auth: authGate.enabled,
         uptime: Math.round(process.uptime()),
       });
     }
-    if (REMOTE_MODE && !localRequest && !remoteRequestAllowed(p)) {
+    const accessToken = readCookie(req, authGate.accessCookie);
+    const refreshToken = readCookie(req, authGate.refreshCookie);
+    const authSession = await authGate.resolveSession({ accessToken, refreshToken });
+    const authUser = authSession.ok ? authSession.user : null;
+    req.pkcUser = authUser;
+    if (authSession.refreshed) appendCookies(res, authGate.sessionCookies(authSession));
+
+    if ((p === "/login" || p === "/login/") && req.method === "GET") {
+      if (authSession.ok) return redirect(res, "/");
+      return serveFile(res, LOGIN_PAGE, { "Cache-Control": "no-store" });
+    }
+    if (p === "/api/auth/login" && req.method === "POST") {
+      const body = JSON.parse((await readBody(req)) || "{}");
+      const result = await authGate.login(body.email, body.password);
+      if (!result.ok) return sendJSON(res, result, result.status || 401);
+      appendCookies(res, authGate.sessionCookies(result));
+      await appendDataAudit("login", "staff login", "auth", result.user?.email || "");
+      return sendJSON(res, { ok: true, user: result.user });
+    }
+    if (p === "/api/auth/logout" && req.method === "POST") {
+      await authGate.logout(accessToken);
+      appendCookies(res, authGate.clearCookies());
+      return sendJSON(res, { ok: true });
+    }
+    if (p === "/api/auth/me" && req.method === "GET") {
+      return sendJSON(res, { ok: true, user: authUser });
+    }
+    if (!authGate.publicPath(p) && !authSession.ok) {
+      if (p.startsWith("/api/")) {
+        return sendJSON(res, {
+          error: "auth_required",
+          message: "请先登录",
+        }, 401);
+      }
+      const next = p + url.search;
+      return redirect(res, "/login?next=" + encodeURIComponent(next));
+    }
+
+    if (!authGate.enabled && REMOTE_MODE && !localRequest && !remoteRequestAllowed(p)) {
       return sendJSON(res, { error: "remote_only_endpoint", message: "局域网远程模式只开放手机控制接口" }, 403);
     }
     if (p.startsWith("/api/remote/")
@@ -567,11 +621,11 @@ const server = http.createServer(async (req, res) => {
       return serveFile(res, REMOTE_PAGE, { "Cache-Control": "no-store" });
     }
     if (p === "/api/remote/access" && req.method === "GET") {
-      if (!localRequest) return sendJSON(res, { error: "local_only" }, 403);
+      if (!localRequest && !authGate.enabled) return sendJSON(res, { error: "local_only" }, 403);
       return sendJSON(res, remoteAccessPayload());
     }
     if (p === "/api/remote/refresh-pin" && req.method === "POST") {
-      if (!localRequest) return sendJSON(res, { error: "local_only" }, 403);
+      if (!localRequest && !authGate.enabled) return sendJSON(res, { error: "local_only" }, 403);
       return sendJSON(res, { ok: true, ...remoteAccessPayload() });
     }
     if (p === "/api/remote/pair" && req.method === "POST") {
@@ -583,7 +637,7 @@ const server = http.createServer(async (req, res) => {
           deviceName: body.deviceName,
         });
         res.setHeader("Set-Cookie", remoteCookie(paired.sessionId));
-        await appendDataAudit("remote-pair", paired.deviceName, "remote");
+        await appendDataAudit("remote-pair", paired.deviceName, "remote", req.pkcUser?.email || "");
         return sendJSON(res, {
           ok: true,
           csrf: paired.csrf,
@@ -618,7 +672,7 @@ const server = http.createServer(async (req, res) => {
       const result = remoteDirectorAction(body);
       if (result.status >= 200 && result.status < 300) {
         if (["push", "undo-push", "blank"].includes(body.action)) {
-          await appendDataAudit("remote-" + body.action, remoteSession.deviceName, "remote");
+          await appendDataAudit("remote-" + body.action, remoteSession.deviceName, "remote", req.pkcUser?.email || "");
         }
       }
       return sendJSON(res, result.body, result.status);
@@ -702,7 +756,10 @@ const server = http.createServer(async (req, res) => {
       }
       try {
         const body = JSON.parse((await readBodyLimited(req, 2 * 1024 * 1024)) || "{}");
-        return sendJSON(res, await saveRemoteMatchData(body));
+        return sendJSON(res, await saveRemoteMatchData({
+          ...body,
+          actor:req.pkcUser?.email || "",
+        }));
       } catch (error) {
         const status = error.code === "revision_conflict" || error.code === "context_conflict" ? 409
           : ["series_not_found", "match_not_found", "game_not_found"].includes(error.code) ? 404
@@ -777,7 +834,7 @@ const server = http.createServer(async (req, res) => {
       try {
         const restored = await dataStore.restoreBackup(key, body.name);
         const rev = storeRev(key);
-        await appendDataAudit("restore-version", "恢复版本 " + restored.name, key);
+        await appendDataAudit("restore-version", "恢复版本 " + restored.name, key, req.pkcUser?.email || "");
         return sendJSON(res, { ok: true, key, rev, restored });
       } catch (error) {
         return sendJSON(res, { error: "restore_failed", message: error.message }, 400);
@@ -788,7 +845,7 @@ const server = http.createServer(async (req, res) => {
     }
     if (p === "/api/store/audit" && req.method === "POST") {
       const body = JSON.parse((await readBody(req)) || "{}");
-      const entry = await appendDataAudit(body.action, body.detail, body.key);
+      const entry = await appendDataAudit(body.action, body.detail, body.key, req.pkcUser?.email || "");
       return sendJSON(res, { ok: true, entry });
     }
     if (p === "/api/store/snapshot" && req.method === "POST") {
@@ -802,7 +859,12 @@ const server = http.createServer(async (req, res) => {
           if (snapshot) snapshots.push(snapshot);
         } catch { /* current file may be absent or malformed; keep other snapshots */ }
       }
-      const audit = await appendDataAudit(body.action || "snapshot", body.detail || "创建操作前快照", keys.join(","));
+      const audit = await appendDataAudit(
+        body.action || "snapshot",
+        body.detail || "创建操作前快照",
+        keys.join(","),
+        req.pkcUser?.email || "",
+      );
       return sendJSON(res, { ok: true, snapshots, audit });
     }
     /* ---------------- 英雄胜率 / 手动录入 ---------------- */
@@ -884,7 +946,7 @@ const server = http.createServer(async (req, res) => {
       const body = JSON.parse(await readBody(req));
       try {
         const out = addManualGame(readHeroStats(), body);
-        await writeHeroStats(out.data);
+        await writeHeroStats(out.data, { actor:req.pkcUser?.email || "" });
         return sendJSON(res, {
           ok: true, seriesId: out.seriesId, gameNo: out.gameNo,
           replaced: out.replaced, mergedInto: out.mergedInto,
@@ -910,8 +972,13 @@ const server = http.createServer(async (req, res) => {
         if (!game) return sendJSON(res, { ok:false, error:"找不到要填写禁用数据的对局" }, 404);
         if (!game.countable) return sendJSON(res, { ok:false, error:"这局选择或胜方不完整，暂不能填写禁用" }, 400);
         const next = applyMatchBans(manual, body, game);
-        await writeHeroStats(next);
-        await appendDataAudit("hero-stats-bans", `${game.leftTeam} vs ${game.rightTeam} · ${game.label}`, "heroStats");
+        await writeHeroStats(next, { actor:req.pkcUser?.email || "" });
+        await appendDataAudit(
+          "hero-stats-bans",
+          `${game.leftTeam} vs ${game.rightTeam} · ${game.label}`,
+          "heroStats",
+          req.pkcUser?.email || "",
+        );
         return sendJSON(res, { ok:true, bans:next.banGames[`${game.seriesId}::${game.gameId}`] || null });
       } catch (error) {
         return sendJSON(res, { ok:false, error:String(error && error.message || error) }, 400);
@@ -926,10 +993,10 @@ const server = http.createServer(async (req, res) => {
       if (body.scope === "bans") {
         data.banGames = {};
         data.updatedAt = new Date().toISOString();
-        await writeHeroStats(data);
+        await writeHeroStats(data, { actor:req.pkcUser?.email || "" });
         return sendJSON(res, { ok: true, clearedBans: true });
       }
-      await writeHeroStats(null);
+      await writeHeroStats(null, { actor:req.pkcUser?.email || "" });
       return sendJSON(res, { ok: true, cleared: true });
     }
     if (p === "/api/hero-stats/export.csv" && req.method === "GET") {
@@ -986,6 +1053,7 @@ const server = http.createServer(async (req, res) => {
         const written = await dataStore.writeData(key, incoming, {
           baseRevision: STORE_CONFLICT_KEYS.has(key) && base ? base : undefined,
           forceBackup: req.headers["x-pkc-force-backup"] === "1",
+          actor:req.pkcUser?.email || "",
         });
         if (!written.ok && written.conflict) {
           res.setHeader("X-PKC-Rev", written.revision);

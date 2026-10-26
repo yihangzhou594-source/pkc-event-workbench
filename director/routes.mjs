@@ -295,8 +295,8 @@ function withTeamAvailability(teams, seriesId) {
   }));
 }
 
-async function persistContext(candidate, revision, opts) {
-  const result = await saveCompetitionContext(candidate, revision, opts);
+async function persistContext(candidate, revision, opts = {}, actor = '') {
+  const result = await saveCompetitionContext(candidate, revision, { ...opts, actor });
   if (!result.conflict) store.setContext(result.context);
   return result;
 }
@@ -375,7 +375,12 @@ export async function handleDirector(req, res, url, helpers) {
         return sendJSON(res, { ...result, teams: withTeamAvailability(result.teams, seriesId) }), true;
       }
       const body = JSON.parse((await readBody(req)) || '{}');
-      return sendJSON(res, await replaceCompetitionTeams(seriesId, body.teams, body.revision)), true;
+      return sendJSON(res, await replaceCompetitionTeams(
+        seriesId,
+        body.teams,
+        body.revision,
+        { actor:req.pkcUser?.email || '' },
+      )), true;
     } catch (err) {
       if (err.code === 'team_revision_conflict') {
         return sendJSON(res, { error: err.code, message: err.message, revision: err.revision }, 409), true;
@@ -392,7 +397,10 @@ export async function handleDirector(req, res, url, helpers) {
   if (p === '/api/competition/teams/import' && req.method === 'POST') {
     try {
       const body = JSON.parse((await readBody(req)) || '{}');
-      return sendJSON(res, await importLegacyTeams(body)), true;
+      return sendJSON(res, await importLegacyTeams({
+        ...body,
+        actor:req.pkcUser?.email || '',
+      })), true;
     } catch (err) {
       const status = err.code === 'series_not_found' ? 404
         : ['confirmation_required', 'series_id_required'].includes(err.code) ? 400 : 500;
@@ -407,7 +415,7 @@ export async function handleDirector(req, res, url, helpers) {
   if (p === '/api/competition/context' && req.method === 'POST') {
     try {
       const body = JSON.parse((await readBody(req)) || '{}');
-      const result = await persistContext(body.context, body.revision);
+      const result = await persistContext(body.context, body.revision, {}, req.pkcUser?.email || '');
       if (result.conflict) return sendJSON(res, { error: 'context_conflict', context: result.context, revision: result.revision }, 409), true;
       return sendJSON(res, result), true;
     } catch (err) {
@@ -424,7 +432,12 @@ export async function handleDirector(req, res, url, helpers) {
     try {
       const body = JSON.parse((await readBody(req)) || 'null');
       const revision = body && typeof body === 'object' ? body.revision : undefined;
-      const result = await persistContext(body, revision, { allowLegacy: !Number.isFinite(Number(revision)) });
+      const result = await persistContext(
+        body,
+        revision,
+        { allowLegacy: !Number.isFinite(Number(revision)) },
+        req.pkcUser?.email || '',
+      );
       if (result.conflict) return sendJSON(res, { error: 'context_conflict', context: result.context, revision: result.revision }, 409), true;
       return sendJSON(res, { ok: true, context: result.context, revision: result.revision }), true;
     } catch (err) {
@@ -446,7 +459,12 @@ export async function handleDirector(req, res, url, helpers) {
       try {
         const body = JSON.parse((await readBody(req)) || '{}');
         const incoming = Array.isArray(body?.teams) ? body.teams : [];
-        const result = await replaceCompetitionTeams(seriesId, fromDirectorTeams(incoming), body.revision);
+        const result = await replaceCompetitionTeams(
+          seriesId,
+          fromDirectorTeams(incoming),
+          body.revision,
+          { actor:req.pkcUser?.email || '' },
+        );
         const teams = toDirectorTeams(result.teams);
         return sendJSON(res, { teams, seriesId, revision: result.revision }), true;
       } catch (err) {
@@ -520,7 +538,12 @@ export async function handleDirector(req, res, url, helpers) {
         {
           const context = body.context || body;
           const revision = body.revision ?? context.revision;
-          const result = await persistContext(context, revision, { allowLegacy: !Number.isFinite(Number(revision)) });
+          const result = await persistContext(
+            context,
+            revision,
+            { allowLegacy: !Number.isFinite(Number(revision)) },
+            req.pkcUser?.email || '',
+          );
           if (result.conflict) return sendJSON(res, { error: 'context_conflict', context: result.context, revision: result.revision }, 409), true;
         }
         break;

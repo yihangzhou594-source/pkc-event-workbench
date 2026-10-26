@@ -37,7 +37,12 @@ async function waitForMode(port, remoteExpected) {
 }
 
 function killTree(child) {
-  if (child?.pid) spawnSync("taskkill", ["/PID", String(child.pid), "/T", "/F"], { windowsHide: true });
+  if (!child?.pid) return;
+  try { child.kill(); } catch {}
+  // The direct kill closes the parent handle in restricted environments where
+  // taskkill can be denied; taskkill still cleans up the child process tree
+  // when the OS permits it.
+  spawnSync("taskkill", ["/PID", String(child.pid), "/T", "/F"], { windowsHide: true });
 }
 
 async function runMode(arg, remoteExpected) {

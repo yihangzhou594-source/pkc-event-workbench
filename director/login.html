@@ -1,0 +1,156 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <meta name="robots" content="noindex,nofollow" />
+  <title>PKC 赛事工作台 · 登录</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #07131b;
+      --panel: rgba(10, 32, 44, .92);
+      --line: rgba(152, 214, 228, .2);
+      --text: #f3f8fa;
+      --muted: #9db5bd;
+      --accent: #35d6a2;
+      --danger: #ff8d8d;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      padding: 24px;
+      color: var(--text);
+      font-family: "Microsoft YaHei UI", "PingFang SC", system-ui, sans-serif;
+      background:
+        radial-gradient(circle at 18% 20%, rgba(24, 132, 118, .34), transparent 35%),
+        radial-gradient(circle at 82% 80%, rgba(24, 97, 137, .28), transparent 42%),
+        linear-gradient(145deg, #07131b, #0b212d 54%, #071018);
+    }
+    .shell {
+      width: min(430px, 100%);
+      padding: 34px;
+      border: 1px solid var(--line);
+      border-radius: 24px;
+      background: var(--panel);
+      box-shadow: 0 30px 90px rgba(0, 0, 0, .42);
+      backdrop-filter: blur(18px);
+    }
+    .mark {
+      display: flex;
+      align-items: center;
+      gap: 13px;
+      margin-bottom: 30px;
+    }
+    .mark-icon {
+      width: 46px;
+      height: 46px;
+      display: grid;
+      place-items: center;
+      border-radius: 14px;
+      color: #042019;
+      font-weight: 900;
+      letter-spacing: -.06em;
+      background: linear-gradient(145deg, #7ef0c8, var(--accent));
+      box-shadow: 0 8px 24px rgba(53, 214, 162, .28);
+    }
+    h1 { margin: 0; font-size: 22px; letter-spacing: .02em; }
+    .sub { margin: 4px 0 0; color: var(--muted); font-size: 13px; }
+    label { display: block; margin: 16px 0 7px; color: #c9d9de; font-size: 13px; font-weight: 700; }
+    input {
+      width: 100%;
+      height: 48px;
+      padding: 0 14px;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      outline: none;
+      color: var(--text);
+      background: rgba(0, 0, 0, .22);
+      font: inherit;
+      transition: border-color .18s, box-shadow .18s;
+    }
+    input:focus {
+      border-color: rgba(53, 214, 162, .7);
+      box-shadow: 0 0 0 3px rgba(53, 214, 162, .12);
+    }
+    button {
+      width: 100%;
+      height: 49px;
+      margin-top: 22px;
+      border: 0;
+      border-radius: 12px;
+      color: #042019;
+      background: var(--accent);
+      font: inherit;
+      font-weight: 900;
+      cursor: pointer;
+    }
+    button:disabled { cursor: wait; opacity: .65; }
+    .status { min-height: 22px; margin: 13px 0 0; color: var(--danger); font-size: 13px; }
+    .foot { margin: 22px 0 0; color: #78919a; font-size: 12px; line-height: 1.65; }
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <div class="mark">
+      <div class="mark-icon">PKC</div>
+      <div>
+        <h1>赛事工作台</h1>
+        <p class="sub">PKC Cloud · 工作人员入口</p>
+      </div>
+    </div>
+    <form id="loginForm" autocomplete="on">
+      <label for="email">工作人员邮箱</label>
+      <input id="email" name="email" type="email" autocomplete="username" required />
+      <label for="password">密码</label>
+      <input id="password" name="password" type="password" autocomplete="current-password" required />
+      <button id="submit" type="submit">登录工作台</button>
+      <p id="status" class="status" role="alert"></p>
+    </form>
+    <p class="foot">仅限获授权的赛事工作人员使用。若账号无法登录，请联系管理员在 Supabase 中开通或重置账号。</p>
+  </main>
+  <script>
+    (() => {
+      const form = document.getElementById("loginForm");
+      const email = document.getElementById("email");
+      const password = document.getElementById("password");
+      const button = document.getElementById("submit");
+      const status = document.getElementById("status");
+      const params = new URLSearchParams(location.search);
+      const next = params.get("next") || "/";
+      const target = next.startsWith("/") && !next.startsWith("//") ? next : "/";
+
+      form.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        status.textContent = "";
+        button.disabled = true;
+        button.textContent = "正在验证…";
+        try {
+          const response = await fetch("/api/auth/login", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              email: email.value.trim(),
+              password: password.value,
+            }),
+          });
+          const body = await response.json().catch(() => ({}));
+          if (!response.ok) {
+            status.textContent = body.message || body.error || "登录失败";
+            return;
+          }
+          location.replace(target);
+        } catch {
+          status.textContent = "无法连接服务器，请稍后重试";
+        } finally {
+          button.disabled = false;
+          button.textContent = "登录工作台";
+        }
+      });
+    })();
+  </script>
+</body>
+</html>
