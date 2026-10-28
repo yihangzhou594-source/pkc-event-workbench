@@ -41,13 +41,13 @@ Render 免费服务不适合作为必须保证直播 SLA 的生产服务。若�
 4. 打开 **Authentication > URL Configuration**，把 **Site URL** 设置为：
 
 ```text
-https://pkc-event-workbench.onrender.com/login?confirmed=1
+https://live.pkchku.com/login?confirmed=1
 ```
 
 5. 在 **Redirect URLs** 加入：
 
 ```text
-https://pkc-event-workbench.onrender.com/login?confirmed=1
+https://live.pkchku.com/login?confirmed=1
 ```
 
 用户在工作台登录页点击“注册”，提交邮箱、密码并通过邮箱验证后即可登录。
@@ -76,7 +76,7 @@ https://pkc-event-workbench.onrender.com/login?confirmed=1
 ```env
 PKC_CLOUD=1
 PKC_REMOTE=1
-PKC_PUBLIC_URL=https://pkc-event-workbench.onrender.com
+PKC_PUBLIC_URL=https://live.pkchku.com
 SUPABASE_URL=https://<project-ref>.supabase.co
 SUPABASE_ANON_KEY=<public-anon-key>
 SUPABASE_SERVICE_ROLE_KEY=<server-only-service-role-key>
