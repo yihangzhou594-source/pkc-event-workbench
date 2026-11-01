@@ -230,7 +230,7 @@ function readinessBody() {
   const library = store.readData('library', null);
   const matches = store.readData('matches', null);
   const bracket = store.readData('bracket', null);
-  const context = store.snapshot().live.context || readCompetitionContext().context;
+  const context = readCompetitionContext().context;
   return buildProductionReadiness({ library, matches, bracket, context });
 }
 
