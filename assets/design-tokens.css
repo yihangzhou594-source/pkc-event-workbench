@@ -1,0 +1,172 @@
+/* Hallmark · shape: app screen · genre: modern-minimal · scope: app · built: the project · redesign: full app screen · v2.0.0
+ * pre-emit critique: P4 H4 E4 S5 R4 V4 · weakest: V, shared semantic tokens replace page-specific copies.
+ */
+
+:root{
+  --font-body:"Microsoft YaHei","PingFang SC","Noto Sans SC",system-ui,-apple-system,sans-serif;
+  --font-data:Bahnschrift,"Arial Narrow",sans-serif;
+  --font-mono:"Cascadia Code",Consolas,monospace;
+
+  --color-canvas:#eef2f8;
+  --color-paper:#fbfcff;
+  --color-surface:#ffffff;
+  --color-white:#ffffff;
+  --color-surface-raised:#f7f9fc;
+  --color-surface-sunken:#f0f3f8;
+  --color-ink:#16202e;
+  --color-ink-strong:#111827;
+  --color-muted:#5f7189;
+  --color-faint:#74839a;
+  --color-line:#e2e7f0;
+  --color-line-soft:#edf1f7;
+  --color-line-strong:#c8d4e5;
+
+  --color-primary:#2f6bff;
+  --color-primary-hover:#2058df;
+  --color-primary-dark:#1d4c9d;
+  --color-primary-soft:#eaf1ff;
+  --color-primary-line:#c9dbff;
+  --color-primary-wash:#f2f6ff;
+  --color-on-primary:#ffffff;
+  --color-focus:rgba(47,107,255,.28);
+
+  --color-inverse:#101b2d;
+  --color-inverse-2:#182741;
+  --color-inverse-3:#1c3457;
+  --color-on-dark:#f7f9fc;
+  --color-on-dark-muted:#b7c4d6;
+  --color-on-dark-subtle:rgba(255,255,255,.42);
+  --color-on-dark-hairline:rgba(255,255,255,.10);
+  --color-on-dark-hover:rgba(255,255,255,.08);
+  --color-on-dark-active:rgba(255,255,255,.13);
+
+  --color-gold:#c99a2e;
+  --color-gold-bright:#ffd76a;
+  --color-gold-hover:#ffe18c;
+  --color-gold-soft:#fff6dc;
+  --color-gold-line:#ead49a;
+  --color-on-gold:#3a2b05;
+
+  --color-positive:#168650;
+  --color-positive-strong:#0f6b3c;
+  --color-positive-soft:#eef9f3;
+  --color-positive-line:#bfe5cf;
+  --color-warning:#98600b;
+  --color-warning-soft:#fff8e8;
+  --color-warning-line:#eed49c;
+  --color-negative:#b42318;
+  --color-negative-2:#a32340;
+  --color-negative-soft:#fff0f2;
+  --color-negative-line:#f0c1ca;
+  --color-info:#315eb8;
+  --color-info-soft:#eef4ff;
+  --color-info-line:#cfe0ff;
+
+  --color-team-blue:#2457c5;
+  --color-team-blue-bright:#b8d2ff;
+  --color-team-red:#b83242;
+  --color-team-red-bright:#ffc4c8;
+  --color-stage-0:#0b1321;
+  --color-stage-1:#13213a;
+  --color-stage-2:#0b1423;
+  --color-stage-grid:rgba(180,199,230,.045);
+  --color-stage-glow:rgba(59,91,151,.38);
+  --color-stage-vignette:rgba(3,8,16,.22);
+  --color-white-96:rgba(255,255,255,.96);
+  --color-white-94:rgba(255,255,255,.94);
+  --color-white-93:rgba(255,255,255,.93);
+  --color-white-88:rgba(255,255,255,.88);
+  --color-white-70:rgba(255,255,255,.70);
+  --color-white-62:rgba(255,255,255,.62);
+  --color-white-42:rgba(255,255,255,.42);
+  --color-white-40:rgba(255,255,255,.40);
+  --color-white-34:rgba(255,255,255,.34);
+  --color-white-22:rgba(255,255,255,.22);
+  --color-white-16:rgba(255,255,255,.16);
+  --color-white-12:rgba(255,255,255,.12);
+  --color-white-10:rgba(255,255,255,.10);
+  --color-white-09:rgba(255,255,255,.09);
+  --color-white-08:rgba(255,255,255,.08);
+  --color-white-07:rgba(255,255,255,.07);
+  --color-white-06:rgba(255,255,255,.06);
+  --color-shadow-ink-62:rgba(22,32,46,.62);
+  --color-shadow-ink-40:rgba(24,33,47,.40);
+  --color-shadow-ink-28:rgba(0,0,0,.28);
+  --color-shadow-ink-22:rgba(31,42,68,.22);
+  --color-shadow-ink-20:rgba(16,27,45,.20);
+  --color-shadow-ink-16:rgba(17,29,49,.16);
+  --color-shadow-ink-12:rgba(24,33,47,.12);
+  --color-shadow-ink-10:rgba(24,33,47,.10);
+  --color-shadow-ink-08:rgba(22,32,46,.08);
+  --color-shadow-ink-06:rgba(24,33,47,.06);
+  --color-shadow-ink-05:rgba(22,32,46,.05);
+  --color-shadow-ink-045:rgba(22,32,46,.045);
+  --color-shadow-ink-04:rgba(22,32,46,.04);
+  --color-shadow-ink-035:rgba(22,32,46,.035);
+  --color-shadow-blue-28:rgba(47,107,255,.28);
+  --color-shadow-blue-24:rgba(47,107,255,.24);
+  --color-shadow-blue-16:rgba(47,107,255,.16);
+  --color-shadow-blue-14:rgba(47,107,255,.14);
+  --color-shadow-gold-38:rgba(201,154,46,.38);
+  --color-shadow-gold-24:rgba(201,154,46,.24);
+  --color-shadow-gold-22:rgba(201,154,46,.22);
+  --color-shadow-positive-80:rgba(21,160,90,.80);
+  --color-shadow-positive-75:rgba(21,160,90,.75);
+  --color-shadow-positive-55:rgba(21,160,90,.55);
+  --color-shadow-positive-35:rgba(21,160,90,.35);
+  --color-shadow-negative-80:rgba(214,69,95,.80);
+  --color-shadow-warning-55:rgba(232,161,58,.55);
+  --color-glass-panel:rgba(255,255,255,.93);
+  --color-glass-panel-light:rgba(255,255,255,.88);
+  --color-glass-bar:rgba(247,249,252,.96);
+  --color-glass-surface-95:rgba(244,246,251,.95);
+  --color-glass-surface-94:rgba(244,246,251,.94);
+  --color-glass-line-85:rgba(230,234,242,.85);
+  --color-backdrop:rgba(13,22,38,.46);
+  --color-backdrop-subtle:rgba(10,18,36,.25);
+  --color-stage-background:rgba(54,104,170,.16);
+  --color-toast-backdrop:rgba(11,18,30,.40);
+  --color-conflict-backdrop:rgba(60,10,20,.40);
+
+  --shadow-soft:0 1px 2px rgba(24,33,47,.04), 0 10px 28px rgba(24,33,47,.06);
+  --shadow-popover:0 16px 36px rgba(16,27,45,.20);
+  --shadow-command:0 18px 40px rgba(17,29,49,.16);
+  --shadow-toast:0 18px 44px rgba(11,18,30,.40);
+  --shadow-conflict:0 18px 44px rgba(60,10,20,.40);
+  --shadow-brand:0 8px 18px rgba(0,0,0,.28);
+  --shadow-primary:0 6px 16px rgba(47,107,255,.18);
+
+  --radius-control:8px;
+  --radius-panel:12px;
+  --radius-shell:16px;
+  --space-1:4px;
+  --space-2:8px;
+  --space-3:12px;
+  --space-4:16px;
+  --space-5:20px;
+  --space-6:24px;
+  --space-7:28px;
+  --space-8:32px;
+  --space-9:36px;
+  --space-10:40px;
+  --space-11:44px;
+  --space-12:48px;
+  --space-14:56px;
+  --space-16:64px;
+  --duration-micro:.14s;
+  --duration-short:.24s;
+}
+
+html,body{overflow-x:clip}
+::selection{background:var(--color-primary-soft);color:var(--color-ink-strong)}
+:focus-visible{outline:2px solid var(--color-primary);outline-offset:2px}
+button:disabled,[aria-disabled="true"]{cursor:not-allowed;opacity:.48}
+
+@media (prefers-reduced-motion: reduce){
+  *,*::before,*::after{
+    scroll-behavior:auto !important;
+    animation-duration:.01ms !important;
+    animation-iteration-count:1 !important;
+    transition-duration:.01ms !important;
+  }
+}

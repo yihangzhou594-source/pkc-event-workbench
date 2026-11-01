@@ -3,64 +3,71 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="description" content="PKC 赛事工作台：录入对局数据、检查开播准备并推送直播画面。" />
 <link rel="icon" href="data:," />
 <title>PKC 赛事导播系统</title>
+<link rel="stylesheet" href="/assets/design-tokens.css" />
 <style>
+/* Hallmark · shape: app screen · genre: modern-minimal · scope: app · built: the project · redesign: full app screen · v2.0.0
+ * pre-emit critique: P4 H4 E4 S5 R4 V4 · weakest: V, the embedded director screen used a second visual language; aligned controls and surfaces with the workbench.
+ */
 
   :root{
-    --bg:#eef1f6; --surface:#ffffff; --surface2:#f7f9fc; --line:#e2e7f0; --line2:#edf1f7;
-    --text:#18212f; --muted:#6b7c93; --faint:#9aa8bb;
-    --primary:#2f6bff; --primary-soft:#eaf1ff; --primary-line:#c9dbff;
-    --nav-active:#1f2a44; --ok:#15a05a; --warn:#c2760a;
-    --radius:12px; --shadow:0 1px 2px rgba(24,33,47,.05), 0 8px 24px rgba(24,33,47,.06);
+    --bg:var(--color-canvas); --surface:var(--color-surface); --surface2:var(--color-surface-raised);
+    --line:var(--color-line); --line2:var(--color-line-soft);
+    --text:var(--color-ink); --muted:var(--color-muted); --faint:var(--color-faint);
+    --primary:var(--color-primary); --primary-soft:var(--color-primary-soft); --primary-line:var(--color-primary-line);
+    --nav-active:var(--color-inverse-2); --ok:var(--color-positive); --warn:var(--color-warning);
+    --radius:var(--radius-panel); --shadow:var(--shadow-soft);
   }
   .pk *{box-sizing:border-box}
-  .pk html, .pk body{height:100%;margin:0}
-  .pk body{
+  html,body{height:100%;margin:0}
+  html{overflow-x:clip}
+  body{
     background:var(--bg); color:var(--text);
-    font:13.5px/1.55 "Microsoft YaHei","PingFang SC","Noto Sans SC",system-ui,sans-serif;
-    overflow:hidden;
+    font:14px/1.55 "Microsoft YaHei","PingFang SC","Noto Sans SC",system-ui,sans-serif;
+    overflow-x:clip;overflow-y:hidden;
   }
+  h1,h2,h3{text-wrap:balance}
   .pk button{font:inherit;cursor:pointer}
 
   /* ---------- 外壳：左侧导航 + 主区域 ---------- */
   .pk .shell{display:flex;height:100vh}
   .pk .side{
     width:212px;flex:0 0 212px;background:var(--surface);
-    border-right:1px solid var(--line);display:flex;flex-direction:column;padding:14px 12px;
+    border-right:1px solid var(--line);display:flex;flex-direction:column;padding:var(--space-3) var(--space-3);
   }
   .pk .side-top{
-    font-size:12px;font-weight:700;color:var(--muted);letter-spacing:.04em;
-    padding:4px 8px 14px;border-bottom:1px solid var(--line2);margin-bottom:10px;
+    font-size:12px;font-weight:700;color:var(--muted);
+    padding:var(--space-1) var(--space-2) var(--space-3);border-bottom:1px solid var(--line2);margin-bottom:var(--space-2);
   }
-  .pk .side-nav{display:flex;flex-direction:column;gap:4px;flex:1}
+  .pk .side-nav{display:flex;flex-direction:column;gap:var(--space-1);flex:1}
   .pk .nav-item{
-    display:flex;align-items:center;gap:9px;padding:9px 11px;border:0;border-radius:9px;
+    display:flex;align-items:center;gap:var(--space-2);padding:var(--space-2) var(--space-3);border:0;border-radius:9px;
     background:transparent;color:var(--text);text-align:left;
     transition:background-color .18s ease,color .18s ease,transform .18s ease;
   }
   .pk .nav-item svg{width:17px;height:17px;flex:0 0 17px;stroke:currentColor;fill:none;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
   .pk .nav-item:hover{background:var(--surface2)}
-  .pk .nav-item.on{background:var(--nav-active);color:#fff;box-shadow:0 6px 16px rgba(31,42,68,.22)}
+  .pk .nav-item.on{background:var(--nav-active);color:var(--color-surface);box-shadow:0 6px 16px var(--color-shadow-ink-22)}
   .pk .nav-item.on:active{transform:scale(.985)}
-  .pk .nav-badge{margin-left:auto;font-size:10px;background:var(--primary);color:#fff;border-radius:6px;padding:1px 5px}
-  .pk .side-foot{font-size:11.5px;color:var(--faint);padding:10px 8px 2px;border-top:1px solid var(--line2)}
+  .pk .nav-badge{margin-left:auto;font-size:10px;background:var(--primary);color:var(--color-surface);border-radius:6px;padding:1px var(--space-1)}
+  .pk .side-foot{font-size:11.5px;color:var(--faint);padding:var(--space-2) var(--space-2) 2px;border-top:1px solid var(--line2)}
   .pk .side-foot b{color:var(--muted)}
 
   .pk .main{flex:1;position:relative;overflow:hidden}
 
   /* ---------- 视图切换动画 ---------- */
   .pk .view{
-    position:absolute;inset:0;padding:16px 18px;overflow:auto;
-    opacity:0;transform:translateY(10px) scale(.995);pointer-events:none;
-    transition:opacity .26s ease,transform .26s cubic-bezier(.22,.61,.36,1);
+    position:absolute;inset:0;padding:var(--space-4) var(--space-4);overflow:auto;
+    display:none;opacity:1;pointer-events:none;
   }
-  .pk .view.on{opacity:1;transform:none;pointer-events:auto}
-  .pk .view-head{display:flex;align-items:center;gap:10px;margin-bottom:14px}
+  .pk .view.on{display:block;pointer-events:auto}
+  .pk .view-head{display:flex;align-items:center;gap:var(--space-2);margin-bottom:var(--space-3)}
   .pk .view-head h1{font-size:17px;margin:0;font-weight:700}
   .pk .view-head .sub{color:var(--muted);font-size:12.5px}
-  .ctx-chip{display:none;align-items:center;gap:6px;padding:4px 10px;border-radius:999px;
-    background:#eef4ff;color:#2457c5;font-size:12px;font-weight:700;border:1px solid #cfe0ff;
+  .ctx-chip{display:none;align-items:center;gap:var(--space-1);padding:var(--space-1) var(--space-2);border-radius:999px;
+    background:var(--color-surface-sunken);color:var(--color-team-blue);font-size:12px;font-weight:700;border:1px solid var(--color-primary-line);
     max-width:560px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .ctx-chip.on{display:inline-flex}
   .pk .grow{flex:1}
@@ -68,97 +75,107 @@
   /* ---------- 通用控件 ---------- */
   .pk .card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow)}
   .pk .btn{
-    padding:7px 13px;border:1px solid var(--line);border-radius:9px;background:var(--surface);color:var(--text);
+    display:inline-flex;align-items:center;justify-content:center;gap:var(--space-1);
+    min-height:36px;padding:var(--space-2) var(--space-3);border:1px solid var(--line);border-radius:9px;background:var(--surface);color:var(--text);
+    font-weight:600;font-size:12.5px;
     transition:background-color .16s ease,border-color .16s ease,transform .16s ease,box-shadow .16s ease;
   }
   .pk .btn:hover{background:var(--surface2);border-color:var(--primary-line)}
   .pk .btn:active{transform:translateY(1px)}
-  .pk .btn.primary{background:var(--primary);border-color:var(--primary);color:#fff;font-weight:600}
-  .pk .btn.primary:hover{filter:brightness(1.06);box-shadow:0 6px 18px rgba(47,107,255,.28)}
+  .pk .btn.primary{background:var(--primary);border-color:var(--primary);color:var(--color-on-primary);font-weight:600}
+  .pk .btn.primary:hover{background:var(--color-primary-hover);border-color:var(--color-primary-hover);color:var(--color-on-primary)}
   .pk .btn.ghost{background:transparent}
   .pk .btn:disabled{opacity:.45;cursor:not-allowed;transform:none}
 
   /* ---------- 导播台三栏 ---------- */
-  .pk .director{display:grid;grid-template-columns:118px minmax(0,1fr) 292px;gap:14px;height:100%;min-height:0}
+  .pk .director{display:grid;grid-template-columns:118px minmax(0,1fr) 292px;gap:var(--space-3);height:100%;min-height:0}
   @media (max-width:1100px){
     /* 非全屏：场景栏改成顶部横向条，画面在中间，操作面板在下面 */
     .pk .director{
-      grid-template-columns:1fr;
+      grid-template-columns:minmax(0,1fr);
       grid-template-rows:auto minmax(300px,1fr) auto;
       height:auto;
-      gap:12px;
+      gap:var(--space-3);
     }
     .pk .director .scenes{
       flex-direction:row;flex-wrap:nowrap;align-items:center;
-      overflow-x:auto;overflow-y:hidden;padding:8px;gap:6px;
+      overflow-x:auto;overflow-y:hidden;padding:var(--space-2);gap:var(--space-1);
     }
     .pk .director .scenes .cap{display:none}
-    .pk .director .scene{flex:0 0 auto;min-width:78px;padding:8px 14px;text-align:center}
+    .pk .director .scene{flex:0 0 auto;min-width:78px;padding:var(--space-2) var(--space-3);text-align:center}
     .pk .director .ops{grid-column:1 / -1}
   }
-  .pk .scenes{display:flex;flex-direction:column;gap:9px;padding:11px;overflow:auto}
-  .pk .scenes .cap{font-size:11.5px;color:var(--faint);font-weight:700;letter-spacing:.06em;margin:2px 0 2px 2px}
+  .pk .scenes{display:flex;flex-direction:column;gap:var(--space-2);padding:var(--space-3);overflow:auto}
+  .pk .scenes .cap{font-size:11.5px;color:var(--muted);font-weight:700;margin:2px 0 2px 2px}
   .pk .scene{
-    position:relative;padding:14px 6px;border:1px solid var(--line);border-radius:11px;
+    position:relative;padding:var(--space-3) var(--space-1);border:1px solid var(--line);border-radius:11px;
     background:var(--surface2);color:var(--text);font-weight:600;font-size:12.5px;
     transition:background-color .2s ease,border-color .2s ease,color .2s ease,transform .2s ease,box-shadow .2s ease;
   }
   .pk .scene:hover{transform:translateY(-1px);border-color:var(--primary-line)}
-  .pk .scene.on{background:var(--primary-soft);border-color:var(--primary);color:var(--primary);box-shadow:0 4px 14px rgba(47,107,255,.16)}
+  .pk .scene.on{background:var(--primary-soft);border-color:var(--primary);color:var(--primary);box-shadow:0 4px 14px var(--color-shadow-blue-16)}
+  .pk .scene-key{display:inline-block;margin-left:4px;font-size:10px;font-weight:700;color:var(--muted);border:1px solid var(--line);border-radius:4px;padding:0 4px;line-height:1.4}
+  .pk .scene.on .scene-key{color:var(--primary);border-color:var(--primary-line)}
+  .pk .hotkey-legend{margin:0 0 8px;font-size:12px;font-weight:700;color:var(--muted)}
+  .pk .ops-fold{margin-top:8px;border:1px solid var(--line2);border-radius:9px;padding:8px 10px}
+  .pk .ops-fold > summary{cursor:pointer;font-size:12px;font-weight:700;color:var(--muted)}
+  .pk .ops-fold .cm-banner-box{margin-top:8px;padding-top:0;border-top:0}
+  .pk .lookup-msg{font-size:12px;color:var(--text)}
+  .pk .lookup-msg.bad{color:var(--color-negative)}
   .pk .scene .live{
-    position:absolute;top:-6px;right:-4px;font-size:9.5px;font-weight:700;color:#fff;background:var(--ok);
-    border-radius:6px;padding:1px 5px;box-shadow:0 2px 6px rgba(21,160,90,.35);
+    position:absolute;top:-6px;right:-4px;font-size:9.5px;font-weight:700;color:var(--color-surface);background:var(--ok);
+    border-radius:6px;padding:1px var(--space-1);box-shadow:0 2px 6px var(--color-shadow-positive-35);
   }
 
   .pk .stage{position:relative;display:flex;flex-direction:column;min-height:0;overflow:hidden}
-  .pk .stage-top{display:flex;align-items:center;gap:8px;padding:10px 12px;border-bottom:1px solid var(--line2)}
+  .pk .stage-top{display:flex;align-items:center;gap:var(--space-2);padding:var(--space-2) var(--space-3);border-bottom:1px solid var(--line2)}
   .pk .seg{display:flex;background:var(--surface2);border:1px solid var(--line);border-radius:9px;padding:2px}
-  .pk .seg button{border:0;background:transparent;padding:5px 14px;border-radius:7px;color:var(--muted);font-size:12.5px;transition:background-color .18s ease,color .18s ease}
-  .pk .seg button.on{background:var(--surface);color:var(--text);font-weight:700;box-shadow:0 1px 3px rgba(24,33,47,.12)}
+  .pk .seg button{border:0;background:transparent;padding:var(--space-1) var(--space-3);border-radius:7px;color:var(--muted);font-size:12.5px;transition:background-color .18s ease,color .18s ease}
+  .pk .seg button.on{background:var(--surface);color:var(--text);font-weight:700;box-shadow:0 1px 3px var(--color-shadow-ink-12)}
   .pk .stage-canvas{
     flex:1;min-height:0;position:relative;overflow:hidden;
     background:
-      repeating-linear-gradient(0deg,rgba(180,199,230,.045) 0 1px,transparent 1px 52px),
-      repeating-linear-gradient(90deg,rgba(180,199,230,.035) 0 1px,transparent 1px 52px),
-      radial-gradient(ellipse at 18% 8%,rgba(59,91,151,.38),transparent 48%),
-      linear-gradient(155deg,#0b1321 0%,#13213a 54%,#0b1423 100%);
+      repeating-linear-gradient(0deg,var(--color-stage-grid) 0 1px,transparent 1px 52px),
+      repeating-linear-gradient(90deg,var(--color-stage-grid) 0 1px,transparent 1px 52px),
+      radial-gradient(ellipse at 18% 8%,var(--color-stage-glow),transparent 48%),
+      linear-gradient(155deg,var(--color-stage-0) 0%,var(--color-stage-1) 54%,var(--color-stage-2) 100%);
   }
   .pk .stage-canvas::after{
     content:"";position:absolute;inset:0;pointer-events:none;
-    background:radial-gradient(ellipse at center,transparent 38%,rgba(3,8,16,.22) 100%);
+    background:radial-gradient(ellipse at center,transparent 38%,var(--color-stage-vignette) 100%);
   }
   .pk .stage-canvas iframe{position:absolute;z-index:1;inset:0;width:100%;height:100%;border:0;transition:opacity .28s ease;pointer-events:none}
   .pk .stage-canvas iframe.fading{opacity:0}
 
-  .pk .ops{display:flex;flex-direction:column;gap:12px;padding:12px;overflow:auto}
-  .pk .ops h2{font-size:11.5px;color:var(--faint);font-weight:700;letter-spacing:.06em;margin:0 0 8px}
-  .pk .ops .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px}
+  .pk .ops{display:flex;flex-direction:column;gap:var(--space-3);padding:var(--space-3);overflow:auto}
+  .pk .ops h2{font-size:12px;color:var(--muted);font-weight:700;margin:0 0 var(--space-2)}
+  .pk .ops .row{display:flex;gap:var(--space-2);align-items:center;flex-wrap:wrap;margin-bottom:var(--space-2)}
   .pk .ops .kv{font-size:12.5px;color:var(--muted)}
   .pk .ops .kv b{color:var(--text);font-weight:600}
   .pk input[type=number], .pk input[type=text], .pk textarea, .pk select{
-    font:inherit;padding:6px 9px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--text);
+    font:inherit;padding:var(--space-1) var(--space-2);border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--text);
     transition:border-color .16s ease,box-shadow .16s ease;
   }
   .pk input:focus, .pk textarea:focus, .pk select:focus{outline:0;border-color:var(--primary);box-shadow:0 0 0 3px var(--primary-soft)}
   .pk input[type=number]{width:60px;text-align:center}
-  .pk code{background:var(--surface2);border:1px solid var(--line2);border-radius:6px;padding:1px 6px;font-size:11.5px;word-break:break-all}
+  .pk code{background:var(--surface2);border:1px solid var(--line2);border-radius:6px;padding:1px var(--space-1);font-size:11.5px;word-break:break-all}
 
   /* ---------- 队伍库 ---------- */
-  .pk .team-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(268px,1fr));gap:12px}
-  .pk .team{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:13px;box-shadow:var(--shadow);transition:transform .2s ease,box-shadow .2s ease}
-  .pk .team:hover{transform:translateY(-2px);box-shadow:0 10px 26px rgba(24,33,47,.1)}
-  .pk .team .name{display:flex;align-items:center;gap:8px;font-weight:700;margin-bottom:9px}
+  .pk .team-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(268px,1fr));gap:var(--space-3)}
+  .pk .team{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:var(--space-3);box-shadow:var(--shadow);transition:transform .2s ease,box-shadow .2s ease}
+  .pk .team:hover{transform:translateY(-2px);box-shadow:0 10px 26px var(--color-shadow-ink-10)}
+  .pk .team .name{display:flex;align-items:center;gap:var(--space-2);font-weight:700;margin-bottom:var(--space-2)}
   .pk .team .logo{width:26px;height:26px;border-radius:7px;object-fit:cover;background:var(--surface2);border:1px solid var(--line2)}
-  .pk .team .p{display:flex;gap:8px;font-size:12.5px;padding:3px 0;border-bottom:1px dashed var(--line2)}
+  .pk .team .p{display:flex;gap:var(--space-2);font-size:12.5px;padding:var(--space-1) 0;border-bottom:1px dashed var(--line2)}
   .pk .team .p:last-child{border-bottom:0}
   .pk .team .p .lane{color:var(--faint);width:52px;flex:0 0 52px}
   .pk .team .p .rn{color:var(--faint);margin-left:auto}
-  .pk .empty-hint{color:var(--faint);font-size:13px;padding:26px;text-align:center;border:1px dashed var(--line);border-radius:var(--radius);background:var(--surface2)}
-  .pk .import-area{display:grid;grid-template-columns:1fr 300px;gap:14px;margin-bottom:14px}
+  .pk .empty-hint{color:var(--faint);font-size:13px;padding:var(--space-6);text-align:center;border:1px dashed var(--line);border-radius:var(--radius);background:var(--surface2)}
+  .pk .import-area{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:var(--space-3);margin-bottom:var(--space-3)}
   .pk .import-area textarea{width:100%;min-height:132px;font-family:ui-monospace,Consolas,monospace;font-size:12px;resize:vertical}
-  .pk .msg{font-size:12.5px;padding:7px 10px;border-radius:8px;display:none;margin-top:8px}
-  .pk .msg.ok{display:block;background:#e7f7ee;color:#0f7a44;border:1px solid #bfe8d3}
-  .pk .msg.bad{display:block;background:#fdeef1;color:#a32340;border:1px solid #f6c9d4}
+  .pk .msg{font-size:12.5px;padding:var(--space-2) var(--space-2);border-radius:8px;display:none;margin-top:var(--space-2)}
+  .pk .msg.ok{display:block;background:var(--color-positive-soft);color:var(--color-positive-strong);border:1px solid var(--color-positive-line)}
+  .pk .msg.bad{display:block;background:var(--color-negative-soft);color:var(--color-negative-2);border:1px solid var(--color-negative-line)}
   .pk .dirty{font-size:12px;color:var(--warn);font-weight:600;opacity:0;transition:opacity .25s ease}
   .pk .dirty.on{opacity:1}
   /* ---------- BP 操作台 ---------- */
@@ -170,45 +187,53 @@
   .pk .chart-ops.on{display:block}
   .pk .scene-ops{display:none}
   .pk .scene-ops.on{display:block}
-  .pk .ops-scene-hint{font-size:12px;font-weight:700;color:#2457c5;background:#eef4ff;border:1px solid #cfe0ff;border-radius:9px;padding:7px 10px}
-  .pk .director-readiness{display:flex;flex-direction:column;gap:5px;padding:8px;border:1px solid var(--line);border-radius:10px;background:#fbfcff}
-  .pk .director-readiness .r{display:grid;grid-template-columns:7px minmax(0,1fr) auto;gap:7px;align-items:center;font-size:11.5px}
-  .pk .director-readiness .r>i{width:7px;height:7px;border-radius:50%;background:#159f61}
-  .pk .director-readiness .r.warning>i{background:#dd9828}
-  .pk .director-readiness .r.blocked>i{background:#d7475c}
+  .pk .ops-scene-hint{font-size:12px;font-weight:700;color:var(--color-team-blue);background:var(--color-surface-sunken);border:1px solid var(--color-primary-line);border-radius:9px;padding:var(--space-2) var(--space-2)}
+  .pk .director-readiness{display:flex;flex-direction:column;gap:var(--space-1);padding:var(--space-2);border:1px solid var(--line);border-radius:10px;background:var(--color-surface-raised)}
+  .pk .director-readiness .r{display:grid;grid-template-columns:7px minmax(0,1fr) auto;gap:var(--space-2);align-items:center;font-size:11.5px}
+  .pk .director-readiness .r>i{width:7px;height:7px;border-radius:50%;background:var(--color-positive)}
+  .pk .director-readiness .r.warning>i{background:var(--color-gold)}
+  .pk .director-readiness .r.blocked>i{background:var(--color-negative)}
   .pk .director-readiness .r b{font-weight:700;color:var(--ink)}
   .pk .director-readiness .r span{color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .pk .director-readiness .r em{font-style:normal;font-size:10px;font-weight:700;color:var(--muted)}
-  .pk .cm-person{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;margin-top:6px}
+  .pk .cm-person{display:flex;gap:var(--space-2);flex-wrap:wrap;align-items:flex-end;margin-top:var(--space-1)}
   .pk .cm-person.off{display:none}
-  .pk .cm-banner-box{margin-top:12px;padding-top:10px;border-top:1px solid var(--line2)}
-  .pk .cm-banner-head{font-size:12px;font-weight:700;color:var(--muted);margin-bottom:6px;letter-spacing:.04em}
+  .pk .cm-banner-box{margin-top:var(--space-3);padding-top:var(--space-2);border-top:1px solid var(--line2)}
+  .pk .cm-banner-head{font-size:12px;font-weight:700;color:var(--muted);margin-bottom:var(--space-1)}
   #cmBannerSub.off,#cmBannerAch.off{display:none}
-  .pk .chart-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;margin-top:8px}
+  .pk .chart-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--space-1);margin-top:var(--space-2)}
   .pk .chart-chip{
     border:1px solid var(--line);border-radius:8px;background:var(--surface2);color:var(--muted);
-    padding:6px 7px;text-align:left;font-size:11.5px;line-height:1.35;white-space:nowrap;
+    padding:var(--space-1) var(--space-2);text-align:left;font-size:11.5px;line-height:1.35;white-space:nowrap;
     overflow:hidden;text-overflow:ellipsis;transition:background-color .16s ease,border-color .16s ease,color .16s ease;
   }
   .pk .chart-chip:hover{border-color:var(--primary-line);background:var(--surface)}
   .pk .chart-chip.on{border-color:var(--primary);background:var(--primary-soft);color:var(--primary);font-weight:700}
-  .pk .bp-search{width:100%;margin-bottom:8px}
-  .pk .bp-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;max-height:300px;overflow:auto;padding-right:2px}
+  .pk .bp-search{width:100%;margin-bottom:var(--space-2)}
+  .pk .bp-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:var(--space-1);max-height:300px;overflow:auto;padding-right:2px}
   .pk .bp-hero{position:relative;aspect-ratio:1;border:1px solid var(--line);border-radius:9px;background:var(--surface2);padding:0;overflow:hidden;cursor:pointer;transition:transform .14s ease,border-color .14s ease,box-shadow .14s ease}
   .pk .bp-hero:hover{transform:translateY(-2px);border-color:var(--primary-line)}
   .pk .bp-hero.on{border-color:var(--primary);box-shadow:0 0 0 2px var(--primary-soft)}
   .pk .bp-hero img{width:100%;height:100%;object-fit:cover;display:block}
   .pk .bp-hero.used{opacity:.3;cursor:not-allowed}
-  .pk .bp-hero span{position:absolute;left:0;right:0;bottom:0;font-size:10px;line-height:1.5;background:rgba(24,33,47,.62);color:#fff;text-align:center;padding:1px 2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .pk .bp-picked{font-size:12.5px;color:var(--muted);margin:6px 0}
+  .pk .bp-hero span{position:absolute;left:0;right:0;bottom:0;font-size:10px;line-height:1.5;background:var(--color-shadow-ink-62);color:var(--color-surface);text-align:center;padding:1px 2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .pk .bp-picked{font-size:12.5px;color:var(--muted);margin:var(--space-1) 0}
   .pk .bp-picked b{color:var(--primary);font-weight:700}
-  .pk .bp-stat{font-size:12.5px;color:var(--muted);margin-bottom:7px}
+  .pk .bp-stat{font-size:12.5px;color:var(--muted);margin-bottom:var(--space-2)}
   .pk .bp-stat b{color:var(--text)}
 
+  @media (prefers-reduced-motion: reduce){
+    *,*::before,*::after{
+      scroll-behavior:auto !important;
+      animation-duration:.01ms !important;
+      animation-iteration-count:1 !important;
+      transition-duration:.01ms !important;
+    }
+  }
 </style>
 <link rel="stylesheet" href="/assets/shell.css" />
 </head>
-<body style="margin:0;overflow:hidden">
+<body style="margin:0;overflow-x:clip;overflow-y:hidden">
 <script>
 "use strict";
 (function () {
@@ -252,11 +277,11 @@
       <button class="wk-item on" data-view="overview" data-icon="overview" title="概览" aria-current="page"><span class="wk-ico"></span><span>概览</span></button>
       <div class="wk-cap">直播</div>
       <button class="wk-item" data-view="director" data-icon="live" title="导播台"><span class="wk-ico"></span><span>导播台</span></button>
-      <button class="wk-item" data-view="spotlight" data-icon="promo" title="宣传轮播"><span class="wk-ico"></span><span>宣传轮播</span></button>
+      <button class="wk-item" data-view="spotlight" data-icon="spotlight" title="宣传轮播"><span class="wk-ico"></span><span>宣传轮播</span></button>
       <div class="wk-cap">数据</div>
       <button class="wk-item" data-view="data" data-icon="data" title="对局数据"><span class="wk-ico"></span><span>对局数据</span></button>
       <button class="wk-item" data-view="herostats" data-icon="herostats" title="英雄胜率"><span class="wk-ico"></span><span>英雄胜率</span></button>
-      <button class="wk-item" data-view="season" data-icon="data" title="赛季仪表盘"><span class="wk-ico"></span><span>赛季仪表盘</span></button>
+      <button class="wk-item" data-view="season" data-icon="season" title="赛季仪表盘"><span class="wk-ico"></span><span>赛季仪表盘</span></button>
       <button class="wk-item" data-view="bracket" data-icon="bracket" title="淘汰赛赛程"><span class="wk-ico"></span><span>淘汰赛赛程</span></button>
       <div class="wk-cap">资料</div>
       <button class="wk-item" data-view="teams" data-icon="teams" title="队伍库"><span class="wk-ico"></span><span>队伍库</span></button>
@@ -267,11 +292,11 @@
       <div class="wk-grow"></div>
       <button class="wk-item" data-view="help" data-icon="help" title="说明"><span class="wk-ico"></span><span>说明</span></button>
     </nav>
-    <div class="wk-rail-foot"><span class="wk-dot" id="wkDot"></span><span id="wkService" role="status" aria-live="polite" aria-atomic="true">本地服务</span></div>
+    <div class="wk-rail-foot" id="wkServiceFoot" tabindex="0" title="本地服务" aria-label="本地服务"><span class="wk-dot" id="wkDot"></span><span id="wkService" role="status" aria-live="polite" aria-atomic="true">本地服务</span></div>
   </aside>
   <div class="wk-main" role="main" aria-label="赛事工作台内容">
     <header class="wk-top">
-      <button class="wk-btn ghost wk-nav-toggle" id="wkNavToggle" type="button" aria-controls="wkRail" aria-expanded="true" title="展开或收起导航"><span aria-hidden="true">☰</span><span>导航</span></button>
+      <button class="wk-btn ghost wk-nav-toggle" id="wkNavToggle" type="button" aria-controls="wkRail" aria-expanded="true" title="展开或收起导航"><span class="wk-menu-icon" aria-hidden="true"><i></i><i></i><i></i></span><span>导航</span></button>
       <div class="wk-top-title"><h1 id="wkTitle">概览</h1><p id="wkSub">当前工作、OBS 源与赛事状态</p></div>
       <details class="wk-context-disclosure" id="wkContextDisclosure" open>
         <summary class="wk-context-summary" id="wkContextSummary" aria-controls="wkContextDetails" aria-expanded="true">
@@ -283,10 +308,10 @@
             <span class="wk-ctx-sep s1">›</span>
             <span class="wk-ctx-match" id="wkCtxMatch">未关联赛程</span>
             <span class="wk-ctx-sep s2">›</span>
-            <span class="wk-ctx-game" id="wkCtxGame">—</span>
+            <span class="wk-ctx-game" id="wkCtxGame">未选择</span>
             <span class="wk-ctx-teams"><b class="blue" id="wkBlue">蓝方</b><i>VS</i><b class="red" id="wkRed">红方</b></span>
             <span class="wk-ctx-score" id="wkScore" title="本局击杀比分">- : -</span>
-            <span class="wk-live" id="wkLive" aria-label="当前播出场景"><i></i>在播：<b>—</b></span>
+            <span class="wk-live" id="wkLive" aria-label="当前播出场景"><i></i>在播：<b>暂无</b></span>
             <button class="wk-btn ghost" id="wkCtxChoose" hidden>去对局数据选择</button>
           </div>
         </div>
@@ -297,36 +322,53 @@
       </div>
     </header>
     <div class="pk-diag" id="pkDiag" role="alert" aria-live="assertive" aria-atomic="true"></div>
+    <div class="wk-state" id="wkState" role="alert" aria-live="assertive" hidden>
+      <div class="wk-state-copy">
+        <b id="wkStateTitle">数据工作台加载失败</b>
+        <p id="wkStateText">生成器没有响应，当前页面的其他导航仍可使用。</p>
+      </div>
+      <div class="wk-state-actions">
+        <button class="wk-btn primary" id="wkStateRetry" type="button">重新加载</button>
+        <button class="wk-btn ghost" id="wkStateClose" type="button">关闭</button>
+      </div>
+    </div>
     <div class="wk-panes">
       <section class="wk-pane on" id="pane-overview">
         <div class="wk-ov">
-          <div class="wk-hero">
-            <div class="wk-hero-top">
-              <div>
-                <span class="wk-eyebrow">CURRENT SERIES · PKC 2026</span>
-                <h2 id="ovSeries">还没有系列赛</h2>
-                <p class="wk-hero-stage" id="ovStage">—</p>
+          <section class="wk-command" aria-labelledby="ovSeries">
+            <div class="wk-command-main">
+              <span class="wk-command-label">当前赛事</span>
+              <h2 id="ovSeries">还没有系列赛</h2>
+              <p class="wk-command-meta"><span id="ovStage">尚未开始</span><span>当前场次与直播状态由服务端同步</span></p>
+              <div class="wk-command-match">
+                <div class="wk-side blue"><span>蓝方</span><b id="ovBlue">蓝方</b></div>
+                <div class="wk-hero-score"><b id="ovScore">0 : 0</b><span id="ovScoreHint">大场比分</span></div>
+                <div class="wk-side red"><span>红方</span><b id="ovRed">红方</b></div>
+              </div>
+              <div class="wk-command-actions">
+                <button class="wk-btn primary" data-go="data">录这一局</button>
+                <button class="wk-btn" data-go="bracket">查看赛程</button>
+                <button class="wk-btn" data-go="director">进入导播台</button>
+              </div>
+              <div class="wk-command-flow">
+                <div class="wk-command-flowhead"><b>推进流程</b><span>按当前赛事进度提示</span></div>
+                <div class="wk-workflow" id="wkWorkflow"></div>
               </div>
             </div>
-            <div class="wk-hero-match">
-              <div class="wk-side blue"><span>BLUE SIDE</span><b id="ovBlue">蓝方</b></div>
-              <div class="wk-hero-score"><b id="ovScore">0 : 0</b><span id="ovScoreHint">大场比分</span></div>
-              <div class="wk-side red"><span>RED SIDE</span><b id="ovRed">红方</b></div>
-            </div>
-            <div class="wk-hero-actions">
-              <button class="wk-btn primary" data-go="data">录这一局</button>
-              <button class="wk-btn" data-go="bracket">看赛程</button>
-              <button class="wk-btn" data-go="director">开导播台</button>
-            </div>
-          </div>
+            <aside class="wk-command-side" aria-label="开播准备">
+              <div class="wk-command-sidehead"><span>开播准备</span><b id="wkCheckSum">正在检查</b></div>
+              <div class="wk-readiness" id="ovSceneReadiness"></div>
+              <details class="wk-command-checks">
+                <summary>查看数据检查</summary>
+                <div class="wk-checks" id="ovChecks"></div>
+              </details>
+              <p class="wk-command-note">先处理阻断项，再进入导播台推送。预检会随赛事数据更新。</p>
+            </aside>
+          </section>
 
-          <div class="wk-grid">
-            <div class="wk-card wk-span2">
-              <h3>建议下一步 <em>按赛事进度提示，可自由切换</em></h3>
-              <div class="wk-workflow" id="wkWorkflow"></div>
-            </div>
+          <div class="wk-overview-grid">
             <div class="wk-card">
-              <h3>OBS 浏览器源 <em>1920 × 1080</em></h3>
+              <h3>OBS 浏览器源 <span class="wk-card-meta">1920 × 1080</span></h3>
               <div class="wk-obs">
                 <div class="wk-obs-row"><span class="nm">解说</span><code>/obs/commentary</code><button class="wk-copy" data-copy="/obs/commentary">复制</button></div>
                 <div class="wk-obs-row"><span class="nm">赛间板</span><code>/obs/interval</code><button class="wk-copy" data-copy="/obs/interval">复制</button></div>
@@ -340,28 +382,23 @@
               <div class="wk-stats">
                 <div class="wk-stat"><span>队伍</span><b id="ovTeamCount">0</b></div>
                 <div class="wk-stat"><span>已录局</span><b id="ovGameCount">0</b></div>
-                <div class="wk-stat"><span>在播场景</span><b class="sm" id="ovScene">—</b></div>
-                <div class="wk-stat"><span>服务端口</span><b class="sm" id="ovPort">—</b></div>
+                <div class="wk-stat"><span>在播场景</span><b class="sm" id="ovScene">暂无</b></div>
+                <div class="wk-stat"><span>服务端口</span><b class="sm" id="ovPort">未连接</b></div>
               </div>
               <div class="wk-note">概览每 30 秒刷新一次；顶栏的场次与在播状态走实时通道。</div>
             </div>
             <div class="wk-card wk-remote-card">
-              <h3>手机远程控制 <em id="remoteMode">仅本机</em></h3>
+              <h3>手机远程控制 <span class="wk-card-meta" id="remoteMode">仅本机</span></h3>
               <div id="remoteAccessBody" class="wk-note">普通模式不开放局域网。关闭服务后重新运行「启动.bat」并选择手机远程模式。</div>
             </div>
-            <div class="wk-card wk-span2">
-              <h3>场景预检 <em id="wkCheckSum">—</em></h3>
-              <div class="wk-readiness" id="ovSceneReadiness"></div>
-              <div class="wk-checks" id="ovChecks"></div>
-            </div>
-            <div class="wk-card">
-              <h3>第一次用</h3>
+            <details class="wk-guide wk-card">
+              <summary>第一次用？展开查看三步流程</summary>
               <ol class="wk-steps">
                 <li><b>队伍库</b>建队、录选手名单；<b>赛程</b>填分组和抽签。</li>
                 <li>在赛程里点某场的 <b>录数据</b>，回对局页拖截图或手填。</li>
                 <li>录完点 <b>回填赛果</b>，再到导播台推送画面；OBS 源宽高填 1920×1080。</li>
               </ol>
-            </div>
+            </details>
           </div>
         </div>
       </section>
@@ -373,8 +410,9 @@
         <span class="grow"></span>
         <button class="btn ghost" id="btnUndoPush" disabled>撤回上次推送 · U</button>
         <button class="btn ghost" id="btnDiscard">丢弃预览</button>
-        <button class="btn primary" id="btnPush">推送到直播端</button>
+        <button class="btn primary" id="btnPush">推送到直播端 · 空格</button>
       </div>
+      <p class="hotkey-legend">1–6 切场景 · 空格推送 · U 撤回 · B 确认后切空白</p>
 
       <div class="director">
         <div class="card scenes" id="sceneList"></div>
@@ -394,7 +432,7 @@
         </div>
 
         <div class="card ops">
-          <div class="ops-scene-hint" id="opsSceneHint">当前场景：—</div>
+          <div class="ops-scene-hint" id="opsSceneHint">当前场景：未选择</div>
           <div class="director-readiness wk-readiness" id="directorReadiness"></div>
           <div id="opsTimer" class="scene-ops">
             <h2>现场操作 · 点击即生效</h2>
@@ -407,7 +445,7 @@
               <button class="btn" id="btnResume">继续</button>
               <button class="btn" id="btnResetTimer">重置</button>
             </div>
-            <div class="kv" id="timerState">—</div>
+            <div class="kv" id="timerState">准备开始</div>
           </div>
 
           <div id="opsInterval" class="scene-ops">
@@ -445,7 +483,10 @@
 
           <div class="bk-ops" id="bracketOps">
             <h2>赛程图 · 抽签直播</h2>
-            <div class="kv">在「⑤ 淘汰赛赛程图」里改分组 / 抽签，赛程图场景会实时同步；最近一次落位会高亮强调。</div>
+            <div class="kv">在淘汰赛赛程里改分组和抽签，赛程图场景会实时同步；最近一次落位会高亮强调。</div>
+            <div class="row" style="margin-top:8px">
+              <button type="button" class="btn ghost" data-go="bracket">打开淘汰赛赛程</button>
+            </div>
             <div class="row" style="margin-top:8px">
               <button class="btn" id="btnBkReplay">重播最近落位</button>
             </div>
@@ -477,7 +518,10 @@
               <button class="btn" id="btnChartToggle">开始轮播</button>
               <button class="btn" id="btnChartNext">下一张</button>
             </div>
-            <div class="kv" style="margin-top:5px;color:var(--muted)">先在「① 对局数据」选好本局；推送后按 上单 → 打野 → 中路 → 发育路 → 游走 → 五路总览 循环播放。点上方任意一张可直接跳转。</div>
+            <div class="kv" style="margin-top:5px;color:var(--muted)">先在对局数据选好本局；推送后按 上单 → 打野 → 中路 → 发育路 → 游走 → 五路总览 循环播放。点上方任意一张可直接跳转。</div>
+            <div class="row" style="margin-top:6px">
+              <button type="button" class="btn ghost" data-go="data">打开对局数据</button>
+            </div>
           </div>
 
           <div class="chart-ops" id="spotlightOps">
@@ -493,7 +537,7 @@
 
           <div>
             <h2>推送</h2>
-            <div class="kv" id="pushState" role="status" aria-live="polite" aria-atomic="true">—</div>
+            <div class="kv" id="pushState" role="status" aria-live="polite" aria-atomic="true">等待操作</div>
           </div>
 
           <div id="opsGeneric" class="scene-ops">
@@ -503,7 +547,7 @@
 
           <div class="commentary-ops scene-ops" id="commentaryOps">
             <h2>解说画面</h2>
-            <div class="kv">队名自动跟随当前场次；中间是<b>大场比分</b>，由你在这里手填（双方各赢了几局）。BO 选「自动」就按赛程阶段判断：16 强到胜者组/败者组半决赛前 BO5，半决赛起 BO7。</div>
+            <div class="kv">队名自动跟随当前场次；中间是<b>大场比分</b>，由你在这里手填（双方各赢了几局）。赛制选「自动」就按赛程阶段判断：16 强到胜者组或败者组半决赛前采用五局三胜，半决赛起采用七局四胜。</div>
             <input type="text" id="cmTitle" placeholder="主标题" style="margin-top:7px" />
             <div class="row" style="margin-top:6px;align-items:center">
               <span class="kv">解说阶段</span>
@@ -554,6 +598,8 @@
               <input type="text" id="cmRightName" placeholder="右解说" style="flex:1" />
               <input type="text" id="cmRightRole" placeholder="身份" style="width:92px" />
             </div>
+            <details class="ops-fold">
+            <summary>底部横幅与成就</summary>
             <div class="cm-banner-box">
               <div class="cm-banner-head">底部横幅</div>
               <div class="row" style="align-items:center">
@@ -609,21 +655,26 @@
                 <datalist id="cmHeroList"></datalist>
                 <datalist id="cmPlayerList"></datalist>
                 <div class="kv" style="margin-top:5px;color:var(--muted)">选择模板会填入可编辑文案。战绩类内容请先核对实际成绩，再推送到直播端。</div>
+                <div class="row" style="margin-top:6px;align-items:center">
+                  <div class="lookup-msg" id="cmLookupMsg" role="status" aria-live="polite"></div>
+                  <button class="btn ghost" id="cmLookupRetry" type="button" hidden>重试</button>
+                </div>
               </div>
             </div>
-            <div class="kv" style="margin-top:6px;color:var(--muted)">头像先用首字圆形占位；改完点右上角「推送到直播端」上线。</div>
+            </details>
+            <div class="kv" style="margin-top:6px;color:var(--muted)">头像先用首字圆形占位；改完点右上角「推送到直播端 · 空格」上线。</div>
           </div>
 
-          <div>
-            <h2>OBS 浏览器源</h2>
-            <div class="kv">在播场景：<b id="onAirScene">—</b></div>
+          <details class="ops-fold">
+            <summary>OBS 浏览器源</summary>
+            <div class="kv">在播场景：<b id="onAirScene">暂无</b></div>
             <div class="kv" style="margin:7px 0">把下面的地址粘进 OBS 的「浏览器」源，宽 1920 高 1080：</div>
-            <code id="obsUrl">—</code>
+            <code id="obsUrl">尚未生成</code>
             <div class="row" style="margin-top:9px">
               <button class="btn ghost" id="btnCopyObs">复制地址</button>
               <a class="btn ghost" id="btnOpenObs" target="_blank" rel="noopener" style="text-decoration:none;display:inline-flex;align-items:center">打开预览</a>
             </div>
-          </div>
+          </details>
         </div>
       </div>
     </section>
@@ -632,13 +683,13 @@
         <iframe id="genFrame" title="数据图生成器"></iframe>
       </section>
       <section class="wk-pane" id="pane-herostats">
-        <iframe id="herostatsFrame" src="/herostats" title="英雄胜率"></iframe>
+        <iframe id="herostatsFrame" data-src="/herostats" title="英雄胜率"></iframe>
       </section>
       <section class="wk-pane" id="pane-season">
-        <iframe id="seasonFrame" src="/season" title="赛季仪表盘"></iframe>
+        <iframe id="seasonFrame" data-src="/season" title="赛季仪表盘"></iframe>
       </section>
       <section class="wk-pane" id="pane-promo">
-        <iframe id="promoFrame" src="/promo" title="赛前宣传图"></iframe>
+        <iframe id="promoFrame" data-src="/promo" title="赛前宣传图"></iframe>
       </section>
     </div>
   </div>
@@ -740,7 +791,17 @@ function paintScenes() {
     const selected = s.id === preview.scene;
     if (selected) b.classList.add("on");
     b.setAttribute("aria-pressed", String(selected));
-    b.textContent = s.label;
+    b.textContent = "";
+    const label = document.createElement("span");
+    label.textContent = s.label;
+    b.append(label);
+    const hotkeyIndex = HOTKEY_SCENES.indexOf(s.id);
+    if (hotkeyIndex >= 0) {
+      const key = document.createElement("span");
+      key.className = "scene-key";
+      key.textContent = String(hotkeyIndex + 1);
+      b.append(key);
+    }
     if (s.id === onAir.scene) {
       const tag = document.createElement("span");
       tag.className = "live";
@@ -755,11 +816,11 @@ function paintScenes() {
     box.append(b);
   }
   const tip = document.createElement("div");
-  tip.className = "cap";
+  tip.className = "hotkey-legend";
   tip.style.marginTop = "10px";
   tip.style.paddingTop = "8px";
   tip.style.lineHeight = "1.7";
-  tip.textContent = "1-6 切场景 · 空格推送 · U 撤回 · B 紧急空白";
+  tip.textContent = "1–6 切场景 · 空格推送 · U 撤回 · B 确认后切空白";
   box.append(tip);
 }
 
@@ -981,26 +1042,43 @@ $("btnUndoPush").onclick = async () => {
 $("btnDiscard").onclick = async () => { state = await post("discard"); paint(); syncFrame(); };
 
 /* ---------- 现场快捷键 ----------
-   1-6 切场景 / 空格推送 / U 撤回 / B 一键切空白（panic）。
+   1-6 切场景 / 空格推送（操作栏未滚完时先滚动）/ U 撤回 / B 确认后切空白。
    只在「导播台」视图生效，输入框里打字时不拦截。 */
 const HOTKEY_SCENES = ["commentary", "interval", "spotlight", "bracket", "chart", "blank"];
-function hotkeyTyping(el) {
+function hotkeyBlocked(el) {
   if (!el) return false;
   const tag = String(el.tagName || "").toUpperCase();
-  return tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || el.isContentEditable;
+  if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || tag === "BUTTON" || tag === "A" || tag === "SUMMARY" || el.isContentEditable) return true;
+  return !!(el.closest && el.closest("button, a, summary, input, textarea, select"));
+}
+function opsScrollsOnSpace(shift) {
+  const ops = document.querySelector("#pane-director .ops");
+  if (!ops || ops.scrollHeight <= ops.clientHeight + 2) return false;
+  const max = ops.scrollHeight - ops.clientHeight;
+  if (shift) {
+    if (ops.scrollTop <= 2) return false;
+    ops.scrollBy({ top: -80 });
+    return true;
+  }
+  if (ops.scrollTop >= max - 2) return false;
+  ops.scrollBy({ top: 80 });
+  return true;
 }
 document.addEventListener("keydown", async (e) => {
   if (e.ctrlKey || e.metaKey || e.altKey) return;
   if (window.__wkView !== "director") return;
-  if (hotkeyTyping(e.target)) return;
+  if (hotkeyBlocked(e.target)) return;
 
   if (e.key === " ") {
+    if (hotkeyBlocked(e.target)) return;
     e.preventDefault();
+    if (opsScrollsOnSpace(e.shiftKey)) return;
     await pushCurrent();
     return;
   }
   if (e.key === "b" || e.key === "B") {
     e.preventDefault();
+    if (!confirm("确认切换到空白画面并推送到直播端？")) return;
     state = await post("scene", { id: "blank" });
     await pushCurrent(true);
     return;
@@ -1028,7 +1106,7 @@ if (chartPushBtn) chartPushBtn.onclick = async () => {
   const w = f && f.contentWindow;
   const items = w && w.PKC && typeof w.PKC.chartItems === "function" ? w.PKC.chartItems() : null;
   if (!items || !items.length) {
-    if (window.__pkSay) window.__pkSay("生成器尚未就绪，先在「① 对局数据」选好本局再推送");
+    if (window.__pkSay) window.__pkSay("生成器尚未就绪，先在对局数据选好本局再推送");
     return;
   }
   const intervalMs = Number(($("chartInterval") || {}).value) || 8000;
@@ -1345,16 +1423,25 @@ async function loadCmHeroes() {
   } catch { /* 名单不可用时仍可手填 */ }
 }
 
+function sayLookup(message, bad) {
+  const el = $("cmLookupMsg");
+  const retry = $("cmLookupRetry");
+  if (el) {
+    el.textContent = message || "";
+    el.classList.toggle("bad", !!bad);
+  }
+  if (retry) retry.hidden = !bad;
+}
 async function cmLookupHeroRate() {
   const player = ($("cmAchPlayer") && $("cmAchPlayer").value || "").trim();
   const hero = ($("cmAchHero") && $("cmAchHero").value || "").trim();
-  if (!player || !hero) return alert("先填队伍名和英雄名");
+  if (!player || !hero) return sayLookup("先填队伍名和英雄名", true);
   try {
     const q = new URLSearchParams({ stage: "all", team: player, minPicks: "0" });
     const agg = await (await fetch("/api/hero-stats?" + q.toString(), { cache: "no-store" })).json();
     const row = (agg.teams || []).find((x) => x.name === player);
     const h = row && (row.heroes || []).find((x) => x.hero === hero);
-    if (!h) return alert(`没有找到「${player} · ${hero}」的胜率数据`);
+    if (!h) return sayLookup(`没有找到「${player} · ${hero}」的胜率数据`, true);
     const rate = h.winRate == null ? "" : h.winRate.toFixed(1);
     if ($("cmAchRate")) $("cmAchRate").value = rate;
     if ($("cmAchGames")) $("cmAchGames").value = String(h.games);
@@ -1368,8 +1455,9 @@ async function cmLookupHeroRate() {
       patch.content = $("cmAchContent").value;
     }
     await cmBannerPatch(patch);
+    sayLookup("已填入胜率", false);
   } catch (e) {
-    alert("查胜率失败：" + e.message);
+    sayLookup("查胜率失败：" + e.message, true);
   }
 }
 function paintCmPeopleFields() {
@@ -1473,6 +1561,7 @@ if (cmStageEl) cmStageEl.onchange = () => {
   if (el) el.addEventListener("input", () => cmBannerPatch({ [key]: el.value }));
 });
 if ($("cmAchLookup")) $("cmAchLookup").onclick = cmLookupHeroRate;
+if ($("cmLookupRetry")) $("cmLookupRetry").onclick = cmLookupHeroRate;
 loadCmHeroes();
 function syncCmForm() {
   const s = cmSettings();

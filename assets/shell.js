@@ -20,6 +20,8 @@
     hero: '<svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="4"/><circle cx="9" cy="9.5" r="1.4"/><path d="m5 17 4.5-4 3 2.5 2.5-2.5L19 17"/></svg>',
     herostats: '<svg viewBox="0 0 24 24"><path d="M4 20V9"/><path d="M10 20V4"/><path d="M16 20v-7"/><path d="M22 20H2"/></svg>',
     promo: '<svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="14" rx="2"/><path d="M7 21h10"/><path d="m6 14 3.5-3 3 2.5 2.5-2.5L18 14"/></svg>',
+    season: '<svg viewBox="0 0 24 24"><path d="M12 3a9 9 0 1 0 9 9h-9z"/><path d="M12 3v9h9"/></svg>',
+    spotlight: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3"/></svg>',
     out: '<svg viewBox="0 0 24 24"><path d="M12 3v11"/><path d="m7.5 10 4.5 4 4.5-4"/><path d="M4 18.5h16"/></svg>',
     help: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M9.6 9.3a2.5 2.5 0 1 1 3.4 2.3c-.7.3-1 .9-1 1.6v.3"/><path d="M12 17h.01"/></svg>',
   };
@@ -92,8 +94,28 @@
   const frame = $("#genFrame");
   const titleEl = $("#wkTitle");
   const subEl = $("#wkSub");
+  const workState = $("#wkState");
+  const workStateTitle = $("#wkStateTitle");
+  const workStateText = $("#wkStateText");
+  let workStateRetry = null;
   let navigationContext = null;
   let lastRemoteSaveNotice = "";
+
+  function showWorkState(title, text, retry) {
+    workStateRetry = typeof retry === "function" ? retry : null;
+    panes.engine?.classList.add("is-error");
+    if (workStateTitle) workStateTitle.textContent = title;
+    if (workStateText) workStateText.textContent = text;
+    if (workState) workState.hidden = false;
+    const retryButton = $("#wkStateRetry");
+    if (retryButton) retryButton.hidden = !workStateRetry;
+  }
+
+  function clearWorkState() {
+    workStateRetry = null;
+    panes.engine?.classList.remove("is-error");
+    if (workState) workState.hidden = true;
+  }
 
   function viewUrl(name) {
     const params = new URLSearchParams();
@@ -123,6 +145,11 @@
     });
   }
 
+  function mountFrame(id) {
+    const el = $(id);
+    if (el && el.dataset.src && !el.getAttribute("src")) el.src = el.dataset.src;
+  }
+
   function setView(name, push) {
     if (ALIAS[name]) name = ALIAS[name];
     const v = VIEWS[name] || VIEWS.overview;
@@ -134,7 +161,11 @@
       switchEngine(v.tab);
     } else {
       showPane(v.pane);
+      clearWorkState();
     }
+    if (name === "herostats") mountFrame("#herostatsFrame");
+    if (name === "season") mountFrame("#seasonFrame");
+    if (name === "promo") mountFrame("#promoFrame");
     if (name === "herostats") {
       try {
         $("#herostatsFrame")?.contentWindow?.postMessage(
@@ -168,8 +199,13 @@
   }
   function ensureEngine(force) {
     if (!frame) return false;
-    if (engineReady()) return true;
+    if (engineReady()) {
+      clearWorkState();
+      frame.removeAttribute("aria-busy");
+      return true;
+    }
     const retry = !!force && engineRequested;
+    frame.setAttribute("aria-busy", "true");
     frame.src = "/generator?bare=1" + (retry ? "&retry=" + Date.now() : "");
     engineRequested = true;
     return false;
@@ -194,7 +230,15 @@
         /* 错误页会在下一轮或用户再次进入时重试。 */
       }
       if (--left <= 0) {
-        /* 保持页面可重试：用户再次进入「对局数据」时会重新请求生成器。 */
+        frame?.removeAttribute("aria-busy");
+        showWorkState(
+          "数据工作台加载失败",
+          "生成器没有响应。请检查本地服务后重新加载；侧栏其他页面仍可切换。",
+          () => {
+            showWorkState("正在重新加载", "正在重新连接数据工作台，请稍候。", null);
+            ensureEngine(true);
+          },
+        );
         return;
       }
       setTimeout(tick, 200);
@@ -203,7 +247,11 @@
   }
 
   frame && frame.addEventListener("load", () => {
-    if (engineTarget && engineReady()) switchEngine(engineTarget);
+    if (engineTarget && engineReady()) {
+      frame.removeAttribute("aria-busy");
+      clearWorkState();
+      switchEngine(engineTarget);
+    }
   });
 
   /* 生成器内部切换 tab 时回传，侧栏跟随 */
@@ -250,6 +298,12 @@
       pvToggle.textContent = focused ? "显示预览" : "收起预览";
     });
   }
+  $("#wkStateRetry")?.addEventListener("click", () => {
+    const retry = workStateRetry;
+    clearWorkState();
+    if (retry) retry();
+  });
+  $("#wkStateClose")?.addEventListener("click", clearWorkState);
   const ctxChoose = $("#wkCtxChoose");
   if (ctxChoose) ctxChoose.addEventListener("click", () => setView("data", true));
   window.addEventListener("popstate", () => {
@@ -493,6 +547,18 @@
     host.append(urlBox, pin, meta, actions);
   }
 
+  function setServiceStatus(text, bad) {
+    const foot = $("#wkServiceFoot");
+    const dot = $("#wkDot");
+    const svc = $("#wkService");
+    if (svc) svc.textContent = text;
+    if (dot) dot.classList.toggle("bad", !!bad);
+    if (foot) {
+      foot.title = text;
+      foot.setAttribute("aria-label", text);
+    }
+  }
+
   function loadOverview() {
     return Promise.all([
       fetch("/api/store/library", { cache: "no-store" }).then((r) => r.json()).catch(() => null),
@@ -522,10 +588,7 @@
       set("#ovPort", ping && ping.port ? ":" + ping.port : "—");
       if (ctx.seriesName) set("#ovSeries", ctx.seriesName);
 
-      const dot = $("#wkDot");
-      if (dot) dot.classList.toggle("bad", !ping || !ping.ok);
-      const svc = $("#wkService");
-      if (svc) svc.textContent = ping && ping.ok ? "本地服务 · " + (ping.port || "") : "服务未连接";
+      setServiceStatus(ping && ping.ok ? "本地服务 · " + (ping.port || "") : "服务未连接", !ping || !ping.ok);
 
       if (st) applyTopbar(st);
       renderChecks(st, (teamData && teamData.teams) || [], games);
@@ -558,10 +621,7 @@
       };
       ["hello", "live", "onAir", "preview"].forEach((ev) => es.addEventListener(ev, onData));
       es.addEventListener("error", () => {
-        const dot = $("#wkDot");
-        if (dot) dot.classList.add("bad");
-        const svc = $("#wkService");
-        if (svc) svc.textContent = "与导播台断开，重连中…";
+        setServiceStatus("与导播台断开，重连中…", true);
       });
       es.addEventListener("open", () => {
         const dot = $("#wkDot");
@@ -601,6 +661,7 @@
   const initial = qView
     || (location.pathname.replace(/\/+$/, "") === "/director" ? "director" : "overview");
   setView(initial, false);
+  shellRoot.classList.add("wk-ready");
   loadOverview();
   connectStream();
   setInterval(() => {

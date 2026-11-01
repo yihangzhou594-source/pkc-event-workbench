@@ -16,6 +16,26 @@
     ? `${team.name}${team.eliminated ? "（已淘汰）" : ""}`
     : "—";
 
+  function notify(message, options) {
+    const el = $("#heroNotice");
+    const opts = options || {};
+    if (!el) return;
+    el.hidden = false;
+    el.className = "hero-notice" + (opts.bad ? " bad" : "");
+    el.replaceChildren();
+    const text = document.createElement("span");
+    text.textContent = message;
+    el.append(text);
+    if (typeof opts.retry === "function") {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "btn";
+      button.textContent = "重试";
+      button.addEventListener("click", opts.retry);
+      el.append(button);
+    }
+  }
+
   const state = {
     raw: null,
     agg: null,
@@ -57,19 +77,28 @@
   }
 
   async function loadAll(keepFilters) {
+    const heroView = $("#viewHeroes");
+    if (heroView) {
+      heroView.setAttribute("aria-busy", "true");
+      if (!state.agg) heroView.innerHTML = '<div class="empty">正在读取英雄数据…</div>';
+    }
     const seriesQuery = state.schedule?.seriesId
       ? "?seriesId=" + encodeURIComponent(state.schedule.seriesId)
       : "";
-    const [raw, agg, uploaded] = await Promise.all([
-      getJSON("/api/hero-stats/raw" + seriesQuery),
-      getJSON("/api/hero-stats?" + qs()),
-      getJSON("/api/hero-stats/matches" + seriesQuery),
-    ]);
-    state.raw = raw;
-    state.agg = agg;
-    state.uploaded = uploaded;
-    renderFilters(keepFilters);
-    renderAll();
+    try {
+      const [raw, agg, uploaded] = await Promise.all([
+        getJSON("/api/hero-stats/raw" + seriesQuery),
+        getJSON("/api/hero-stats?" + qs()),
+        getJSON("/api/hero-stats/matches" + seriesQuery),
+      ]);
+      state.raw = raw;
+      state.agg = agg;
+      state.uploaded = uploaded;
+      renderFilters(keepFilters);
+      renderAll();
+    } finally {
+      heroView?.setAttribute("aria-busy", "false");
+    }
   }
 
   function renderFilters(keep) {
@@ -131,6 +160,7 @@
 
   function renderHeroes() {
     const agg = state.agg;
+    $("#viewHeroes").setAttribute("aria-busy", "false");
     const rows = sortRows(agg.heroes || []);
     if (!rows.length) {
       $("#viewHeroes").innerHTML = '<div class="empty">还没有英雄数据。请先在「对局数据」上传完整对局，或在「手动录入」填写一场比赛。</div>';
@@ -340,7 +370,7 @@
   async function saveUploadedBans() {
     if (state.busy) return;
     const game = (state.uploaded?.games || []).find((item) => item.id === state.selectedUploadedId);
-    if (!game) return alert("请先选择一局已上传的淘汰赛");
+    if (!game) return notify("请先选择一局已上传的淘汰赛", { bad: true });
     state.busy = true;
     $("#uSave").disabled = true;
     try {
@@ -355,9 +385,9 @@
         }),
       });
       await loadAll(true);
-      alert("禁用已保存，英雄榜已同步更新。");
+      notify("禁用已保存，英雄榜已同步更新。");
     } catch (error) {
-      alert("保存禁用失败：" + error.message);
+      notify("保存禁用失败：" + error.message, { bad: true, retry: saveUploadedBans });
     } finally {
       state.busy = false;
       $("#uSave").disabled = false;
@@ -433,11 +463,11 @@
   async function saveManual() {
     if (state.busy) return;
     const match = selectedMatch();
-    if (!match) return alert("请先选择一场小组赛");
+    if (!match) return notify("请先选择一场小组赛", { bad: true });
     const left = collectSide("Left");
     const right = collectSide("Right");
     if (left.picks.some((hero) => !hero) || right.picks.some((hero) => !hero)) {
-      return alert("双方各 5 个选择英雄都要填");
+      return notify("双方各 5 个选择英雄都要填", { bad: true });
     }
     state.busy = true;
     try {
@@ -457,7 +487,7 @@
           right,
         }),
       });
-      alert(`已保存：${match.label} · 第${out.gameNo}局${out.replaced ? "（覆盖已有同局）" : ""}`);
+      notify(`已保存：${match.label} · 第${out.gameNo}局${out.replaced ? "（覆盖已有同局）" : ""}`);
       $("#mGameNo").value = Math.min(7, (Number($("#mGameNo").value) || 1) + 1);
       $$("#mBansLeft input,#mBansRight input,#mPicksLeft .phero,#mPicksRight .phero").forEach((input) => { input.value = ""; });
       if (Array.from($("#fStage").options).some((option) => option.value === "循环赛")) {
@@ -465,7 +495,7 @@
       }
       await loadAll(true);
     } catch (error) {
-      alert("保存失败：" + error.message);
+      notify("保存失败：" + error.message, { bad: true, retry: saveManual });
     } finally {
       state.busy = false;
     }
@@ -481,9 +511,9 @@
         body: JSON.stringify({ confirm: "清除" }),
       });
       await loadAll(false);
-      alert("已清空手动录入和手填禁用。");
+      notify("已清空手动录入和手填禁用。");
     } catch (error) {
-      alert("清空失败：" + error.message);
+      notify("清空失败：" + error.message, { bad: true, retry: clearManual });
     }
   }
 
@@ -494,7 +524,7 @@
   function exportPng() {
     const agg = state.agg;
     const rows = (agg && agg.heroes ? agg.heroes : []).slice(0, 15);
-    if (!rows.length) return alert("还没有英雄数据");
+    if (!rows.length) return notify("还没有英雄数据", { bad: true });
     const width = 1600;
     const height = 900;
     const pad = 54;

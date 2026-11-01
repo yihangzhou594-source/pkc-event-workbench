@@ -35,7 +35,6 @@ function renderHelp(){
     <div class="hp" id="hp-top">
       <div class="hp-hero">
         <div class="hp-hero-main">
-          <div class="hp-eyebrow">PKC 赛事工作台 · 操作手册</div>
           <h2>从建队伍到直播出图</h2>
           <p>按「队伍库 → 对局数据 → 多局与导出」走一遍就能出图。第一次用，先看下面的 30 秒上手；遇到问题直接搜关键词。</p>
           <div class="hp-meta"><span>更新：2026-10-19</span><span>适用：本地工作台 / OBS 浏览器源</span></div>
@@ -49,7 +48,7 @@ function renderHelp(){
       </div>
 
       <div class="hp-tools">
-        <label class="hp-search"><span>🔍</span><input id="helpSearch" type="search" placeholder="搜索：OBS、名单、OCR、赛程、备份……" autocomplete="off" /></label>
+        <label class="hp-search"><input id="helpSearch" type="search" placeholder="搜索：OBS、名单、OCR、赛程、备份……" autocomplete="off" /></label>
         <span class="hp-count" id="helpCount"></span>
         <a class="hp-manual" href="/使用说明.md" target="_blank" rel="noopener">完整文字手册 ↗</a>
       </div>
@@ -75,11 +74,11 @@ function renderHelp(){
         <div class="hp-body">
           <div class="hp-steps">
             <div class="hp-step"><i>1</i><div><b>启动服务</b><p>双击 <code>启动.bat</code>，浏览器打开 <code>http://localhost:8971</code>。黑色命令行窗口是服务本体，关掉就停服；不要直接双击 <code>PKC赛后数据图生成器.html</code>。</p></div></div>
-            <div class="hp-step"><i>2</i><div><b>建队伍</b><p>左侧「队伍库」→ 批量粘贴 <code>队名,主色</code>，或「📥 导入名单（Excel）」；点「选手名单」补齐 5 人，第 6 行起算替补。</p></div></div>
+            <div class="hp-step"><i>2</i><div><b>建队伍</b><p>左侧「队伍库」→ 批量粘贴 <code>队名,主色</code>，或「导入名单（Excel）」；点「选手名单」补齐 5 人，第 6 行起算替补。</p></div></div>
             <div class="hp-step"><i>3</i><div><b>录一局</b><p>左侧「对局数据」→ 拖入赛宝或客户端截图，或粘贴表格；核对队名、选手、英雄、分路、比分和时长。</p></div></div>
             <div class="hp-step"><i>4</i><div><b>出图</b><p>左侧「多局与导出」→「打包下载（ZIP）」；直播用「逐个下载（固定名，OBS 用）」，同名覆盖自动刷新。</p></div></div>
           </div>
-          <div class="hp-note"><b>两条线别混：</b>赛后数据图走「队伍库 → 对局数据 → 导出」；淘汰赛赛程图走「赛程 → 分组 / 抽签 / 晋级 → 导出」，再从赛程点「📊 录数据」把某一局接进对局数据。</div>
+          <div class="hp-note"><b>两条线别混：</b>赛后数据图走「队伍库 → 对局数据 → 导出」；淘汰赛赛程图走「赛程 → 分组 / 抽签 / 晋级 → 导出」，再从赛程点「录数据」把某一局接进对局数据。</div>
         </div>
       </details>
 
@@ -94,7 +93,7 @@ function renderHelp(){
             <li>「标记淘汰」只改列表状态，方便一眼看出剩余队伍，不会删数据。</li>
           </ul>
           <h4>导入 Excel 名单</h4>
-          <p>赛前那张「全体参赛成员名单」可直接拖进「📥 导入名单（Excel）」，也可以在 Excel 里框选后 Ctrl+C 粘到输入框。工具会自动找表头，按「队伍名称」聚合，用「主分路」排进五个位置。</p>
+          <p>赛前那张「全体参赛成员名单」可直接拖进「导入名单（Excel）」，也可以在 Excel 里框选后 Ctrl+C 粘到输入框。工具会自动找表头，按「队伍名称」聚合，用「主分路」排进五个位置。</p>
           <ul>
             <li>预览会列出：识别到几队几人、哪些是新建 / 同名、每队五个位置是谁、超过 5 人时谁是替补、哪些位置靠补位。</li>
             <li>同名队伍可选 <b>覆盖名单 / 只补空缺 / 跳过</b>；导入只动队伍库，不碰对局数据和赛程。</li>
@@ -126,7 +125,7 @@ function renderHelp(){
             <li><b>选手</b>：从下拉选；名单外名字会标「（不在名单）」，可在下拉最后选「✎ 手动输入 / 改名字…」。</li>
             <li><b>英雄</b>：直接在「英雄」列重填，有下拉提示，图会跟着换。</li>
             <li><b>位置</b>：按名单 / 英雄自动匹配，最终以你选的分路为准；蓝方、红方各 5 行互不影响。</li>
-            <li><b>比分 / 胜负</b>：本局信息里改；「⇄ 交换红蓝」可整体互换。</li>
+            <li><b>比分 / 胜负</b>：本局信息里改；「交换红蓝」可整体互换。</li>
             <li><b>时长</b>：用 <code>12:11</code> 这种格式，分均经济会自动算。</li>
             <li><b>数字</b>：OCR 偶尔把 <code>28.1%</code> 认成 <code>2.11</code>、<code>0/8</code> 认成 <code>1/7</code>，逐格扫一眼。</li>
           </ol>
@@ -161,7 +160,7 @@ function renderHelp(){
           </table>
           <h4>图上的七个维度</h4>
           <p>雷达固定七维（顺时针，从正上方开始）：<b>KDA / 击杀 / 伤害 / 承伤占比 / 分均经济 / 参团率 / 经济转伤</b>。雷达每项以双方较高值为 100%，用于看相对形状；旁边同时标出真实值，伤害与经济末尾统一用 k。全图统一按赛制配色——蓝方一路鲜蓝、红方一路鲜红。</p>
-          <p>顶部「🏆 KPL 风格」会切到单场电竞数据面板版式：蓝红比分条、左右英雄卡、中央双向雷达、选手数据卡和底部对比条。只使用现有字段，不编造补刀数、团战伤害等没有的数据。</p>
+          <p>顶部「KPL 风格」会切到单场电竞数据面板版式：蓝红比分条、左右英雄卡、中央双向雷达、选手数据卡和底部对比条。只使用现有字段，不编造补刀数、团战伤害等没有的数据。</p>
           <ul>
             <li>多局导出时，对位图序号会变成 <code>PKC_1_…</code>、<code>PKC_2_…</code>，按局依次排。</li>
             <li>大场数据汇总先按选手累计各局 KDA、总经济与总伤害，再用整场总时长重算分均经济和分均伤害，不会直接平均各局分均值；ZIP 会自动附带这张图。</li>
@@ -202,12 +201,12 @@ function renderHelp(){
             <thead><tr><th>快捷键</th><th>作用</th></tr></thead>
             <tbody>
               <tr><td><code>1</code> ~ <code>6</code></td><td>切到 解说 / 赛间 / 宣传轮播 / 赛程图 / 赛后数据图 / 空白</td></tr>
-              <tr><td><code>空格</code></td><td>推送到直播端</td></tr>
+              <tr><td><code>空格</code></td><td>推送到直播端。焦点在按钮或输入框上时不触发；操作栏还能往下滚时，空格先滚动操作栏</td></tr>
               <tr><td><code>U</code></td><td>撤回上一次推送，回到上一帧在播画面</td></tr>
-              <tr><td><code>B</code></td><td>一键切「空白」并立刻推送（出事故时的 panic 键）</td></tr>
+              <tr><td><code>B</code></td><td>确认后切到「空白」并推送</td></tr>
             </tbody>
           </table>
-          <p class="hp-muted">快捷键只在「导播台」视图生效，输入框里打字时不触发。</p>
+          <p class="hp-muted">快捷键只在「导播台」视图生效。输入框、按钮和链接上不触发。</p>
 
           <h4>赛后六张轮播</h4>
           <p>先在「对局数据」选好当前局，回导播台选中「赛后数据图」，点「<b>推送本局六张</b>」；右侧六张小按钮可直接跳转，「上一张 / 下一张」手动控制，「暂停 / 开始轮播」控制自动切换，间隔可选 5～45 秒。</p>
@@ -254,7 +253,7 @@ function renderHelp(){
         <div class="hp-body">
           <h4>从赛程录一局</h4>
           <ol>
-            <li>「淘汰赛赛程」里找到排好两队的场次，点这一行下面的 <b>📊 录数据</b>；</li>
+            <li>「淘汰赛赛程」里找到排好两队的场次，点这一行下面的 <b>录数据</b>；</li>
             <li>系统切到「对局数据」：没有数据就新建「第1局」，有数据就打开最近一局；</li>
             <li>蓝方 / 红方已按赛程带好，直接 OCR 或手填；</li>
             <li>顶部「赛程场次」下拉可随时切换场次，选「未关联赛程」看历史遗留的局。</li>
@@ -262,7 +261,7 @@ function renderHelp(){
           <h4>用局分回填大比分</h4>
           <p>赛程每场显示「已录 N 局 · a:b」，点 <b>回填赛果</b> 把局分写进大比分；只有一方局数更多时才标记晋级，平局只填比分、不自动晋级。</p>
           <h4>清除某场 / 撤销</h4>
-          <p>录错场次或整场重录：赛程页每场点 <b>🗑 清除这场</b>（对局页顶部「🗑 清除本场数据」效果一样）。确认框会写明删几局；对阵、分组、队伍库和其他场次都保留。清除后底部有 10 秒「已清除 · 撤销」，点撤销可以整场恢复。</p>
+          <p>录错场次或整场重录：赛程页每场点 <b>清除这场</b>（对局页顶部「清除本场数据」效果一样）。确认框会写明删几局；对阵、分组、队伍库和其他场次都保留。清除后底部有 10 秒撤销入口，点撤销可以整场恢复。</p>
           <div class="hp-note"><b>只想重填比分：</b>用旁边的「↺ 清比分」，不会删对局数据。</div>
         </div>
       </details>
@@ -275,7 +274,7 @@ function renderHelp(){
             <li>出图用 1024px 优化图，列表用 320px 缩略图，分别在 <code>英雄缩略图\\</code>、<code>英雄优化\\</code> 自动生成；没生成的新素材会先退回原图。</li>
             <li>换素材：把图丢进「英雄半身像」→ 刷新网页或点「重新扫描素材」即可；想让新图也快起来，删掉两个缓存目录里的同名旧 webp，再跑一次 <code>tools\\build-thumbs.py</code>。</li>
             <li>纯黑 / 纯白底的「透明图层」会按四边同色自动去底；偏暗的官方立绘会按实测亮度自动提亮，不改你的素材文件。</li>
-            <li>提亮强度在「多局与导出 → 英雄图提亮」里选「自动 / 加强提亮 / 关闭」；卡片可切「🌗 深色底图」。</li>
+            <li>提亮强度在「多局与导出 → 英雄图提亮」里选「自动 / 加强提亮 / 关闭」；卡片可切「深色底图」。</li>
           </ul>
         </div>
       </details>
@@ -315,7 +314,7 @@ function renderHelp(){
           <details class="hp-q"><summary>截图识别不出来，或者很慢？</summary><div>优先用原图，别用二次压缩 / 转发过的截图；客户端两张页签一起给会更稳。确认「数据\\ai-config.json」里的 Key 可用，或改用「手动粘贴」。本地 Tesseract 只是兜底，识别率低于 AI。</div></details>
           <details class="hp-q"><summary>OCR 把数字认错了怎么办？</summary><div>直接在表格里改，右侧预览会立刻刷新。重点看 <code>0/8</code>、<code>1/7</code>、<code>5/6</code> 和百分比；复核区会写出每格认到了什么，照着改最快。</div></details>
           <details class="hp-q"><summary>OBS 画面发糊？</summary><div>浏览器源的宽度 / 高度必须是 <b>1920 × 1080</b>，导播台预览右下角显示 <b>100%（1:1）</b>。源尺寸填小、再在 OBS 里放大，一定会糊。</div></details>
-          <details class="hp-q"><summary>OBS 里的图不刷新？</summary><div>用「🗂 逐个下载（固定名，OBS 用）」，不要手动改名；同名覆盖后 OBS 会自动刷新。确认 OBS 图片源指向的是同一个下载目录，必要时右键源 →「刷新」。</div></details>
+          <details class="hp-q"><summary>OBS 里的图不刷新？</summary><div>用「逐个下载（固定名，OBS 用）」，不要手动改名；同名覆盖后 OBS 会自动刷新。确认 OBS 图片源指向的是同一个下载目录，必要时右键源 →「刷新」。</div></details>
           <details class="hp-q"><summary>数据好像没保存 / 两个页面互相覆盖？</summary><div>看页面顶部状态和冲突提示。多标签页同时改同一份数据时，后保存的会被拦下；点「重新加载本页」再改。数据正常保存在 <code>数据\\</code>，也可以从 <code>数据\\_backup\\</code> 找回上一版。</div></details>
           <details class="hp-q"><summary>赛程图改了但直播端不动？</summary><div>第一次要在导播台选「赛程图」并点一次「推送到直播端」，让 OBS 上线；之后改分组 / 落位会实时同步。确认 OBS 打开的是 <code>/obs/bracket</code>。</div></details>
           <details class="hp-q"><summary>清除了某场，还能恢复吗？</summary><div>清除后底部有 10 秒「已清除 · 撤销」，点它整场恢复。超过 10 秒就去 <code>数据\\_backup\\</code> 找对应 JSON 的上一版复制回来。</div></details>
@@ -500,9 +499,9 @@ function syncPrefsForm(){
   $("#swOverview").checked = !!DB.prefs.overview;
   $("#swBracket").checked = !!DB.prefs.bracket;
   $("#swAllGames").checked = !!DB.prefs.allGames;
-  $("#btnTheme").textContent = DB.prefs.theme === "dark" ? "🌗 浅色底图" : "🌗 深色底图";
+  $("#btnTheme").textContent = DB.prefs.theme === "dark" ? "浅色底图" : "深色底图";
   const styleBtn = $("#btnStyle");
-  if (styleBtn) styleBtn.textContent = DB.prefs.chartStyle === "kpl" ? "🏆 KPL 风格：开" : "🏆 KPL 风格：关";
+  if (styleBtn) styleBtn.textContent = DB.prefs.chartStyle === "kpl" ? "KPL 风格：开" : "KPL 风格：关";
 }
 async function init(){
   const hasApi = await STORE.init();
@@ -543,7 +542,7 @@ async function init(){
   };
   $("#btnMatchData").onclick = () => {
     const key = $("#selMatch").value;
-    if (!key) return toast("先在⑤赛程图里给这场排好两支队伍");
+    if (!key) return toast("先在淘汰赛赛程里给这场排好两支队伍");
     openMatch(key);
   };
   const clearMatchBtn = $("#btnClearMatch");
@@ -595,7 +594,7 @@ async function init(){
     el.onclick = () => {
       const id = side === "opp" ? S.game.oppId : S.game.ourId;
       const t = S.series.teams.find(x => x.id === id);
-      if (!t) return toast("先在①里选一支队伍");
+      if (!t) return toast("先在对局数据里选一支队伍");
       switchTab("teams");
       editTeam(t);
     };
@@ -795,13 +794,12 @@ async function init(){
   const pvBtn = $("#btnPreviewToggle");
   const layoutEl = document.querySelector(".layout");
   if (pvBtn && layoutEl){
-    const syncPv = () => {
-      const hidden = layoutEl.classList.contains("focus");
-      pvBtn.textContent = hidden ? "👁 显示预览" : "👁 收起预览";
-      pvBtn.classList.toggle("primary", hidden);
+    pvBtn.onclick = () => {
+      layoutEl.classList.toggle("focus");
+      previewPreferenceVisible = !layoutEl.classList.contains("focus");
+      syncPreviewControls();
     };
-    pvBtn.onclick = () => { layoutEl.classList.toggle("focus"); syncPv(); };
-    syncPv();
+    syncPreviewControls();
   }
   const tabParam = new URLSearchParams(location.search).get("tab");
   if (tabParam && document.getElementById("panel-" + tabParam)) switchTab(tabParam);

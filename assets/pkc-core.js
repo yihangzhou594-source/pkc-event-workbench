@@ -136,10 +136,12 @@ function toast(msg){
   const el=$("#toast"); el.textContent=msg; el.classList.add("show");
   clearTimeout(el._t); el._t=setTimeout(()=>el.classList.remove("show"),2400);
 }
-function status(msg,bad){
+function status(msg,bad,state){
   const el=$("#status"); if(!el) return;
   el.textContent=msg||"";
-  el.style.color = bad ? "var(--bad)" : "var(--muted)";
+  const nextState = state || (bad ? "error" : "ready");
+  el.dataset.state = nextState;
+  el.setAttribute("aria-busy", String(nextState === "working"));
 }
 
 /* ============================================================
@@ -485,7 +487,15 @@ const STORE = {
 let saveTimer = null;
 function scheduleSave(){
   clearTimeout(saveTimer);
-  saveTimer = setTimeout(saveAll, 500);
+  status("正在保存…", false, "working");
+  saveTimer = setTimeout(async () => {
+    const saved = await saveAll();
+    if (saved) {
+      status("已保存 " + new Date().toLocaleTimeString("zh-CN", { hour12:false }));
+    } else {
+      status("保存失败，请检查本地服务后再试", true);
+    }
+  }, 500);
 }
 async function saveCoreData(){
   if (storeWriteBlocked || STORE.mode !== "api") return false;

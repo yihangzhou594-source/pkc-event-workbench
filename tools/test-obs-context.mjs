@@ -1,4 +1,5 @@
 import { createRequire } from "node:module";
+import fs from "node:fs";
 import path from "node:path";
 
 const require = createRequire(import.meta.url);
@@ -16,37 +17,51 @@ const ctx = {
   redTeam: "别让我取名",
 };
 const API = "http://127.0.0.1:8971";
+const contextFile = path.resolve("数据", "context.json");
+const originalContextText = fs.readFileSync(contextFile, "utf8");
+const originalContext = JSON.parse(originalContextText);
+const restoreContext = { ...originalContext };
+delete restoreContext.revision;
 async function post(path, body) {
-  await fetch(API + path, {
+  const response = await fetch(API + path, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
   });
+  if (!response.ok) throw new Error(`POST ${path} 失败：${await response.text()}`);
 }
 
 const before = await (await fetch(API + "/api/director/state")).json();
 const prevOnAir = before.onAir.scene;
 const prevPreview = before.preview.scene;
 
-await post("/api/director/context", ctx);
-await post("/api/director/scene", { id: "bracket" });
-await post("/api/director/push");
-
-const browser = await chromium.launch({ channel: "msedge", headless: true });
-const page = await browser.newPage({ viewport: { width: 1920, height: 1080 } });
-let out;
+let browser;
 try {
+  await post("/api/director/context", ctx);
+  await post("/api/director/scene", { id: "bracket" });
+  await post("/api/director/push");
+
+  browser = await chromium.launch({ channel: "msedge", headless: true });
+  const page = await browser.newPage({ viewport: { width: 1920, height: 1080 } });
   await page.goto(API + "/obs/bracket", { waitUntil: "load" });
   await page.waitForTimeout(1200);
-  out = await page.evaluate(() => ({
+  const out = await page.evaluate(() => ({
     active: !!document.querySelector(".bk-active"),
     activeKey: document.querySelector(".bk-active")?.dataset.key || "",
   }));
+  console.log(JSON.stringify(out, null, 2));
+  if (!out.active || out.activeKey !== "R16-5") throw new Error("赛程图未高亮当前场次");
 } finally {
-  await browser.close();
+  if (browser) await browser.close();
   await post("/api/director/scene", { id: prevOnAir });
   await post("/api/director/push");
   await post("/api/director/scene", { id: prevPreview });
+  if (restoreContext.seriesId) {
+    await fetch(API + "/api/director/context", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(restoreContext),
+    });
+  }
+  fs.writeFileSync(contextFile, originalContextText, "utf8");
 }
-console.log(JSON.stringify(out, null, 2));
-if (!out.active || out.activeKey !== "R16-5") throw new Error("赛程图未高亮当前场次");

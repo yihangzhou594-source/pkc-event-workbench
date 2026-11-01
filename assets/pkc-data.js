@@ -1221,6 +1221,17 @@ function renderTables(){
 /* ============================================================
    六、标签页
    ============================================================ */
+let previewPreferenceVisible = true;
+
+function syncPreviewControls(){
+  const layout = document.querySelector(".layout");
+  const pvBtn = $("#btnPreviewToggle");
+  if (!layout || !pvBtn) return;
+  const hidden = layout.classList.contains("focus") || layout.classList.contains("single");
+  pvBtn.textContent = hidden ? "显示预览" : "收起预览";
+  pvBtn.classList.toggle("primary", hidden);
+}
+
 function switchTab(name){
   $$(".tab").forEach(t => {
     const current = t.dataset.tab === name;
@@ -1228,12 +1239,15 @@ function switchTab(name){
     t.setAttribute("aria-pressed", String(current));
   });
   $$(".panel").forEach(p => p.classList.toggle("on", p.id === "panel-" + name));
-  const wide = name === "bracket" || name === "help";   // 赛程图 / 说明页收起右侧预览，整页给内容
+  const wide = name === "bracket" || name === "help";
+  const management = name === "teams" || name === "hero";
   $$(".layout").forEach(l => l.classList.toggle("single", wide));
+  $$(".layout").forEach(l => l.classList.toggle("focus", wide || management || !previewPreferenceVisible));
   const pv = $("#preview");
   if (pv) pv.style.display = wide ? "none" : "";
   const pvBtn = $("#btnPreviewToggle");
   if (pvBtn) pvBtn.hidden = wide;
+  syncPreviewControls();
   if (name === "teams") renderTeamGrid();
   if (name === "hero") renderHeroGrid();
   if (name === "out") renderMgInfo();
