@@ -1,5 +1,7 @@
 import { spawn } from "node:child_process";
 import { createRequire } from "node:module";
+import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -7,10 +9,17 @@ const require = createRequire(import.meta.url);
 const PW = process.env.PKC_PW_ROOT ||
   "C:/Users/12113/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules";
 const { chromium } = require(path.join(PW, "playwright"));
+const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+const temp = fs.mkdtempSync(path.join(os.tmpdir(), "pkc-remote-control-ui-"));
+const sourceData = path.join(root, "数据");
+for (const name of fs.readdirSync(sourceData)) {
+  if (!name.endsWith(".json")) continue;
+  fs.copyFileSync(path.join(sourceData, name), path.join(temp, name));
+}
 const port = 18000 + Math.floor(Math.random() * 1000);
 const server = spawn(process.execPath, ["server.mjs"], {
-  cwd: path.resolve(path.dirname(fileURLToPath(import.meta.url)), ".."),
-  env: { ...process.env, PKC_PORT: String(port), PKC_REMOTE: "1", PKC_OPEN: "0" },
+  cwd: root,
+  env: { ...process.env, PKC_PORT: String(port), PKC_REMOTE: "1", PKC_OPEN: "0", PKC_DATA_DIR: temp },
   stdio: "ignore",
   windowsHide: true,
 });
@@ -90,5 +99,10 @@ try {
   console.log(JSON.stringify({ access, remoteUi: true }, null, 2));
 } finally {
   if (browser) await browser.close();
-  server.kill();
+  if (server.exitCode === null) {
+    const exited = new Promise((resolve) => server.once("exit", resolve));
+    server.kill();
+    await Promise.race([exited, new Promise((resolve) => setTimeout(resolve, 3000))]);
+  }
+  fs.rmSync(temp, { recursive: true, force: true });
 }

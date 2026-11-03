@@ -107,6 +107,7 @@ try {
       SUPABASE_URL: `http://127.0.0.1:${fakePort}`,
       SUPABASE_ANON_KEY: "anon-test",
       SUPABASE_SERVICE_ROLE_KEY: "service-role-test",
+      PKC_PUBLIC_URL: "https://live.pkchku.com",
     },
   });
 
@@ -154,6 +155,13 @@ try {
   });
   assert.equal(allowed.status, 200);
   assert.deepEqual(await allowed.json(), { series: [] });
+
+  const remoteAccess = await fetch(`http://127.0.0.1:${serverPort}/api/remote/access`, {
+    headers: { Cookie: cookieHeader },
+  });
+  assert.equal(remoteAccess.status, 200);
+  const remoteInfo = await remoteAccess.json();
+  assert.equal(remoteInfo.urls[0].url, "https://live.pkchku.com/remote");
 
   console.log("test-auth-server: ok");
 } finally {

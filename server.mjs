@@ -383,13 +383,23 @@ function lanAddresses() {
   return output;
 }
 
+function remoteAddresses() {
+  const publicUrl = String(process.env.PKC_PUBLIC_URL || "").replace(/\/+$/, "");
+  if (!publicUrl) return lanAddresses();
+  return [{
+    interface: "public",
+    address: publicUrl.replace(/^https?:\/\//i, ""),
+    url: publicUrl + "/remote",
+  }];
+}
+
 function remoteAccessPayload() {
   const access = remoteAccess.accessInfo();
   return {
     enabled: REMOTE_MODE,
     host: LISTEN_HOST,
     port: PORT,
-    urls: lanAddresses(),
+    urls: remoteAddresses(),
     pin: access.pin,
     pinExpiresAt: access.pinExpiresAt,
     sessionCount: access.sessionCount,
