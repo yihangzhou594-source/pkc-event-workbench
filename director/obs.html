@@ -1273,7 +1273,7 @@ function render(state) {
 
 /* ---------- 解说席的大场比分 ----------
    赛制：16 强 → 胜者组/败者组半决赛之前 BO5，半决赛起 BO7。 */
-const CM_BO = { r16: 5, wb1: 5, lb1: 5, lb2: 5, wb2: 7, wbf: 7, lb3: 7, lbf: 7, gf: 7, gf2: 7 };
+const CM_BO = { r16: 5, wb1: 5, lb1: 5, lb2: 5, wb2: 7, wbf: 7, lb3: 7, lbf: 7, gf: 7 };
 
 /** 用导播端发来的赛程快照还原每场对阵（key / 阶段 / 双方）。 */
 function cmBracketMatches(bracket) {
@@ -1311,7 +1311,6 @@ function cmBracketMatches(bracket) {
   add("LB3", "lb3", W("LB2-1"), W("LB2-2"));
   add("LBF", "lbf", W("LB3"), L("WBF"));
   add("GF", "gf", W("WBF"), W("LBF"));
-  add("GF2", "gf2", W("GF"), L("GF"));
   return list;
 }
 

@@ -220,7 +220,7 @@ function renderHelp(){
         </div>
       </details>
 
-      <details class="hp-sec" id="hp-bracket" data-keywords="淘汰赛 赛程 16强 八强 双败 胜者组 败者组 总决赛 加赛 抽签 分组 晋级">
+      <details class="hp-sec" id="hp-bracket" data-keywords="淘汰赛 赛程 16强 八强 双败 胜者组 败者组 总决赛 抽签 分组 晋级">
         <summary><span class="hp-num">5</span><b>淘汰赛赛程图</b><em>16 强单败 → 8 强双败</em></summary>
         <div class="hp-body">
           <h4>赛制</h4>
@@ -228,7 +228,7 @@ function renderHelp(){
             <li>预选赛分 <b>A / B / C / D 四个组</b>，每组前 4 名晋级 → <b>16 强</b>。</li>
             <li>16 强赛（第一轮）<b>单败淘汰</b>：每组第 1 名打另一组的第 4 名、第 2 名打第 3 名；抽签抽的是<b>队伍</b>，不是抽组，只要不是本组队，其它哪个组都行。</li>
             <li>赢下 16 强赛的 8 支队进八强，<b>八强开始双败</b>：胜者组输一场掉进败者组，败者组再输一场才淘汰，最后总决赛。</li>
-            <li><b>加赛</b>：总决赛里败者组冠军先赢一场时，双方各有一败，图上会自动多出「总决赛 · 加赛」，打赢的才是冠军。</li>
+            <li><b>总决赛</b>：胜者组冠军与败者组冠军只打一场，该场胜者直接成为冠军。</li>
           </ol>
           <h4>四步出图</h4>
           <ol>

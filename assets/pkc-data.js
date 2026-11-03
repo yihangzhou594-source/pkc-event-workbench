@@ -268,7 +268,6 @@ function syncTeamGroups(){
 function bkTeamStatus(id){
   if (!id) return { state: "idle", wins: 0, losses: 0, label: "" };
   const T = bkTree();
-  const reset = B().win["GF"] === "b";        // 败者组冠军先赢一场 → 还有 GF2
   let wins = 0, losses = 0, decided = false;
   T.list.forEach(m => {
     if (!m.a || !m.b) return;
@@ -279,14 +278,13 @@ function bkTeamStatus(id){
     if (winner === id) wins += 1;
     if (loser === id) {
       losses += 1;
-      const finalLoss = m.round === "r16" || m.round === "lbf" || m.round === "gf2"
-        || (m.round === "gf" && !reset);
+      const finalLoss = m.round === "r16" || m.round === "lbf" || m.round === "gf";
       if (finalLoss) decided = true;
     }
   });
   if (decided || losses >= 2) return { state: "out", wins, losses, label: "已淘汰" };
   if (losses === 1) {
-    const inFinal = T.list.some(m => (m.key === "GF" || m.key === "GF2")
+    const inFinal = T.list.some(m => m.key === "GF"
       && (m.a === id || m.b === id) && B().win[m.key]);
     return { state: "lower", wins, losses, label: inFinal ? "总决赛" : "败者组" };
   }

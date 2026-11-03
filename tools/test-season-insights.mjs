@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { buildSeasonInsights } from "../lib/season-insights.mjs";
+import { buildSeasonInsights, listBracketMatches } from "../lib/season-insights.mjs";
 
 const pick = (hero) => ({ cluster: "manual-pick-" + encodeURIComponent(hero) });
 const ban = (hero) => ({ cluster: "manual-ban-" + encodeURIComponent(hero) });
@@ -132,5 +132,26 @@ const incompleteMatch = buildSeasonInsights({
   seriesId: "s1",
 });
 assert.equal(incompleteMatch.dataQuality.missingGames, 1);
+
+const knockoutDraw = Array.from({ length: 8 }, (_, index) => ({
+  a: `T${index * 2 + 1}`,
+  b: `T${index * 2 + 2}`,
+}));
+const knockoutMatches = listBracketMatches({
+  draw: knockoutDraw,
+  win: {
+    "R16-1": "a", "R16-2": "a", "R16-3": "a", "R16-4": "a",
+    "R16-5": "a", "R16-6": "a", "R16-7": "a", "R16-8": "a",
+    "WB1-1": "a", "WB1-2": "a", "WB1-3": "a", "WB1-4": "a",
+    "WB2-1": "a", "WB2-2": "a",
+    "LB1-1": "a", "LB1-2": "a",
+  },
+  score: {},
+});
+const crossFirst = knockoutMatches.find((match) => match.matchKey === "LB2-1");
+const crossSecond = knockoutMatches.find((match) => match.matchKey === "LB2-2");
+assert.deepEqual([crossFirst.blueId, crossFirst.redId], ["T3", "T13"]);
+assert.deepEqual([crossSecond.blueId, crossSecond.redId], ["T11", "T5"]);
+assert.equal(knockoutMatches.some((match) => match.matchKey === "GF2"), false);
 
 console.log("test-season-insights: ok");

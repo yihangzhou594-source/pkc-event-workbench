@@ -259,22 +259,19 @@ function bracketEliminatedIds(bracket) {
   add('WBF', 'wbf', winner('WB2-1'), winner('WB2-2'));
   add('LB1-1', 'lb1', loser('WB1-1'), loser('WB1-2'));
   add('LB1-2', 'lb1', loser('WB1-3'), loser('WB1-4'));
-  add('LB2-1', 'lb2', winner('LB1-1'), loser('WB2-1'));
-  add('LB2-2', 'lb2', winner('LB1-2'), loser('WB2-2'));
+  add('LB2-1', 'lb2', winner('LB1-1'), loser('WB2-2'));
+  add('LB2-2', 'lb2', winner('LB1-2'), loser('WB2-1'));
   add('LB3', 'lb3', winner('LB2-1'), winner('LB2-2'));
   add('LBF', 'lbf', winner('LB3'), loser('WBF'));
   add('GF', 'gf', winner('WBF'), winner('LBF'));
-  add('GF2', 'gf2', winner('GF'), loser('GF'));
   const losses = new Map();
-  const reset = wins.GF === 'b';
   for (const match of matches.values()) {
     const side = wins[match.key];
     if (!match.a || !match.b || (side !== 'a' && side !== 'b')) continue;
     const defeated = match[side === 'a' ? 'b' : 'a'];
     if (!defeated) continue;
     losses.set(defeated, (losses.get(defeated) || 0) + 1);
-    if (match.round === 'r16' || match.round === 'lbf' || match.round === 'gf2'
-      || (match.round === 'gf' && !reset)) eliminated.add(defeated);
+    if (match.round === 'r16' || match.round === 'lbf' || match.round === 'gf') eliminated.add(defeated);
   }
   for (const [teamId, count] of losses) if (count >= 2) eliminated.add(teamId);
   return eliminated;

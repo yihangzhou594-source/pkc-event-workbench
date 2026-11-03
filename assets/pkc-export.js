@@ -217,12 +217,11 @@ const BK_ROUNDS = {
   lb3: { name:"败者组半决赛", short:"败半决", zone:"lb", cap:1, tip:"" },
   lbf: { name:"败者组决赛",   short:"败决赛", zone:"lb", cap:1, tip:"赢家进总决赛" },
   gf:  { name:"总决赛",       short:"决赛",  zone:"gf", cap:1, tip:"胜者组冠军 vs 败者组冠军" },
-  gf2: { name:"总决赛 · 加赛", short:"加赛", zone:"gf", cap:1, tip:"胜者组冠军先输一场时才需要打" }
 };
-const BK_ORDER = ["r16","wb1","wb2","wbf","lb1","lb2","lb3","lbf","gf","gf2"];
+const BK_ORDER = ["r16","wb1","wb2","wbf","lb1","lb2","lb3","lbf","gf"];
 /* 赛制：16 强 → 胜者组/败者组半决赛之前都是 BO5，从半决赛起 BO7。
    对应关系按「这场比赛的阶段」算，不看它在胜者组还是败者组。 */
-const BK_BO = { r16:5, wb1:5, lb1:5, lb2:5, wb2:7, wbf:7, lb3:7, lbf:7, gf:7, gf2:7 };
+const BK_BO = { r16:5, wb1:5, lb1:5, lb2:5, wb2:7, wbf:7, lb3:7, lbf:7, gf:7 };
 const bkBoOf = round => BK_BO[round] || 5;
 const bkBoNeed = round => Math.ceil(bkBoOf(round) / 2);
 const BK_VIEW = { bk16:{w:2560,h:1400}, bkde:{w:2560,h:1440}, bkall:{w:2560,h:2840} };
@@ -238,12 +237,6 @@ const BK_NEXT = {
   "LB3":["LBF","a"],
   "LBF":["GF","b"]
 };
-const BK_DROP = {
-  "WB1-1":["LB1-1","a"], "WB1-2":["LB1-1","b"], "WB1-3":["LB1-2","a"], "WB1-4":["LB1-2","b"],
-  "WB2-1":["LB2-2","b"], "WB2-2":["LB2-1","b"],
-  "WBF":["LBF","b"]
-};
-
 /* ---------- 数据模型 ---------- */
 /* 16 强 8 个位置的位次要求：s1=各组第1名 s2=各组第2名 s3=各组第3名 s4=各组第4名。
    顺序固定：上半区 第1~4 场、下半区 第5~8 场；每场一个高名次 + 一个低名次，
@@ -375,22 +368,18 @@ function bkTree(){
   add("LB3","lb3",   W("LB2-1"), W("LB2-2"), wr("LB2-1"), wr("LB2-2"));
   add("LBF","lbf",   W("LB3"),   L("WBF"),   wr("LB3"),   lr("WBF"));
   add("GF","gf",     W("WBF"),   W("LBF"),   wr("WBF"),   wr("LBF"));
-  add("GF2","gf2",   W("GF"),    L("GF"),    wr("GF"),    lr("GF"));
   return { list, map };
 }
 const bkWinId = (m, k) => { const w = B().win[k]; return (w === "a" || w === "b") ? (w === "a" ? m.a : m.b) : ""; };
 const bkLoseId = (m, k) => { const w = B().win[k]; return (w === "a" || w === "b") ? (w === "a" ? m.b : m.a) : ""; };
-const bkNeedReset = () => B().win["GF"] === "b";     // 败者组冠军先赢一场 → 要加赛
 function bkChampion(){
   const b = B(), T = bkTree();
   const g = b.win["GF"]; if (g !== "a" && g !== "b") return "";
-  if (g === "b"){ if (b.win["GF2"] !== "a" && b.win["GF2"] !== "b") return ""; return bkWinId(T.map["GF2"], "GF2"); }
   return bkWinId(T.map["GF"], "GF");
 }
 function bkRunnerUp(){
   const b = B(), T = bkTree();
   const g = b.win["GF"]; if (g !== "a" && g !== "b") return "";
-  if (g === "b"){ if (b.win["GF2"] !== "a" && b.win["GF2"] !== "b") return ""; return bkLoseId(T.map["GF2"], "GF2"); }
   return bkLoseId(T.map["GF"], "GF");
 }
 const bkTeamName = id => (id ? (S.team(id).name || "（未命名）") : "");
@@ -725,7 +714,6 @@ function renderBkMatches(){
   BK_ORDER.forEach(rd => {
     const arr = T.list.filter(m => m.round === rd);
     if (!arr.length) return;
-    if (rd === "gf2" && !bkNeedReset()) return;                     // 只有需要加赛时才出现
     const R = BK_ROUNDS[rd];
     html += '<div class="bk-round-h"><span class="z" style="background:'+rgba(BK_ZC[R.zone],.14)+';color:'+BK_ZC[R.zone]+'">'
       + R.name + '</span>'
@@ -850,7 +838,6 @@ function bkCopyText(){
   BK_ORDER.forEach(rd => {
     const arr = T.list.filter(m => m.round === rd);
     if (!arr.length) return;
-    if (rd === "gf2" && !bkNeedReset()) return;
     const R = BK_ROUNDS[rd];
     out.push("— " + R.name + " · BO" + bkBoOf(rd) + (R.tip ? "（" + R.tip + "）" : "") + " —");
     arr.forEach(m => {
@@ -1011,36 +998,12 @@ function bkElbow(ctx, x0, y0, x1, y1, color, solid){
 function bkLines(ctx, geo, T){
   const b = B();
   const zoneOf = k => (T && T.map[k] ? BK_ZC[BK_ROUNDS[T.map[k].round].zone] : C_SB);
-  Object.keys(BK_DROP).forEach((k, i) => {
-    const from = geo[k]; if (!from) return;
-    const to = BK_DROP[k], tg = geo[to[0]]; if (!tg) return;
-    const rowY = bkRowY(tg, to[1]), chan = 22 + i*6;      // 通道都留在卡片左边（<60）避免压住卡片
-    ctx.save();
-    ctx.setLineDash([9, 8]); ctx.lineWidth = 1.8; ctx.strokeStyle = rgba(C_LB, .3);
-    ctx.beginPath();
-    ctx.moveTo(from.x, from.y + from.h/2);
-    ctx.lineTo(chan, from.y + from.h/2);
-    ctx.lineTo(chan, rowY);
-    ctx.lineTo(tg.x, rowY);
-    ctx.stroke();
-    ctx.restore();
-  });
   Object.keys(BK_NEXT).forEach(k => {
     const from = geo[k]; if (!from) return;
     const to = BK_NEXT[k], tg = geo[to[0]]; if (!tg) return;
     bkElbow(ctx, from.x + from.w, from.y + from.h/2, tg.x, bkRowY(tg, to[1]),
       zoneOf(k), !!b.win[k]);
   });
-  if (geo["GF"] && geo["GF2"]){                      // 总决赛 → 加赛（需要时那一场）
-    const A = geo["GF"], G2 = geo["GF2"];
-    ctx.save();
-    ctx.setLineDash([9, 8]); ctx.lineWidth = 2; ctx.strokeStyle = rgba(C_GF, .6);
-    ctx.beginPath();
-    ctx.moveTo(A.x + A.w/2, A.y + A.h);
-    ctx.lineTo(G2.x + G2.w/2, G2.y);
-    ctx.stroke();
-    ctx.restore();
-  }
 }
 function bkGeomR16(oy){
   const geo = {}, w = 760, h = 92;
@@ -1068,7 +1031,6 @@ function bkGeomDE(oy){
   geo["LBF"] = { x:C[4], y:lb3-h/2, w, h, cy:lb3 };
   const gf = (wbf + lb3) / 2;
   geo["GF"] = { x:C[5], y:gf-h/2, w, h, cy:gf };
-  geo["GF2"] = { x:C[5], y:gf+62, w, h, cy:gf+62+h/2 };   // 总决赛的加赛（败者组冠军先赢才需要）
   return geo;
 }
 function bkGroupCard(ctx, x, y, w, h, g){
@@ -1116,7 +1078,7 @@ function bkHowTo(ctx, x, y, w, h){
     ["胜者组", "赢了继续留在胜者组；第一次输球就掉进败者组，还有一次机会。"],
     ["败者组", "从胜者组掉下来的队在这里继续打，只要再输一场就被淘汰。"],
     ["✓ 胜者", "每场分上下两行，一行一支队；行末带 ✓ 的是赢下这场的队伍，灰色那行是这场输的一方。"],
-    ["总决赛", "胜者组冠军 vs 败者组冠军。如果败者组冠军先赢一场，双方各有一败，要加赛一场定冠军。"]
+    ["总决赛", "胜者组冠军 vs 败者组冠军，只打一场；胜者直接成为冠军。"]
   ];
   blocks.forEach(bk => {
     T(ctx, bk[0], x, yy, { size:19, weight:"700", color:C_WB });
