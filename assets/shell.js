@@ -511,8 +511,9 @@
       host.textContent = "普通模式只监听 127.0.0.1。关闭服务后重新运行「启动.bat」并选择手机远程模式。";
       return;
     }
-    mode.textContent = "局域网已开启";
     const url = access.urls?.[0]?.url || "";
+    const publicAccess = access.urls?.[0]?.interface === "public";
+    mode.textContent = publicAccess ? "公网已开启" : "局域网已开启";
     const urlBox = document.createElement("div");
     urlBox.className = "wk-remote-url";
     urlBox.textContent = url || "未检测到局域网地址";
@@ -521,7 +522,7 @@
     pin.textContent = String(access.pin || "").replace(/(\d{3})(\d{3})/, "$1 $2");
     const meta = document.createElement("div");
     meta.className = "wk-remote-meta";
-    meta.textContent = "手机与电脑需在同一 HKU Wi-Fi。口令 "
+    meta.textContent = (publicAccess ? "手机可通过公网访问。" : "手机与电脑需处于同一局域网。") + "口令 "
       + new Date(access.pinExpiresAt).toLocaleTimeString("zh-CN", { hour12:false })
       + " 失效 · 已连接 " + access.sessionCount + "/" + access.maxSessions + " 台";
     const actions = document.createElement("div");

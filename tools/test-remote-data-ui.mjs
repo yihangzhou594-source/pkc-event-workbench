@@ -36,7 +36,7 @@ const providerPort = provider.address().port;
 const port = 19800 + Math.floor(Math.random() * 300);
 const pkc = spawn(process.execPath, ["server.mjs"], {
   cwd: root,
-  env:{ ...process.env, PKC_PORT:String(port), PKC_REMOTE:"1", PKC_OPEN:"0", PKC_DATA_DIR:data, DEEPSEEK_API_KEY:"secret-test", DEEPSEEK_BASE_URL:`http://127.0.0.1:${providerPort}` },
+  env:{ ...process.env, PKC_PORT:String(port), PKC_REMOTE:"1", PKC_PUBLIC_URL:"https://live.pkchku.com", PKC_OPEN:"0", PKC_DATA_DIR:data, DEEPSEEK_API_KEY:"secret-test", DEEPSEEK_BASE_URL:`http://127.0.0.1:${providerPort}` },
   stdio:"ignore", windowsHide:true,
 });
 let browser;
@@ -55,11 +55,15 @@ try {
   browser = await chromium.launch({ channel:"msedge", headless:true });
   const desktop = await browser.newPage({ viewport:{ width:1680, height:1000 } });
   await desktop.goto(`http://127.0.0.1:${port}/`, { waitUntil:"load" });
+  await desktop.waitForFunction(() => document.querySelector("#remoteMode")?.textContent === "公网已开启");
   await desktop.click('.wk-item[data-view="data"]');
   await desktop.waitForFunction(() => document.querySelector("#genFrame")?.contentWindow?.PKC);
 
   const phone = await browser.newPage({ viewport:{ width:390, height:844 }, isMobile:true, hasTouch:true, acceptDownloads:true });
   await phone.goto(`http://127.0.0.1:${port}/remote`, { waitUntil:"load" });
+  if ((await phone.locator("#pairView").innerText()).includes("同一 Wi-Fi")) {
+    throw new Error("云端远程页不应要求手机与电脑处于同一 Wi-Fi");
+  }
   await phone.fill("#pin", access.pin);
   await phone.fill("#deviceName", "录入手机");
   await phone.click("#pairBtn");
