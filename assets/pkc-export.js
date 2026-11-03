@@ -240,7 +240,7 @@ const BK_NEXT = {
 };
 const BK_DROP = {
   "WB1-1":["LB1-1","a"], "WB1-2":["LB1-1","b"], "WB1-3":["LB1-2","a"], "WB1-4":["LB1-2","b"],
-  "WB2-1":["LB2-1","b"], "WB2-2":["LB2-2","b"],
+  "WB2-1":["LB2-2","b"], "WB2-2":["LB2-1","b"],
   "WBF":["LBF","b"]
 };
 
@@ -370,8 +370,8 @@ function bkTree(){
   add("WBF","wbf",   W("WB2-1"), W("WB2-2"), wr("WB2-1"), wr("WB2-2"));
   add("LB1-1","lb1", L("WB1-1"), L("WB1-2"), lr("WB1-1"), lr("WB1-2"));
   add("LB1-2","lb1", L("WB1-3"), L("WB1-4"), lr("WB1-3"), lr("WB1-4"));
-  add("LB2-1","lb2", W("LB1-1"), L("WB2-1"), wr("LB1-1"), lr("WB2-1"));
-  add("LB2-2","lb2", W("LB1-2"), L("WB2-2"), wr("LB1-2"), lr("WB2-2"));
+  add("LB2-1","lb2", W("LB1-1"), L("WB2-2"), wr("LB1-1"), lr("WB2-2"));
+  add("LB2-2","lb2", W("LB1-2"), L("WB2-1"), wr("LB1-2"), lr("WB2-1"));
   add("LB3","lb3",   W("LB2-1"), W("LB2-2"), wr("LB2-1"), wr("LB2-2"));
   add("LBF","lbf",   W("LB3"),   L("WBF"),   wr("LB3"),   lr("WBF"));
   add("GF","gf",     W("WBF"),   W("LBF"),   wr("WBF"),   wr("LBF"));
