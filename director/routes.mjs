@@ -110,12 +110,16 @@ function syncBp() {
 
 /** SSE 订阅者 */
 const streams = new Set();
+function playbackSnapshot(state) {
+  const result = {onAir:state.onAir, preview:state.onAir, live:state.live, scenes:sceneList()};
+  return JSON.parse(JSON.stringify(result, (key,value) => key === "obsAccessToken" ? undefined : value));
+}
 
 store.subscribe((payload) => {
   // 必须带上 scenes：前端渲染场景列时要读它，缺了会直接抛错。
   const data = `event: ${payload.channel}\ndata: ${JSON.stringify({ ...payload.state, scenes: sceneList() })}\n\n`;
   for (const res of streams) {
-    try { res.write(data); } catch { streams.delete(res); }
+    try { res.write(res.pkcObs ? `event: ${payload.channel}\ndata: ${JSON.stringify(playbackSnapshot(payload.state))}\n\n` : data); } catch { streams.delete(res); }
   }
 });
 
@@ -137,7 +141,7 @@ function streamApi(res) {
     'X-Accel-Buffering': 'no',
   });
   // hello 是前端初始化的主要来源，必须与广播使用同一份完整载荷。
-  res.write(`event: hello\ndata: ${JSON.stringify({ ...store.snapshot(), scenes: sceneList() })}\n\n`);
+  res.write(`event: hello\ndata: ${JSON.stringify(res.pkcObs ? playbackSnapshot(store.snapshot()) : { ...store.snapshot(), scenes: sceneList() })}\n\n`);
   streams.add(res);
   // 心跳：防止代理或浏览器静默断开
   const beat = setInterval(() => {

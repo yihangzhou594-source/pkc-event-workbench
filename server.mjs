@@ -6,6 +6,7 @@
  * 启动：双击 启动.bat，或在本目录执行 node server.mjs
  */
 import http from "node:http";
+import { obsReadAllowed, tokenMatches } from "./lib/obs-access.mjs";
 import fs from "node:fs";
 import path from "node:path";
 import crypto from "node:crypto";
@@ -35,6 +36,22 @@ import {
 import { readCompetitionContext, saveCompetitionContext } from "./lib/competition-context.mjs";
 
 const ROOT = path.dirname(fileURLToPath(import.meta.url));
+let obsAccessToken = "";
+let obsTokenLoading = null;
+async function getObsToken(rotate = false) {
+  if (rotate) { await getObsToken(); }
+  if (!rotate && obsAccessToken) return obsAccessToken;
+  if (!rotate && obsTokenLoading) return obsTokenLoading;
+  const load = async () => {
+    const prefs = await dataStore.readData("prefs", {});
+    const token = !rotate && prefs.obsAccessToken || crypto.randomBytes(32).toString("base64url");
+    if (rotate || !prefs.obsAccessToken) await dataStore.writeData("prefs", {...prefs, obsAccessToken:token}, {actor:"obs-access"});
+    obsAccessToken = token;
+    return token;
+  };
+  obsTokenLoading = load();
+  try { return await obsTokenLoading; } finally { obsTokenLoading = null; }
+}
 const PORT = Number(process.env.PORT || process.env.PKC_PORT || 8971);
 const REMOTE_MODE = process.env.PKC_REMOTE === "1";
 const CLOUD_HOSTED = REMOTE_MODE || !!process.env.RENDER || process.env.PKC_CLOUD === "1";
@@ -635,7 +652,26 @@ const server = http.createServer(async (req, res) => {
     if (p === "/api/auth/me" && req.method === "GET") {
       return sendJSON(res, { ok: true, user: authUser });
     }
-    if (!authGate.publicPath(p) && !authSession.ok) {
+    if (p === "/api/obs-links" && authSession.ok && ["GET", "POST"].includes(req.method)) {
+      const token = await getObsToken(req.method === "POST");
+      if (req.method === "POST") closeDirectorStreams();
+      res.setHeader("Cache-Control", "no-store");
+      return sendJSON(res, {token});
+    }
+    let obsRead = false;
+    if (!authSession.ok && authGate.enabled && obsReadAllowed(req.method, p)) {
+      const supplied = url.searchParams.get("obs_token") || readCookie(req, "pkc_obs");
+      if (supplied) obsRead = tokenMatches(supplied, await getObsToken());
+    }
+    if (req.method === "GET" && /^\/obs(?:\/|$)/.test(p) && url.searchParams.has("obs_token")) {
+      const token = url.searchParams.get("obs_token");
+      if (tokenMatches(token, await getObsToken())) {
+        const secure = CLOUD_HOSTED ? "; Secure" : "";
+        appendCookies(res, ["pkc_obs=" + encodeURIComponent(token) + "; HttpOnly; SameSite=Lax; Path=/; Max-Age=31536000" + secure]);
+        res.setHeader("Referrer-Policy", "no-referrer");
+      }
+    }
+    if (!authGate.publicPath(p) && !authSession.ok && !obsRead) {
       if (p.startsWith("/api/")) {
         return sendJSON(res, {
           error: "auth_required",
@@ -646,6 +682,18 @@ const server = http.createServer(async (req, res) => {
       return redirect(res, "/login?next=" + encodeURIComponent(next));
     }
 
+    if (p === "/api/obs/teams" && req.method === "GET") {
+      const context = remoteDirectorState().live.context || {};
+      const library = dataStore.readData("library", {});
+      const series = (library.series || []).find(s => s.id === context.seriesId);
+      const teams = (series?.teams || []).filter(t => [context.blueTeam, context.redTeam].includes(t.name)).map(t => ({name:t.name, players:(t.players || []).map(p => typeof p === "string" ? p : p.name), playerLanes:t.playerLanes || []}));
+      return sendJSON(res, {seriesId:context.seriesId || "", teams});
+    }
+    if (p === "/api/obs/hero-picks" && req.method === "GET") return sendJSON(res, dataStore.readData("heroPick", {}));
+    if (p === "/api/obs/stream" && req.method === "GET") {
+      res.pkcObs = !authSession.ok;
+      return directorStreamApi(res);
+    }
     if (!authGate.enabled && REMOTE_MODE && !localRequest && !remoteRequestAllowed(p)) {
       return sendJSON(res, { error: "remote_only_endpoint", message: "局域网远程模式只开放手机控制接口" }, 403);
     }

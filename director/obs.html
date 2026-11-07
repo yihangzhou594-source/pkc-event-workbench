@@ -696,14 +696,8 @@ let teamLoadToken = 0;
 async function loadObsTeams(seriesId = "") {
   const token = ++teamLoadToken;
   let targetSeriesId = seriesId;
-  if (!targetSeriesId) {
-    const library = await fetch("/api/store/library", { cache: "no-store" }).then((r) => r.json()).catch(() => null);
-    if (token !== teamLoadToken) return;
-    targetSeriesId = library && (library.currentId || library.series && library.series[0] && library.series[0].id) || "";
-  }
-  if (!targetSeriesId || targetSeriesId === loadedTeamSeriesId) return;
-  const data = await fetch("/api/competition/teams?seriesId=" + encodeURIComponent(targetSeriesId), { cache: "no-store" })
-    .then((r) => r.json()).catch(() => null);
+  const data = await fetch("/api/obs/teams", {cache:"no-store"}).then(r=>r.json()).catch(()=>null);
+  targetSeriesId = data?.seriesId || targetSeriesId;
   if (token !== teamLoadToken || !data || !Array.isArray(data.teams)) return;
   teamPlayers.clear();
   allTeams.splice(0, allTeams.length);
@@ -727,13 +721,6 @@ async function loadObsTeams(seriesId = "") {
   }
 }
 loadObsTeams();
-fetch("/api/store/matches")
-  .then((r) => r.json())
-  .then((d) => {
-    matchStore = d;
-    if (lastState) { lastBpKey = null; render(lastState); }
-  })
-  .catch(() => {});
 
 function fmtClock(ms) {
   const total = Math.max(0, Math.round((ms || 0) / 1000));
@@ -807,7 +794,7 @@ function ensureChartRuntime() {
         await loadHeroes(false);
       } catch { /* 素材索引失败时仍可画文字数据 */ }
       try {
-        const hp = await (await fetch("/api/store/heroPick", { cache: "no-store" })).json();
+        const hp = await (await fetch("/api/obs/hero-picks", { cache: "no-store" })).json();
         if (hp && typeof hp === "object" && !Array.isArray(hp)) DB.heroPick = hp;
       } catch { /* 没保存过英雄图选择时保持空对象 */ }
     })();
@@ -1825,7 +1812,7 @@ showStatus("正在连接导播台…");
 let source = null;
 function connect() {
   if (source) source.close();
-  source = new EventSource("/api/director/stream");
+  source = new EventSource("/api/obs/stream");
 
   source.addEventListener("hello", (e) => {
     showStatus("");

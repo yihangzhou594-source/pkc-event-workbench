@@ -636,8 +636,14 @@
   $$("[data-copy]").forEach((b) => {
     b.addEventListener("click", async () => {
       const path = b.dataset.copy;
-      const url = location.origin + path;
+      let url = location.origin + path;
       try {
+        if (path.startsWith("/obs/")) {
+          const response = await fetch("/api/obs-links", {cache:"no-store"});
+          if (!response.ok) throw new Error("OBS 链接生成失败");
+          const data = await response.json();
+          url += "?obs_token=" + encodeURIComponent(data.token);
+        }
         await navigator.clipboard.writeText(url);
         b.textContent = "已复制";
         b.classList.add("ok");

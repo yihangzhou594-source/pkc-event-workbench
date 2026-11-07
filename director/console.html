@@ -669,6 +669,7 @@
             <summary>OBS 浏览器源</summary>
             <div class="kv">在播场景：<b id="onAirScene">暂无</b></div>
             <div class="kv" style="margin:7px 0">把下面的地址粘进 OBS 的「浏览器」源，宽 1920 高 1080：</div>
+            <button type="button" class="btn ghost" id="btnRotateObs">重置 OBS 播放凭证</button>
             <code id="obsUrl">尚未生成</code>
             <div class="row" style="margin-top:9px">
               <button class="btn ghost" id="btnCopyObs">复制地址</button>
@@ -1660,9 +1661,20 @@ function syncCmForm() {
   paintCmPeopleFields();
   paintCmBannerFields();
 }
+$("btnRotateObs").onclick = async () => {
+  if (!confirm("重置后旧 OBS 链接将失效，所有直播软件都需要替换新链接。继续？")) return;
+  try {
+    const response = await fetch("/api/obs-links", {method:"POST"});
+    if (!response.ok) throw new Error("重置失败");
+    if (window.__pkSay) window.__pkSay("凭证已重置，请重新复制 OBS 地址");
+  } catch (error) { if (window.__pkSay) window.__pkSay(error.message); }
+};
 $("btnCopyObs").onclick = async () => {
   try {
-    await navigator.clipboard.writeText($("obsUrl").textContent);
+    const response = await fetch("/api/obs-links", {cache:"no-store"});
+    if (!response.ok) throw new Error("生成链接失败");
+    const data = await response.json();
+    await navigator.clipboard.writeText($("obsUrl").textContent + "?obs_token=" + encodeURIComponent(data.token));
     $("btnCopyObs").textContent = "已复制";
     setTimeout(() => { $("btnCopyObs").textContent = "复制地址"; }, 1200);
   } catch {
