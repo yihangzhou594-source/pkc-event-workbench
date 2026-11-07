@@ -489,7 +489,7 @@ function drawRadar(ctx, cx, cy, R, row, ourColor, oppColor, reference){
   }
   const V = normVals(row, reference);
   const refColor = DB.prefs.chartStyle === "kpl" ? KPL_GOLD : (t.isDark ? "#d8b35b" : "#8d7441");
-  drawRadarReference(ctx, cx, cy, R, ang, V, refColor);
+  // Keep series normalization, but omit the yellow reference overlay.
   const pts = who => V.norm.map((v,i) => {
     const a=ang(i), rr2 = R*clamp(v[who],0,1);
     return [cx+Math.cos(a)*rr2, cy+Math.sin(a)*rr2];
@@ -514,14 +514,14 @@ function drawRadar(ctx, cx, cy, R, row, ourColor, oppColor, reference){
   });
   for (let i=0;i<N;i++){
     const a=ang(i), cos=Math.cos(a), sin=Math.sin(a);
-    const lx = cx+cos*(R+54), ly = cy+sin*(R+54);
+    const lx = cx+cos*(R+70), ly = cy+sin*(R+70);
     const align = Math.abs(cos)<.22 ? "center" : (cos>0 ? "left" : "right");
     const ra0 = axisVal(row.our, AXES[i].key), rb0 = axisVal(row.opp, AXES[i].key);
     const empty = (ra0.num === null && rb0.num === null);
-    T(ctx, AXES[i].name, lx, ly, { size:26, weight:"700", align:align, color: empty ? t.faint : t.sub, alpha: empty?0.75:1 });
+    T(ctx, AXES[i].name, lx, ly, { size:23, weight:"700", align:align, color: empty ? t.faint : t.sub, alpha: empty?0.75:1 });
     if (DB.prefs.values){
-      const vy = sin>.5 ? ly+39 : (sin<-.5 ? ly-39 : ly+37);
-      pairNum(ctx, lx, vy, ra0.txt, rb0.txt, align, 25,
+      const vy = sin>.5 ? ly+34 : (sin<-.5 ? ly-34 : ly+34);
+      pairNum(ctx, lx, vy, ra0.txt, rb0.txt, align, 22,
         ourColor, oppColor, V.norm[i].our>=V.norm[i].opp, V.norm[i].opp>V.norm[i].our);
     }
   }
@@ -683,9 +683,9 @@ function drawKplCard(ctx, g, posIdx, reference){
   drawKplStatChips(ctx, 70, 650, pw, row.our, C_BLUE, "蓝方数据");
   drawKplStatChips(ctx, DW-70-pw, 650, pw, row.opp, C_RED, "红方数据");
   T(ctx, "对位雷达 · 蓝 ←→ 红", 960, 156, { size:18, weight:"700", align:"center", color:"rgba(255,255,255,.66)", spacing:1.4 });
-  T(ctx, "虚线为系列赛同分路均值 · 图表 50%", 960, 179, { size:14, weight:"500", align:"center", color:"rgba(255,255,255,.52)" });
+  T(ctx, "按系列赛同分路均值归一化", 960, 179, { size:14, weight:"500", align:"center", color:"rgba(255,255,255,.52)" });
   drawRadar(ctx, 960, 505, 212, row, KPL_BLUE, KPL_RED, reference);
-  T(ctx, "核心数据对比", 960, 804, { size:16, weight:"700", align:"center", color:KPL_GOLD, spacing:2 });
+
   drawCompare(ctx, row, KPL_BLUE, KPL_RED);
   if (DB.prefs.footer) fitText(ctx, DB.prefs.footer, 960, 1054, { size:17, align:"center", color:"rgba(255,255,255,.42)", maxWidth:DW-2*(70+360) });
   T(ctx, "数据来源：王者赛宝 / 手工核对", 70, 1052, { size:14, color:"rgba(255,255,255,.3)" });
@@ -708,7 +708,7 @@ function drawCard(ctx, g, posIdx, reference){
   const pw = 306;
   drawSide(ctx, 84, 214, pw, row.our, C_BLUE, pos + " · 蓝方" + (row.hasOur ? "" : "（未指定）"));
   drawSide(ctx, DW-84-pw, 214, pw, row.opp, C_RED, pos + " · 红方" + (row.hasOpp ? "" : "（未指定）"));
-  T(ctx, "虚线 · 系列赛同分路均值（图表 50%）", 960, 205,
+  T(ctx, "按系列赛同分路均值归一化", 960, 205,
     { size:16, weight:"600", align:"center", color:t.sub });
   drawRadar(ctx, 960, 520, 205, row, C_BLUE, C_RED, reference);
   drawCompare(ctx, row, C_BLUE, C_RED);
@@ -871,7 +871,7 @@ function drawRadarMini(ctx, cx, cy, R, row, ourColor, oppColor, showLabels = tru
   }
   const V = normVals(row, reference);
   const refColor = DB.prefs.chartStyle === "kpl" ? KPL_GOLD : (t.isDark ? "#d8b35b" : "#8d7441");
-  drawRadarReference(ctx, cx, cy, R, ang, V, refColor);
+  // Keep series normalization, but omit the yellow reference overlay.
   const pts = who => V.norm.map((v,i) => {
     const a=ang(i), rr2=R*clamp(v[who],0,1);
     return [cx+Math.cos(a)*rr2, cy+Math.sin(a)*rr2];
