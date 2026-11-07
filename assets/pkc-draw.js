@@ -520,7 +520,7 @@ function drawRadar(ctx, cx, cy, R, row, ourColor, oppColor, reference){
     const empty = (ra0.num === null && rb0.num === null);
     T(ctx, AXES[i].name, lx, ly, { size:23, weight:"700", align:align, color: empty ? t.faint : t.sub, alpha: empty?0.75:1 });
     if (DB.prefs.values){
-      const vy = sin>.5 ? ly+34 : (sin<-.5 ? ly-34 : ly+34);
+      const vy = i === 0 ? ly+32 : (sin>.5 ? ly+34 : (sin<-.5 ? ly-34 : ly+34));
       pairNum(ctx, lx, vy, ra0.txt, rb0.txt, align, 22,
         ourColor, oppColor, V.norm[i].our>=V.norm[i].opp, V.norm[i].opp>V.norm[i].our);
     }
