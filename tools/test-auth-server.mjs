@@ -31,7 +31,7 @@ const fakeSupabase = http.createServer(async (req, res) => {
   if (url.pathname === "/rest/v1/pkc_records") {
     return sendJson(res, 200, CLOUD_STORE_KEYS.map((key) => ({
       key,
-      data: key === "library" ? { series: [] } : key === "matches" ? { games: {} } : {},
+      data: key === "prefs" ? {obsAccessToken:"test-obs-readonly"} : key === "library" ? { series: [] } : key === "matches" ? { games: {} } : {},
       revision: 1,
       updated_at: "2026-10-26T00:00:00Z",
     })));
@@ -112,6 +112,24 @@ try {
   });
 
   const health = await waitForServer();
+  const obsPage = await fetch(`http://127.0.0.1:${serverPort}/obs/commentary?obs_token=test-obs-readonly`, {redirect:"manual"});
+  assert.equal(obsPage.status, 200);
+  assert.match(obsPage.headers.get("set-cookie") || "", /pkc_obs=/);
+  const obsHeaders = {Cookie:"pkc_obs=test-obs-readonly"};
+  for (const path of ["/api/obs/teams", "/api/obs/hero-picks", "/assets/pkc-draw.js"]) {
+    assert.equal((await fetch(`http://127.0.0.1:${serverPort}${path}`, {headers:obsHeaders})).status,200,path);
+  }
+  for (const path of ["/api/store/library", "/api/store/matches", "/api/store/prefs", "/api/director/state", "/api/obs-links"]) {
+    assert.equal((await fetch(`http://127.0.0.1:${serverPort}${path}`, {headers:obsHeaders})).status,401,path);
+  }
+  assert.equal((await fetch(`http://127.0.0.1:${serverPort}/api/director/push`, {method:"POST",headers:obsHeaders,body:"{}"})).status,401);
+  const obsStream = await fetch(`http://127.0.0.1:${serverPort}/api/obs/stream`, {headers:obsHeaders});
+  assert.equal(obsStream.status,200);
+  const reader=obsStream.body.getReader();
+  const chunk=await reader.read();
+  assert.match(new TextDecoder().decode(chunk.value),/event: hello/);
+  await reader.cancel();
+
   assert.equal(health.cloud, true);
   assert.equal(health.auth, true);
 
