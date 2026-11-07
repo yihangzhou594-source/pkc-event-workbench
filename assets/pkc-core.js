@@ -151,7 +151,7 @@ const PALETTE = ["#e8b100","#2f6bff","#12a67a","#e8622a","#8b5cf6","#0ea5e9","#e
 
 function emptyP(){
   return { name:"", hero:"", k:"", d:"", a:"", cs:"", gpm:"", gold:"", goldShare:"",
-           dmgPct:"", tankPct:"", kp:"", dmgPerGold:"", dmgWan:"" };
+           rating:"", tankRaw:"", dmgPct:"", tankPct:"", kp:"", dmgPerGold:"", dmgWan:"" };
 }
 /** 每一行存「蓝方分路 pos」和「红方分路 posOpp」——两边各自独立，互不限制；
  *  出图时才按分路把两边配成一对（见 lanePair）。 */

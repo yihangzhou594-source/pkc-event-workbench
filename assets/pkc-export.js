@@ -25,6 +25,7 @@ function exportList(allGames){
 /** 导播台数据图轮播：当前一局的 5 张对位图 + 五路总览，共 6 张。 */
 function chartItems(){
   const s = S.series;
+  const laneReferences = laneReferencesForSeries(s);
   const meta = contextSnapshot() || {};
   const ctx = {
     series: [{
@@ -42,9 +43,9 @@ function chartItems(){
   };
   const game = JSON.parse(JSON.stringify(S.game));
   const items = POSITIONS.map((pos, i) => ({
-    kind: "card", idx: i, game, label: pos + "对位图", ...ctx,
+    kind: "card", idx: i, game, label: pos + "对位图", laneReferences, ...ctx,
   }));
-  items.push({ kind: "overview", idx: -1, game, label: "五路总览", ...ctx });
+  items.push({ kind: "overview", idx: -1, game, label: "五路总览", laneReferences, ...ctx });
   return items;
 }
 function drawExport(item, W, H){
@@ -60,8 +61,10 @@ function drawExport(item, W, H){
   const ctx = c.getContext("2d");
   const sc = W/DW;
   ctx.setTransform(sc,0,0,sc,0,0);
-  if (item.kind === "card") drawCard(ctx, item.game, item.idx);
-  else if (item.kind === "overview") drawOverview(ctx, item.game);
+  const pos = POSITIONS[item.idx] || POSITIONS[0];
+  const references = item.laneReferences || laneReferencesForSeries(S.series);
+  if (item.kind === "card") drawCard(ctx, item.game, item.idx, references && references[pos]);
+  else if (item.kind === "overview") drawOverview(ctx, item.game, references);
   else if (item.kind === "bigMatch") drawBigMatchSummary(ctx);
   else drawMulti(ctx);
   return c;

@@ -137,14 +137,20 @@ function procKeyOut(url, img){
 
 /* 雷达七个维度：与「PKC 战报图」版式一致，其中第四项用 KDA 替代补刀数 */
 const AXES = [
-  { key:"kda",        name:"KDA",             unit:""  },
-  { key:"dmgWan",     name:"伤害",             unit:"k" },
-  { key:"tankPct",    name:"承伤占比",         unit:"%" },
-  { key:"gpm",        name:"分均经济",         unit:""  },
-  { key:"kp",         name:"参团率",           unit:"%" },
-  { key:"dmgPerGold", name:"经济转英雄伤害",   unit:""  },
-  { key:"k",          name:"击杀",             unit:""  }
+  {key:"dmgPct",name:"伤害占比",unit:"%"},
+  {key:"gpm",name:"分均经济",unit:""},
+  {key:"rating",name:"局内评分",unit:""},
+  {key:"tankPerDeath",name:"每死承伤",unit:""},
+  {key:"participations",name:"参与击杀",unit:""},
+  {key:"kp",name:"参团率",unit:"%"},
+  {key:"tankPct",name:"承伤占比",unit:"%"},
+  {key:"dpm",name:"分均伤害",unit:""}
 ];
+function axesFor(row){
+  return AXES.map((axis,i) => ["中路","发育路"].includes(row && row.pos)
+    ? (i === 3 ? {key:"dmgPerGold",name:"经济转伤害",unit:""} : i === 6 ? {key:"d",name:"死亡次数",unit:""} : axis) : axis);
+}
+const ALL_AXES = [...AXES, {key:"dmgPerGold"}, {key:"d"}];
 const CMP_POOL = [
   { key:"gold",      name:"总经济",   unit:"" },
   { key:"dmgWan",    name:"输出伤害", unit:"k" }
@@ -173,6 +179,11 @@ function metricText(p, key){
 }
 /** 取某个维度对某个选手的原始值与展示文本 */
 function axisVal(p, key){
+  if (key === "participations"){
+    const k=parseNum(p.k), a=parseNum(p.a);
+    const n=k === null || a === null ? null : k+a;
+    return {num:n,txt:n === null ? "—" : String(n)};
+  }
   if (key === "kda"){
     const k = parseNum(p.k), d = parseNum(p.d), a = parseNum(p.a);
     if (k === null && d === null && a === null) return { num:null, txt:"—" };
@@ -201,11 +212,16 @@ function cmpRowsFor(row){
   return out;
 }
 /** 把「总经济 ÷ 对局时长」推算出的分均经济补进去，不动原始数据 */
+function derivedMetrics(p,g,side="our"){
+  const minutes=durationMin(g), damage=effDmgWan(p,g,side), tank=parseNum(p.tankRaw), deaths=parseNum(p.d);
+  return {dpm: minutes > 0 && damage !== null ? Math.round(damage*10000/minutes) : "",
+    tankPerDeath: tank !== null && deaths !== null ? Math.round(tank/Math.max(1,deaths)) : ""};
+}
 function effRow(row, g){
   return { pos: row.pos, posOpp: row.posOpp,
-    our: Object.assign({}, row.our, { gpm: effGpm(row.our, g), dmgPerGold: effPerGold(row.our, g, "our"),
+    our: Object.assign({}, row.our, { ...derivedMetrics(row.our,g), gpm: effGpm(row.our, g), dmgPerGold: effPerGold(row.our, g, "our"),
       dmgWan: isBlank(row.our.dmgWan) ? fmtWan(effDmgWan(row.our, g, "our")) : String(row.our.dmgWan).trim() }),
-    opp: Object.assign({}, row.opp, { gpm: effGpm(row.opp, g), dmgPerGold: effPerGold(row.opp, g, "opp"),
+    opp: Object.assign({}, row.opp, { ...derivedMetrics(row.opp,g,"opp"), gpm: effGpm(row.opp, g), dmgPerGold: effPerGold(row.opp, g, "opp"),
       dmgWan: isBlank(row.opp.dmgWan) ? fmtWan(effDmgWan(row.opp, g, "opp")) : String(row.opp.dmgWan).trim() }) };
 }
 /** 出图时的对位配对：左边找「蓝方分路=pos」的那位，右边找「红方分路=pos」的那位。
@@ -220,13 +236,57 @@ function lanePair(g, pos){
            our: a ? a.our : emptyP(), opp: b ? b.opp : emptyP(),
            hasOur: !!a, hasOpp: !!b };
 }
-function normVals(row){
+/** 系列赛同分路基准：逐局收集两边该路的选手记录，再对每项已填数据取平均值。 */
+function laneReferencesForSeries(series){
+  const sums = {};
+  POSITIONS.forEach(pos => {
+    sums[pos] = {};
+    ALL_AXES.forEach(axis => { sums[pos][axis.key] = { total:0, count:0 }; });
+  });
+  const add = (pos, player) => {
+    if (!POSITIONS.includes(pos) || !player) return;
+    ALL_AXES.forEach(axis => {
+      const value = axisVal(player, axis.key).num;
+      if (value === null || !Number.isFinite(value)) return;
+      sums[pos][axis.key].total += value;
+      sums[pos][axis.key].count += 1;
+    });
+  };
+  ((series && series.games) || []).forEach(g => {
+    (Array.isArray(g && g.rows) ? g.rows : []).forEach(raw => {
+      const row = effRow(raw, g);
+      add(row.pos, row.our);
+      add(row.posOpp, row.opp);
+    });
+  });
+  return Object.fromEntries(POSITIONS.map(pos => {
+    const values = {}, counts = {};
+    ALL_AXES.forEach(axis => {
+      const cell = sums[pos][axis.key];
+      values[axis.key] = cell.count ? cell.total / cell.count : null;
+      counts[axis.key] = cell.count;
+    });
+    return [pos, { values, counts }];
+  }));
+}
+function referenceValues(reference){
+  return reference && reference.values ? reference.values : (reference || {});
+}
+function normVals(row, reference){
+  const AXES = axesFor(row);
   const a = AXES.map(x => axisVal(row.our, x.key).num);
   const b = AXES.map(x => axisVal(row.opp, x.key).num);
+  const refs = referenceValues(reference);
   return {
     raw:{ our:a, opp:b },
+    reference: AXES.map(x => {
+      const value = parseNum(refs[x.key]);
+      return value !== null && value > 0 ? value : null;
+    }),
     norm: AXES.map((x,i) => {
-      const m = Math.max(a[i]||0, b[i]||0);
+      const pairMax = Math.max(a[i]||0, b[i]||0);
+      const ref = parseNum(refs[x.key]);
+      const m = ref !== null && ref > 0 ? ref * 2 : pairMax;
       return { our: m>0 ? (a[i]||0)/m : 0, opp: m>0 ? (b[i]||0)/m : 0 };
     })
   };
@@ -373,7 +433,35 @@ function drawSide(ctx, x, y, w, player, color, tagLabel){
 }
 
 /* ---------- 雷达 ---------- */
-function drawRadar(ctx, cx, cy, R, row, ourColor, oppColor){
+function drawRadarReference(ctx, cx, cy, R, ang, V, color){
+  if (!V.reference.some(v => v !== null)) return;
+  ctx.save();
+  ctx.beginPath();
+  for (let i=0;i<AXES.length;i++){
+    const a=ang(i), px=cx+Math.cos(a)*R*.5, py=cy+Math.sin(a)*R*.5;
+    if (i) ctx.lineTo(px,py);
+    else ctx.moveTo(px,py);
+  }
+  ctx.closePath();
+  ctx.setLineDash([7, 6]);
+  ctx.strokeStyle = rgba(color, .82);
+  ctx.lineWidth = 1.8;
+  ctx.stroke();
+  ctx.setLineDash([]);
+  for (let i=0;i<AXES.length;i++){
+    if (V.reference[i] === null) continue;
+    const a=ang(i), dx=Math.cos(a), dy=Math.sin(a);
+    ctx.beginPath();
+    ctx.moveTo(cx+dx*R*.44, cy+dy*R*.44);
+    ctx.lineTo(cx+dx*R*.56, cy+dy*R*.56);
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 2.2;
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+function drawRadar(ctx, cx, cy, R, row, ourColor, oppColor, reference){
+  const AXES = axesFor(row);
   const t = th(), N = AXES.length;
   const ang = i => (-90 + i*(360/N)) * Math.PI/180;
   for (let r=1; r<=4; r++){
@@ -399,7 +487,9 @@ function drawRadar(ctx, cx, cy, R, row, ourColor, oppColor){
     ctx.beginPath(); ctx.arc(cx, cy, R+10, 0, Math.PI*2); ctx.stroke();
     ctx.restore();
   }
-  const V = normVals(row);
+  const V = normVals(row, reference);
+  const refColor = DB.prefs.chartStyle === "kpl" ? KPL_GOLD : (t.isDark ? "#d8b35b" : "#8d7441");
+  drawRadarReference(ctx, cx, cy, R, ang, V, refColor);
   const pts = who => V.norm.map((v,i) => {
     const a=ang(i), rr2 = R*clamp(v[who],0,1);
     return [cx+Math.cos(a)*rr2, cy+Math.sin(a)*rr2];
@@ -575,7 +665,7 @@ function drawKplStatChips(ctx, x, y, w, p, color, sideLabel){
   ctx.beginPath(); ctx.moveTo(x+w-26, y+8); ctx.lineTo(x+w-8, y+8); ctx.lineTo(x+w-8, y+26); ctx.stroke();
 }
 
-function drawKplCard(ctx, g, posIdx){
+function drawKplCard(ctx, g, posIdx, reference){
   const our = S.team(g.ourId), opp = S.team(g.oppId);
   const pos = POSITIONS[posIdx] || POSITIONS[0], row = lanePair(g, pos);
   drawKplBG(ctx);
@@ -593,8 +683,8 @@ function drawKplCard(ctx, g, posIdx){
   drawKplStatChips(ctx, 70, 650, pw, row.our, C_BLUE, "蓝方数据");
   drawKplStatChips(ctx, DW-70-pw, 650, pw, row.opp, C_RED, "红方数据");
   T(ctx, "对位雷达 · 蓝 ←→ 红", 960, 156, { size:18, weight:"700", align:"center", color:"rgba(255,255,255,.66)", spacing:1.4 });
-  T(ctx, "每项以双方较高值为 100%", 960, 179, { size:14, weight:"500", align:"center", color:"rgba(255,255,255,.42)" });
-  drawRadar(ctx, 960, 505, 212, row, KPL_BLUE, KPL_RED);
+  T(ctx, "虚线为系列赛同分路均值 · 图表 50%", 960, 179, { size:14, weight:"500", align:"center", color:"rgba(255,255,255,.52)" });
+  drawRadar(ctx, 960, 505, 212, row, KPL_BLUE, KPL_RED, reference);
   T(ctx, "核心数据对比", 960, 804, { size:16, weight:"700", align:"center", color:KPL_GOLD, spacing:2 });
   drawCompare(ctx, row, KPL_BLUE, KPL_RED);
   if (DB.prefs.footer) fitText(ctx, DB.prefs.footer, 960, 1054, { size:17, align:"center", color:"rgba(255,255,255,.42)", maxWidth:DW-2*(70+360) });
@@ -603,10 +693,11 @@ function drawKplCard(ctx, g, posIdx){
 }
 
 /* ---------- 单张对位图 ---------- */
-function drawCard(ctx, g, posIdx){
-  if (DB.prefs.chartStyle === "kpl") return drawKplCard(ctx, g, posIdx);
+function drawCard(ctx, g, posIdx, reference){
+  const pos = POSITIONS[posIdx] || POSITIONS[0];
+  if (DB.prefs.chartStyle === "kpl") return drawKplCard(ctx, g, posIdx, reference);
   const our = S.team(g.ourId), opp = S.team(g.oppId);
-  const pos = POSITIONS[posIdx] || POSITIONS[0], row = lanePair(g, pos);
+  const row = lanePair(g, pos);
   const t = th();
   const blueWin = g.result === "win";
   drawBG(ctx, C_BLUE, C_RED);
@@ -617,7 +708,9 @@ function drawCard(ctx, g, posIdx){
   const pw = 306;
   drawSide(ctx, 84, 214, pw, row.our, C_BLUE, pos + " · 蓝方" + (row.hasOur ? "" : "（未指定）"));
   drawSide(ctx, DW-84-pw, 214, pw, row.opp, C_RED, pos + " · 红方" + (row.hasOpp ? "" : "（未指定）"));
-  drawRadar(ctx, 960, 520, 205, row, C_BLUE, C_RED);
+  T(ctx, "虚线 · 系列赛同分路均值（图表 50%）", 960, 205,
+    { size:16, weight:"600", align:"center", color:t.sub });
+  drawRadar(ctx, 960, 520, 205, row, C_BLUE, C_RED, reference);
   drawCompare(ctx, row, C_BLUE, C_RED);
   if (DB.prefs.footer) fitText(ctx, DB.prefs.footer, 960, 1056, { size:21, align:"center", color:t.faint, maxWidth:DW-2*(84+430) });
   T(ctx, (our.name||"蓝方"), 84, 1056, { size:19, color:C_BLUE, maxWidth:420 });
@@ -625,8 +718,8 @@ function drawCard(ctx, g, posIdx){
 }
 
 /* ---------- 五路总览 ---------- */
-function drawOverview(ctx, g){
-  if (DB.prefs.chartStyle === "kpl") return drawKplOverview(ctx, g);
+function drawOverview(ctx, g, references){
+  if (DB.prefs.chartStyle === "kpl") return drawKplOverview(ctx, g, references);
   const our = S.team(g.ourId), opp = S.team(g.oppId), t = th();
   const blueWin = g.result === "win";
   drawBG(ctx, C_BLUE, C_RED);
@@ -649,7 +742,7 @@ function drawOverview(ctx, g){
     ctx.fillStyle = rgba(C_BLUE, t.isDark?.25:.15); ctx.fill();
     ctx.strokeStyle = rgba(C_BLUE, .45); ctx.lineWidth = 1.4; ctx.stroke();
     T(ctx, pos, cx, tileY+37, { size:22, weight:"700", align:"center", color:C_BLUE });
-    drawRadarMini(ctx, cx, tileY+250, 88, row, C_BLUE, C_RED);   // 半径收小一点，给完整维度名留位置
+    drawRadarMini(ctx, cx, tileY+250, 88, row, C_BLUE, C_RED, true, references && references[pos]);   // 半径收小一点，给完整维度名留位置
     fitText(ctx, row.our.name || (row.hasOur ? "—" : "（未指定）"), cx, tileY+420, { size:29, weight:"700", align:"center", color:C_BLUE, maxWidth:tileW-40, minScale:.62 });
     T(ctx, "KDA " + kdaText(row.our), cx, tileY+458, { size:24, align:"center", color:C_BLUE, family:FN });
     ctx.fillStyle = t.frame; ctx.fillRect(x+22, tileY+486, tileW-44, 1);
@@ -665,7 +758,7 @@ function drawOverview(ctx, g){
   if (DB.prefs.footer) fitText(ctx, DB.prefs.footer, 960, 1054, { size:21, align:"center", color:t.faint, maxWidth:DW-200 });
 }
 
-function drawKplOverview(ctx, g){
+function drawKplOverview(ctx, g, references){
   const our = S.team(g.ourId), opp = S.team(g.oppId);
   drawKplBG(ctx);
   drawKplHead(ctx, g, our, opp, { pos:"五路", label:"五路总览" });
@@ -688,7 +781,7 @@ function drawKplOverview(ctx, g){
     T(ctx, "RED", x+tileW-22, tileY+64, { size:12, weight:"700", align:"right", color:KPL_RED, spacing:1.5 });
     ctx.fillStyle = rgba(KPL_BLUE, .5); ctx.fillRect(x+1, tileY+18, 2, tileH-36);
     ctx.fillStyle = rgba(KPL_RED, .5); ctx.fillRect(x+tileW-3, tileY+18, 2, tileH-36);
-    drawRadarMini(ctx, cx, tileY+155, 72, row, KPL_BLUE, KPL_RED, false);
+    drawRadarMini(ctx, cx, tileY+155, 72, row, KPL_BLUE, KPL_RED, false, references && references[pos]);
     const hs = 42;
     drawOverviewHero(ctx, x+24, tileY+250, hs, row.our.hero, KPL_BLUE);
     fitText(ctx, row.our.name || (row.hasOur ? "—" : "（未指定）"), x+78, tileY+267,
@@ -763,7 +856,8 @@ function kdaText(p){
   const f = v => isBlank(v) ? "-" : String(v).trim();
   return f(p.k)+"/"+f(p.d)+"/"+f(p.a);
 }
-function drawRadarMini(ctx, cx, cy, R, row, ourColor, oppColor, showLabels = true){
+function drawRadarMini(ctx, cx, cy, R, row, ourColor, oppColor, showLabels = true, reference){
+  const AXES = axesFor(row);
   const t = th(), N = AXES.length, ang = i => (-90+i*(360/N))*Math.PI/180;
   for (let r=1;r<=3;r++){
     const rr2 = R*r/3;
@@ -775,7 +869,9 @@ function drawRadarMini(ctx, cx, cy, R, row, ourColor, oppColor, showLabels = tru
     ctx.closePath();
     ctx.strokeStyle = r===3 ? t.gridOut : t.grid; ctx.lineWidth = 1; ctx.stroke();
   }
-  const V = normVals(row);
+  const V = normVals(row, reference);
+  const refColor = DB.prefs.chartStyle === "kpl" ? KPL_GOLD : (t.isDark ? "#d8b35b" : "#8d7441");
+  drawRadarReference(ctx, cx, cy, R, ang, V, refColor);
   const pts = who => V.norm.map((v,i) => {
     const a=ang(i), rr2=R*clamp(v[who],0,1);
     return [cx+Math.cos(a)*rr2, cy+Math.sin(a)*rr2];
@@ -1155,8 +1251,9 @@ function renderInto(canvas, kind, g, rowIdx, w, h){
   ctx.clearRect(0,0,w,h);
   const sc = w / DW;
   ctx.setTransform(sc,0,0,sc,0,0);
-  if (kind === "card") drawCard(ctx, g, rowIdx);
-  else if (kind === "overview") drawOverview(ctx, g);
+  const references = laneReferencesForSeries(S.series);
+  if (kind === "card") drawCard(ctx, g, rowIdx, references && references[POSITIONS[rowIdx]]);
+  else if (kind === "overview") drawOverview(ctx, g, references);
   else drawMulti(ctx);
 }
 function targetSize(){

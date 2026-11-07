@@ -159,7 +159,7 @@ function renderHelp(){
             </tbody>
           </table>
           <h4>图上的七个维度</h4>
-          <p>雷达固定七维（顺时针，从正上方开始）：<b>KDA / 击杀 / 伤害 / 承伤占比 / 分均经济 / 参团率 / 经济转伤</b>。雷达每项以双方较高值为 100%，用于看相对形状；旁边同时标出真实值，伤害与经济末尾统一用 k。全图统一按赛制配色——蓝方一路鲜蓝、红方一路鲜红。</p>
+          <p>雷达八维（顺时针，从正上方开始）：<b>伤害占比 / 分均经济 / 局内评分 / 每死承伤 / 参与击杀 / 参团率 / 承伤占比 / 分均伤害</b>；中路、发育路第四项为经济转伤害，第七项为死亡次数。参与击杀为击杀加助攻，每死承伤为总承伤除以死亡次数（零死按 1 计算）。每项以该系列赛同分路选手均值的 2 倍为图表最大值，所以虚线的 50% 位置就是同路均值；旁边同时标出双方真实值，伤害与经济末尾统一用 k。全图统一按赛制配色——蓝方一路鲜蓝、红方一路鲜红。</p>
           <p>顶部「KPL 风格」会切到单场电竞数据面板版式：蓝红比分条、左右英雄卡、中央双向雷达、选手数据卡和底部对比条。只使用现有字段，不编造补刀数、团战伤害等没有的数据。</p>
           <ul>
             <li>多局导出时，对位图序号会变成 <code>PKC_1_…</code>、<code>PKC_2_…</code>，按局依次排。</li>
@@ -819,7 +819,7 @@ async function init(){
     bkMatchList, bkMatchByKey, bkSelectableMatches, gamesOfMatch, openMatch,
     renderMatchBar, renderGameBar, renderGameForm, renderBracket, matchTeamMismatch, matchRecord, bkLinkIssues,
     teamGroupOf, bkTeamStatus, bkTeamMatchKey, syncTeamGroups,
-    multiGames, gamesForExport, bigMatchSummary, summaryPercent,
+    multiGames, gamesForExport, bigMatchSummary, summaryPercent, laneReferencesForSeries, normVals,
     parseLines, heroCandidates, heroPickRec, exportList, chartItems, drawExport, drawMulti,
     switchTab, showCands, focusHero, runOCR, runAIOCR, swapSides, save: saveAll, lanePair,
     bracket: B, bkTree, bkR16Pairs, bkChampion, drawBk, drawBk16, drawBkDE, drawBkAll,

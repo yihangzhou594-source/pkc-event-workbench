@@ -93,10 +93,11 @@ async function callDeepSeekOCR(images, hint) {
     "你是王者荣耀赛后数据图表 OCR 引擎。",
     "输入通常包含装备页和数据页两张截图；第一张是装备页，第二张是数据页。",
     "只输出一个严格 JSON 对象，不要 Markdown，不要解释。",
-    '结构：{"blue":[{"name":"","hero":"","k":0,"d":0,"a":0,"gold":0,"dmgRaw":0,"tankRaw":0,"dmgPct":0,"tankPct":0,"goldShare":0,"kp":0}],"red":[...5个...],"duration":""}',
-    "按图片从上到下五行读取；蓝方在左，红方在右。",
+    '结构：{"blue":[{"name":"","hero":"","lane":null,"k":0,"d":0,"a":0,"gold":0,"rating":0,"dmgRaw":0,"tankRaw":0,"dmgPct":0,"tankPct":0,"goldShare":0,"kp":0}],"red":[...5个...],"duration":""}',
+    "按图片从上到下五行读取；蓝方在左，红方在右。rating 是英雄头像旁的局内评分；duration 是装备页顶部的对局时长，不是手机系统时间。",
     "name 和 hero 按图片文字原样读取，不要把昵称和英雄名互换。",
     "gold 使用装备页的具体经济数字；dmgRaw/tankRaw 使用数据页的 33.7k 这类数值展开成整数；dmgPct/tankPct/goldShare/kp 只输出数字，不带 %。",
+    "lane 只根据本局明确分路标识填写上单、打野、中路、发育路、游走；不可把截图行序当成分路，不可仅凭英雄猜分路。无法确定用 null。",
     "不确定的字段用 null，不要编造。",
     hint ? "用户补充：" + hint : "",
   ].filter(Boolean).join("\n");

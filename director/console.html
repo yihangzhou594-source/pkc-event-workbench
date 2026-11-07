@@ -25,7 +25,7 @@
   html{overflow-x:clip}
   body{
     background:var(--bg); color:var(--text);
-    font:14px/1.55 "Microsoft YaHei","PingFang SC","Noto Sans SC",system-ui,sans-serif;
+    font:14px/1.55 var(--font-body);
     overflow-x:clip;overflow-y:hidden;
   }
   h1,h2,h3{text-wrap:balance}
@@ -232,6 +232,7 @@
   }
 </style>
 <link rel="stylesheet" href="/assets/shell.css" />
+<link rel="stylesheet" href="/assets/director-editor.css" />
 </head>
 <body style="margin:0;overflow-x:clip;overflow-y:hidden">
 <script>
@@ -405,14 +406,15 @@
       <section class="wk-pane" id="pane-director">
 <section class="view on" id="view-director" style="padding:14px 16px">
       <div class="view-head" style="margin-bottom:10px">
-        <span class="dirty" id="dirtyTag" role="status" aria-live="polite" aria-atomic="true">● 预览有未推送改动</span>
+        <span class="dirty" id="dirtyTag" role="status" aria-live="polite" aria-atomic="true">预览有未推送改动</span>
         <span class="ctx-chip" id="ctxChip">未选择场次</span>
         <span class="grow"></span>
-        <button class="btn ghost" id="btnUndoPush" disabled>撤回上次推送 · U</button>
+        <span class="director-push-feedback" id="pushState" role="status" aria-live="polite" aria-atomic="true">等待操作</span>
+        <button class="btn ghost" id="btnUndoPush" disabled>撤回上次推送</button>
         <button class="btn ghost" id="btnDiscard">丢弃预览</button>
-        <button class="btn primary" id="btnPush">推送到直播端 · 空格</button>
+        <button class="btn primary" id="btnPush">推送到直播端</button>
       </div>
-      <p class="hotkey-legend">1–6 切场景 · 空格推送 · U 撤回 · B 确认后切空白</p>
+      <details class="director-help"><summary>键盘操作</summary><p>数字 1 至 6 选择场景，空格推送，U 撤回，B 确认后切空白。编辑文字时不会触发快捷键。</p></details>
 
       <div class="director">
         <div class="card scenes" id="sceneList"></div>
@@ -433,7 +435,7 @@
 
         <div class="card ops">
           <div class="ops-scene-hint" id="opsSceneHint">当前场景：未选择</div>
-          <div class="director-readiness wk-readiness" id="directorReadiness"></div>
+          <details class="director-checks"><summary>检查全部场景的开播准备</summary><div class="director-readiness wk-readiness" id="directorReadiness"></div></details>
           <div id="opsTimer" class="scene-ops">
             <h2>现场操作 · 点击即生效</h2>
             <div class="row">
@@ -498,7 +500,8 @@
             <div class="kv" id="chartStatus">尚未推送本局数据图</div>
             <div class="chart-list" id="chartList"></div>
             <div class="row" style="margin-top:8px">
-              <button class="btn primary" id="btnChartPush">推送本局六张</button>
+              <button class="btn primary" id="btnChartPush">播放本局数据图</button>
+              <button class="btn" id="btnChartPrepare">仅准备预览</button>
               <button class="btn" id="btnChartAir" disabled>切到直播端</button>
             </div>
             <div class="row" style="margin-top:6px">
@@ -518,7 +521,7 @@
               <button class="btn" id="btnChartToggle">开始轮播</button>
               <button class="btn" id="btnChartNext">下一张</button>
             </div>
-            <div class="kv" style="margin-top:5px;color:var(--muted)">先在对局数据选好本局；推送后按 上单 → 打野 → 中路 → 发育路 → 游走 → 五路总览 循环播放。点上方任意一张可直接跳转。</div>
+            <div class="kv" style="margin-top:5px;color:var(--muted)">点击“播放本局数据图”自动准备五路对位图和总览、切到直播并轮播；仅准备预览不会切换直播。点击图名可直接跳转。</div>
             <div class="row" style="margin-top:6px">
               <button type="button" class="btn ghost" data-go="data">打开对局数据</button>
             </div>
@@ -535,10 +538,7 @@
             <div class="kv" style="margin-top:5px">编辑、推送、切位、播放与导出都可在导播台完成。</div>
           </div>
 
-          <div>
-            <h2>推送</h2>
-            <div class="kv" id="pushState" role="status" aria-live="polite" aria-atomic="true">等待操作</div>
-          </div>
+
 
           <div id="opsGeneric" class="scene-ops">
             <h2>这个场景没有额外面板</h2>
@@ -547,7 +547,7 @@
 
           <div class="commentary-ops scene-ops" id="commentaryOps">
             <h2>解说画面</h2>
-            <div class="kv">队名自动跟随当前场次；中间是<b>大场比分</b>，由你在这里手填（双方各赢了几局）。赛制选「自动」就按赛程阶段判断：16 强到胜者组或败者组半决赛前采用五局三胜，半决赛起采用七局四胜。</div>
+            <details class="director-help"><summary>比分与赛制填写说明</summary><p>队名跟随当前场次。大场比分填写双方已赢局数；赛制选“自动”时按当前赛程阶段判断 BO5 或 BO7。</p></details>
             <input type="text" id="cmTitle" placeholder="主标题" style="margin-top:7px" />
             <div class="row" style="margin-top:6px;align-items:center">
               <span class="kv">解说阶段</span>
@@ -662,7 +662,7 @@
               </div>
             </div>
             </details>
-            <div class="kv" style="margin-top:6px;color:var(--muted)">头像先用首字圆形占位；改完点右上角「推送到直播端 · 空格」上线。</div>
+            <div class="kv" style="margin-top:6px;color:var(--muted)">头像先用首字圆形占位；改完点右上角「推送到直播端」上线。</div>
           </div>
 
           <details class="ops-fold">
@@ -695,6 +695,7 @@
   </div>
 </div>
 <script src="/assets/pkc-spotlight.js"></script>
+<script src="/assets/director-chart-flow.js"></script>
 <script>
 
 "use strict";
@@ -754,13 +755,31 @@ async function postPush(force = false) {
   return data;
 }
 
+let pushBusy = false;
 async function pushCurrent(force = false) {
-  const next = await postPush(force);
-  if (!next) return false;
-  state = next;
-  paint();
-  syncFrame();
-  return true;
+  if (pushBusy) return false;
+  pushBusy = true;
+  const button = $("btnPush");
+  button.disabled = true;
+  button.setAttribute("aria-busy", "true");
+  button.textContent = "正在推送…";
+  try {
+    const next = await postPush(force);
+    if (!next) return false;
+    state = next;
+    paint();
+    syncFrame();
+    return true;
+  } catch (error) {
+    $("pushState").textContent = "推送失败，请重试：" + error.message;
+    if (window.__pkSay) window.__pkSay("推送失败，请检查连接后重试");
+    return false;
+  } finally {
+    pushBusy = false;
+    button.disabled = false;
+    button.setAttribute("aria-busy", "false");
+    button.textContent = "推送到直播端";
+  }
 }
 
 function paintScenes() {
@@ -820,7 +839,7 @@ function paintScenes() {
   tip.style.marginTop = "10px";
   tip.style.paddingTop = "8px";
   tip.style.lineHeight = "1.7";
-  tip.textContent = "1–6 切场景 · 空格推送 · U 撤回 · B 确认后切空白";
+  tip.textContent = "选好场景后，在上方推送。";
   box.append(tip);
 }
 
@@ -830,11 +849,12 @@ function paint() {
   const scenes = state.scenes || [];
 
   $("dirtyTag").classList.toggle("on", !!isPreviewDirty);
+  $("btnDiscard").disabled = !isPreviewDirty;
   const undo = $("btnUndoPush");
   if (undo) undo.disabled = !state.canUndoPush;
   $("pushState").textContent = isPreviewDirty
-    ? "预览中的改动尚未推送至直播端 · 空格推送"
-    : "直播端与当前预览一致" + (state.canUndoPush ? " · U 撤回上次推送" : "");
+    ? "预览改动尚未上线，按上方按钮推送"
+    : "直播端与当前预览一致" + (state.canUndoPush ? "，可撤回上次推送" : "");
 
   const onAirLabel = (scenes.find(s => s.id === onAir.scene) || {}).label || onAir.scene;
   $("onAirScene").textContent = onAirLabel;
@@ -864,7 +884,8 @@ function paintOps(preview, scenes) {
   const scene = preview.scene;
   const label = (scenes.find(s => s.id === scene) || {}).label || scene;
   const hint = $("opsSceneHint");
-  if (hint) hint.textContent = "当前场景：" + label + " · 修改后点「推送到直播端」上线";
+  const effect = {spotlight:"名单修改需推送；轮播控制即时生效", interval:"名单修改需推送；倒计时即时生效", chart:"数据图与轮播控制即时生效", bracket:"赛程更新即时生效"};
+  if (hint) hint.textContent = "编辑" + label + "：" + (effect[scene] || "修改后推送上线");
   const specific = scene === "commentary" || scene === "interval" || scene === "bracket" || scene === "chart" || scene === "spotlight";
   ["opsTimer", "opsInterval"].forEach((id) => {
     const el = $(id);
@@ -896,7 +917,7 @@ function paintChartOps() {
   $("chartOps").classList.toggle("on", state && state.preview.scene === "chart");
   const p = state && state.live && state.live.chartPlaylist;
   const ctx = state && state.live && state.live.context;
-  const ctxLabel = ctx ? [ctx.matchLabel, ctx.gameLabel].filter(Boolean).join(" · ") : "";
+  const ctxLabel = ctx ? [ctx.matchLabel, ctx.gameLabel].filter(Boolean).join(" / ") : "";
   const statusEl = $("chartStatus");
   const toggle = $("btnChartToggle");
   const list = $("chartList");
@@ -934,7 +955,7 @@ function paintChartOps() {
   }
   if (air) {
     const liveNow = state.onAir.scene === "chart";
-    air.disabled = !!liveNow;
+    air.disabled = chartBusy || !!liveNow;
     air.textContent = liveNow ? "数据图已在直播端" : "切到直播端";
   }
 }
@@ -1052,7 +1073,7 @@ function hotkeyBlocked(el) {
   return !!(el.closest && el.closest("button, a, summary, input, textarea, select"));
 }
 function opsScrollsOnSpace(shift) {
-  const ops = document.querySelector("#pane-director .ops");
+  const ops = document.querySelector("#pane-director");
   if (!ops || ops.scrollHeight <= ops.clientHeight + 2) return false;
   const max = ops.scrollHeight - ops.clientHeight;
   if (shift) {
@@ -1101,18 +1122,54 @@ const bkReplayBtn = $("btnBkReplay");
 if (bkReplayBtn) bkReplayBtn.onclick = async () => { await post("bracket/replay"); };
 
 const chartPushBtn = $("btnChartPush");
-if (chartPushBtn) chartPushBtn.onclick = async () => {
-  const f = $("genFrame");
-  const w = f && f.contentWindow;
-  const items = w && w.PKC && typeof w.PKC.chartItems === "function" ? w.PKC.chartItems() : null;
-  if (!items || !items.length) {
-    if (window.__pkSay) window.__pkSay("生成器尚未就绪，先在对局数据选好本局再推送");
-    return;
+let chartBusy = false;
+async function prepareChartEngine() {
+  const frame = $("genFrame");
+  if (!frame) throw new Error("数据生成器不可用，请刷新工作台");
+  if (!frame.getAttribute("src")) frame.src = "/generator?bare=1";
+  const started = Date.now();
+  while (Date.now() - started < 30000) {
+    const api = frame.contentWindow && frame.contentWindow.PKC;
+    if (api && typeof api.chartItems === "function") return api;
+    await new Promise(resolve => setTimeout(resolve, 150));
   }
-  const intervalMs = Number(($("chartInterval") || {}).value) || 8000;
-  state = await post("chart/playlist", { patch: { items, index: 0, running: true, intervalMs } });
-  paint();
-};
+  throw new Error("数据加载超时，请检查服务后重试");
+}
+async function playCurrentCharts(previewOnly = false) {
+  if (chartBusy) return;
+  chartBusy = true;
+  const buttons = [chartPushBtn, $("btnChartPrepare"), $("btnChartAir")].filter(Boolean);
+  buttons.forEach(button => { button.disabled = true; button.setAttribute("aria-busy", "true"); });
+  const context = { ...(state?.live?.context || {}) };
+  let chartFailure = "";
+  chartPushBtn.textContent = "正在准备本局数据…";
+  try {
+    const api = await prepareChartEngine();
+    const current = state?.live?.context || {};
+    if (["seriesId", "matchKey", "gameId"].some(key => (current[key] || "") !== (context[key] || "")))
+      throw new Error("准备期间当前局已切换，请确认目标后重试");
+    const items = api.chartItems();
+    chartPushBtn.textContent = previewOnly ? "正在准备预览…" : "正在切到直播…";
+    state = await window.PKCChartFlow.play({
+      items, context, intervalMs:Number($("chartInterval").value) || 8000, post, previewOnly,
+      push: async next => { state = next; return pushCurrent(); },
+    });
+    paint(); syncFrame();
+    if (window.__pkSay) window.__pkSay(previewOnly ? "六张数据图已准备，请检查预览" : "本局数据图已上线并开始轮播");
+  } catch (error) {
+    chartFailure = error.message;
+    $("chartStatus").textContent = chartFailure;
+    if (window.__pkSay) window.__pkSay(error.message);
+  } finally {
+    chartBusy = false;
+    buttons.forEach(button => { button.disabled = false; button.setAttribute("aria-busy", "false"); });
+    chartPushBtn.textContent = "播放本局数据图";
+    paintChartOps();
+    if (chartFailure) $("chartStatus").textContent = chartFailure;
+  }
+}
+if (chartPushBtn) chartPushBtn.onclick = () => playCurrentCharts();
+$("btnChartPrepare").onclick = () => playCurrentCharts(true);
 const chartAirBtn = $("btnChartAir");
 if (chartAirBtn) chartAirBtn.onclick = async () => {
   const p = state && state.live && state.live.chartPlaylist;

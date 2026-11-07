@@ -1216,7 +1216,7 @@ function applyAIResult(data, files){
     [["our", blue[i]], ["opp", red[i]]].forEach(([side, src]) => {
       if (!src) return;
       const p = row[side];
-      ["k","d","a","dmgPct","tankPct","goldShare","kp"].forEach(k => {
+      ["k","d","a","rating","tankRaw","dmgPct","tankPct","goldShare","kp"].forEach(k => {
         if (src[k] !== null && src[k] !== undefined) p[k] = numStr(src[k]);
       });
       if (src.gold !== null && src.gold !== undefined) p.gold = numStr(src.gold);

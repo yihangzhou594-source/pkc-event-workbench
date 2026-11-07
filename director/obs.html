@@ -1047,6 +1047,7 @@ function renderBp(bp) {
 /** 分路图标：腾讯官方 CDN 的“分路图标品质优化”蓝 / 红两套（assets/lanes）。 */
 const LANE_ICON_KEY = {
   对抗路: "duikang",
+  上单: "duikang",
   打野: "daye",
   中路: "zhonglu",
   发育路: "fayu",
@@ -1236,6 +1237,7 @@ function render(state) {
     window.PKCSpotlight.draw(canvas, live && live.spotlightPlaylist).catch(() => {});
     return;
   }
+  if (scene !== "chart") { chartRenderSeq++; lastChartKey = ""; }
   const meta = (scenes || []).find((s) => s.id === scene);
   /* BP 板走目标系统的灰白配色；赛间板是深色转播版面，不再套浅色底。 */
   document.documentElement.classList.toggle("scene-light", scene === "bp");

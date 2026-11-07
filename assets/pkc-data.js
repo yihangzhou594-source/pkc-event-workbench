@@ -913,6 +913,8 @@ const COLS = [
   { k:"gpm", label:"分均经济", w:54, auto:true, hint:"没填时用「总经济 ÷ 对局时长」自动推算" },
   { k:"dmgPct", label:"输出伤害", w:54 }, { k:"tankPct", label:"承受伤害", w:54 },
   { k:"goldShare", label:"经济占比", w:54 }, { k:"kp", label:"参团率", w:50 },
+  { k:"rating", label:"局内评分", w:54 },
+  { k:"tankRaw", label:"总承伤", w:64 },
   { k:"dmgPerGold", label:"经济转伤", w:54, auto:true, hint:"= 该选手总输出 ÷ 他的总经济；没填会自动推算" },
   { k:"dmgWan", label:"总输出万", w:54, hint:"只填任意一名选手的「总输出万」，系统就会用他的「输出伤害%」反推全队总输出，再算出其他队友的总输出与经济转伤" }
 ];
