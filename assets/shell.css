@@ -511,3 +511,12 @@ h1,h2,h3{text-wrap:balance}
     transition-duration:.01ms !important;
   }
 }
+/* Navigation folding also works on desktop; no fixed monitor width. */
+.wk-btn.wk-nav-toggle{display:inline-flex}
+@media(min-width:1151px){
+ .wk-shell.nav-collapsed .wk-rail{width:64px;flex-basis:64px;padding-inline:var(--space-2)}
+ .wk-shell.nav-collapsed .wk-brand{justify-content:center;padding-inline:0}
+ .wk-shell.nav-collapsed .wk-brand div,.wk-shell.nav-collapsed .wk-item>span:not(.wk-ico),.wk-shell.nav-collapsed .wk-rail-foot>span:not(.wk-dot){display:none}
+ .wk-shell.nav-collapsed .wk-cap{font-size:0;height:12px;padding:0;margin:0}
+ .wk-shell.nav-collapsed .wk-item{justify-content:center;padding-inline:var(--space-2)}
+}

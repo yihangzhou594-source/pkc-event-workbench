@@ -63,3 +63,11 @@
 /* The scene badge deliberately expands its button: retain a 44px target without clipping the live label. */
 .wk-top .wk-context-label,.wk-top .wk-context-short,.wk-top .wk-ctx span{font-size:12px}
 #view-director .ops-fold:not([open]){padding-block:var(--space-3)}
+/* Large monitor above editing, scaled by available workspace width. */
+#view-director .stage{display:flex;flex-direction:column;align-items:stretch;grid-template-columns:none;background:var(--surface);border:1px solid var(--line)}
+#view-director .stage-top{flex-direction:row;align-items:center;justify-content:flex-start;padding:var(--space-3);gap:var(--space-3);color:var(--text);background:var(--surface)}
+#view-director #stageHint{color:var(--director-neutral)!important}
+#view-director .stage-canvas{width:100%;max-height:none;aspect-ratio:16/9;min-height:0;flex:none;background:var(--director-monitor)}
+#view-director .stage-canvas iframe{width:100%;height:100%}
+#view-director .director{max-width:none}
+@media(max-width:760px){#view-director .stage-canvas{max-height:none}}

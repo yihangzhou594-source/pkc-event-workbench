@@ -55,17 +55,32 @@
   const contextSummaryText = $("#wkCtxSummary");
   const compactNavMedia = window.matchMedia("(max-width: 1150px)");
   const compactContextMedia = window.matchMedia("(max-width: 1220px)");
+  let desktopNavExpanded = true;
+  try { desktopNavExpanded = localStorage.getItem("pkc.navExpanded") !== "false"; } catch {}
+  function paintNavToggle() {
+    if (!shellRoot || !navToggle) return;
+    const expanded = compactNavMedia.matches ? shellRoot.classList.contains("nav-expanded") : desktopNavExpanded;
+    shellRoot.classList.toggle("nav-collapsed", !compactNavMedia.matches && !expanded);
+    navToggle.setAttribute("aria-expanded", String(expanded));
+    navToggle.title = expanded ? "收起导航" : "展开导航";
+    const label = navToggle.querySelector("span:last-child");
+    if (label) label.textContent = expanded ? "收起导航" : "展开导航";
+  }
   function setNavExpanded(expanded) {
     if (!shellRoot || !navToggle) return;
-    shellRoot.classList.toggle("nav-expanded", !!expanded && compactNavMedia.matches);
-    navToggle.setAttribute("aria-expanded", String(!compactNavMedia.matches || shellRoot.classList.contains("nav-expanded")));
+    if (compactNavMedia.matches) shellRoot.classList.toggle("nav-expanded", !!expanded);
+    else {
+      desktopNavExpanded = !!expanded;
+      try { localStorage.setItem("pkc.navExpanded", String(desktopNavExpanded)); } catch {}
+    }
+    paintNavToggle();
   }
   function syncResponsiveShell() {
     if (!compactNavMedia.matches && shellRoot) shellRoot.classList.remove("nav-expanded");
-    if (navToggle) navToggle.setAttribute("aria-expanded", String(!compactNavMedia.matches || !!(shellRoot && shellRoot.classList.contains("nav-expanded"))));
+    paintNavToggle();
     if (contextDisclosure) contextDisclosure.open = !compactContextMedia.matches;
   }
-  if (navToggle) navToggle.addEventListener("click", () => setNavExpanded(!shellRoot.classList.contains("nav-expanded")));
+  if (navToggle) navToggle.addEventListener("click", () => setNavExpanded(navToggle.getAttribute("aria-expanded") !== "true"));
   if (contextDisclosure) contextDisclosure.addEventListener("toggle", () => {
     const summary = $("summary", contextDisclosure);
     if (summary) summary.setAttribute("aria-expanded", String(contextDisclosure.open));
