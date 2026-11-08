@@ -952,6 +952,7 @@ function matchTeamsByName(names){
   return { best: scored[0] || null, second: scored[1] || null };
 }
 async function runOCR(files){
+  if (!confirmFirstGameSides()) return 0;
   clientDebug = null;
   const box = $("#ocrBox"); box.style.display = "block";
   ocrMsg("正在加载识别引擎…"); ocrPct(0);
@@ -1131,8 +1132,8 @@ async function runOCR(files){
       };
       blueT = pickBest(ourNames, null);
       redT  = pickBest(oppNames, blueT ? blueT.t.id : null);
-      if (blueT) S.game.ourId = blueT.t.id;
-      if (redT)  S.game.oppId  = redT.t.id;
+      if (blueT && !S.game.sidesConfirmed) S.game.ourId = blueT.t.id;
+      if (redT && !S.game.sidesConfirmed)  S.game.oppId  = redT.t.id;
     }
     const pages = [];
     if (gear)  pages.push("装备页");
@@ -1239,8 +1240,8 @@ function applyAIResult(data, files){
   const namesOf = side => S.game.rows.map(r => r[side].name).filter(Boolean);
   const blueMatch = matchTeamsByName(namesOf("our"));
   const redMatch = matchTeamsByName(namesOf("opp"));
-  if (blueMatch.best && blueMatch.best.n >= 2) S.game.ourId = blueMatch.best.t.id;
-  if (redMatch.best && redMatch.best.n >= 2) S.game.oppId = redMatch.best.t.id;
+  if (!S.game.sidesConfirmed && blueMatch.best && blueMatch.best.n >= 2) S.game.ourId = blueMatch.best.t.id;
+  if (!S.game.sidesConfirmed && redMatch.best && redMatch.best.n >= 2) S.game.oppId = redMatch.best.t.id;
   autoMatchPlayers("our"); autoMatchPlayers("opp");
   autoMatchHeroLanes("our", true); autoMatchHeroLanes("opp", true);
   renderGameForm(); renderTables(); renderPreview(); renderTeamGrid(); scheduleSave();
@@ -1266,6 +1267,7 @@ function applyAIResult(data, files){
 }
 
 async function runAIOCR(files){
+  if (!confirmFirstGameSides()) return 0;
   if (!files || !files.length){ toast("请先选择截图"); return; }
   const box = $("#ocrBox"); box.style.display = "block";
   ocrMsg("DeepSeek 正在读取截图…");

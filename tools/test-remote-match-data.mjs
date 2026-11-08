@@ -91,8 +91,8 @@ const next = buildRemoteGame({
 });
 assert.equal(next.game.id, "g2");
 assert.equal(next.game.label, "第2局");
-assert.equal(next.game.ourId, "b");
-assert.equal(next.game.oppId, "r");
+assert.equal(next.game.ourId, "r");
+assert.equal(next.game.oppId, "b");
 assert.equal(next.game.rows.length, 5);
 assert.equal(next.game.rows[0].our.gpm, "");
 assert.equal(next.game.rows[0].our.dmgPerGold, "");
@@ -119,3 +119,8 @@ assert.throws(
 );
 
 console.log("test-remote-match-data: ok");
+
+const chosen = buildRemoteGame({matchKey:"FIRST",blueTeam:blue,redTeam:red,draft:{...draft,blueId:"r"}});
+assert.equal(chosen.game.ourId,"r");
+assert.equal(chosen.game.oppId,"b");
+assert.equal(chosen.game.sidesConfirmed,true);

@@ -43,7 +43,7 @@ const blankArm = consoleHtml.slice(consoleHtml.indexOf("if (e.key === \"b\""), c
 if (!blankArm.includes("confirm(") || blankArm.indexOf("confirm(") > blankArm.indexOf("post(\"scene\"")) {
   fail("B 应先确认，再切到空白并推送");
 }
-if (!consoleHtml.includes("scene-key") || !consoleHtml.includes("class=\"hotkey-legend\"")) {
+if (!consoleHtml.includes("scene-key") || !consoleHtml.includes('tip.className = "hotkey-legend"')) {
   fail("场景按钮应标出 1–6，快捷键说明不能再用会被藏起的 cap");
 }
 if (shellCss.includes(".hotkey-legend{display:none") || consoleHtml.includes(".hotkey-legend{display:none")) {
@@ -74,7 +74,7 @@ const bannerDetails = consoleHtml.lastIndexOf("<details", bannerAt);
 if (bannerDetails < 0 || bannerAt - bannerDetails > 400) {
   fail("解说底部横幅和成就应默认折叠");
 }
-const obsAt = consoleHtml.indexOf(">OBS 浏览器源<");
+const obsAt = consoleHtml.indexOf("<summary>OBS 浏览器源</summary>");
 const obsDetails = consoleHtml.lastIndexOf("<details", obsAt);
 if (obsDetails < 0 || obsAt - obsDetails > 200) {
   fail("导播台里的 OBS 地址应默认折叠，避免挤走比分");
@@ -109,7 +109,7 @@ if (!btnRule.includes("min-height:36px")) fail("导播按钮应与外壳按钮�
 const primaryHover = consoleHtml.slice(consoleHtml.indexOf(".pk .btn.primary:hover"), consoleHtml.indexOf(".pk .btn.ghost"));
 if (!primaryHover.includes("var(--color-primary-hover)")) fail("导播主按钮悬停应使用同一主色令牌");
 
-if (!remoteHtml.includes('href="/assets/design-tokens.css"')) fail("手机导播应引用工作台颜色令牌");
+if (!/href="(?:\.\.\/|\/)assets\/design-tokens\.css"/.test(remoteHtml)) fail("手机导播应引用工作台颜色令牌");
 if (remoteHtml.includes("linear-gradient(180deg,#3474ff")) fail("手机导播主按钮不应再用另一套渐变");
 if (remoteHtml.includes("--ink:#172033") || remoteHtml.includes("linear-gradient(180deg,#e14f64")) {
   fail("手机导播仍在样式里写死另一套颜色");

@@ -31,7 +31,7 @@ import { buildSeasonInsights } from "./lib/season-insights.mjs";
 import { createRemoteControl, RemoteControlError } from "./lib/remote-control.mjs";
 import { isLoopbackAddress, remoteRequestAllowed } from "./lib/remote-access-policy.mjs";
 import {
-  buildRemoteMatchContext, mergeRemoteDraft, buildRemoteGame, validateRemoteDraft,
+  buildRemoteMatchContext, mergeRemoteDraft, buildRemoteGame, remoteGameSides, validateRemoteDraft,
 } from "./lib/remote-match-data.mjs";
 import { readCompetitionContext, saveCompetitionContext } from "./lib/competition-context.mjs";
 
@@ -783,13 +783,14 @@ const server = http.createServer(async (req, res) => {
         const match = catalog.matches.find((item) => item.matchKey === String(body.matchKey || ""));
         if (!match) return sendJSON(res, { error:"match_not_found", message:"找不到目标场次" }, 404);
         const series = (catalog.source.library?.series || []).find((item) => String(item.id) === catalog.seriesId);
-        const blueTeam = series.teams.find((team) => String(team.id) === match.blueId);
-        const redTeam = series.teams.find((team) => String(team.id) === match.redId);
+        let blueTeam = series.teams.find((team) => String(team.id) === match.blueId);
+        let redTeam = series.teams.find((team) => String(team.id) === match.redId);
         const games = catalog.source.matches?.games?.[series.id] || [];
         const existingGame = body.gameId ? games.find((game) => String(game.id) === String(body.gameId)) : null;
         if (body.gameId && (!existingGame || String(existingGame.matchKey || "") !== match.matchKey)) {
           return sendJSON(res, { error:"game_not_found", message:"目标局次不属于所选场次" }, 404);
         }
+        ({blueTeam,redTeam} = remoteGameSides({blueTeam,redTeam,games:games.filter(g => String(g.matchKey || "") === match.matchKey),existingGame,blueId:body.blueId}));
         const hint = [
           "当前场次：" + match.roundLabel + " · " + match.blueName + " vs " + match.redName,
           "蓝方名单：" + (blueTeam.players || []).join("、"),
@@ -803,6 +804,7 @@ const server = http.createServer(async (req, res) => {
           blueTeam,
           redTeam,
         });
+        draft.blueId = String(blueTeam.id);
         const knownHeroes = new Set(Object.keys(scanHeroes(false).heroes || {}));
         for (const row of draft.rows) {
           for (const [side, label] of [["our", "蓝方"], ["opp", "红方"]]) {
@@ -868,7 +870,7 @@ const server = http.createServer(async (req, res) => {
     if (p === "/" || p === "/index.html") {
       return serveFile(res, APP_PAGE, { "Cache-Control": "no-store" });
     }
-    if (p === "/api/ping") return sendJSON(res, { ok: true, port: PORT, root: ROOT });
+    if (p === "/api/ping") return sendJSON(res, { ok: true, port: PORT, root: ROOT, pid:process.pid });
     if (p === "/api/ai-status") {
       const cfg = getAIConfig();
       return sendJSON(res, {

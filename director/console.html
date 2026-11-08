@@ -412,7 +412,7 @@
         <span class="director-push-feedback" id="pushState" role="status" aria-live="polite" aria-atomic="true">等待操作</span>
         <button class="btn ghost" id="btnUndoPush" disabled>撤回上次推送</button>
         <button class="btn ghost" id="btnDiscard">丢弃预览</button>
-        <button class="btn primary" id="btnPush">推送到直播端</button>
+        <button class="btn primary" id="btnPush">推送到直播端 · 空格</button>
       </div>
       <details class="director-help"><summary>键盘操作</summary><p>数字 1 至 6 选择场景，空格推送，U 撤回，B 确认后切空白。编辑文字时不会触发快捷键。</p></details>
 
@@ -779,7 +779,7 @@ async function pushCurrent(force = false) {
     pushBusy = false;
     button.disabled = false;
     button.setAttribute("aria-busy", "false");
-    button.textContent = "推送到直播端";
+    button.textContent = "推送到直播端 · 空格";
   }
 }
 

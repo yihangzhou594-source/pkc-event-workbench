@@ -35,14 +35,14 @@ const result = await page.evaluate(() => {
   };
 
   const g1 = game("第1局", blue.id, red.id);
-  setPlayer(g1, 0, "our", "上单", { name: "蓝一", k: "1", d: "1", a: "2", gold: "6000" });
-  setPlayer(g1, 0, "opp", "上单", { name: "红一", k: "3", d: "1", a: "1", gold: "7000" });
+  setPlayer(g1, 0, "our", "上单", { name: "蓝一", k: "1", d: "1", a: "0", gold: "6000" });
+  setPlayer(g1, 0, "opp", "上单", { name: "红一", k: "3", d: "1", a: "0", gold: "7000" });
   const g2 = game("第2局", red.id, blue.id);
-  setPlayer(g2, 0, "our", "上单", { name: "红二", k: "4", d: "2", a: "1", gold: "8000" });
-  setPlayer(g2, 0, "opp", "上单", { name: "蓝二", k: "2", d: "2", a: "2", gold: "9000" });
+  setPlayer(g2, 0, "our", "上单", { name: "红二", k: "4", d: "2", a: "0", gold: "8000" });
+  setPlayer(g2, 0, "opp", "上单", { name: "蓝二", k: "2", d: "2", a: "0", gold: "9000" });
   const g3 = game("第3局", blue.id, red.id);
-  setPlayer(g3, 0, "our", "上单", { name: "蓝三", k: "6", d: "1", a: "3", gold: "10000" });
-  setPlayer(g3, 0, "opp", "上单", { name: "红三", k: "8", d: "1", a: "1", gold: "11000" });
+  setPlayer(g3, 0, "our", "上单", { name: "蓝三", k: "6", d: "1", a: "0", gold: "10000" });
+  setPlayer(g3, 0, "opp", "上单", { name: "红三", k: "8", d: "1", a: "0", gold: "11000" });
 
   series.games = [g1, g2, g3];
   series.current = 0;
@@ -64,11 +64,11 @@ const result = await page.evaluate(() => {
   window.PKC.db().prefs.chartStyle = "kpl";
   const kplOverviewPng = window.PKC.drawExport(overviewItem, 1920, 1080).toDataURL("image/png");
   return {
-    referenceK: references["上单"].values.k,
-    referenceCount: references["上单"].counts.k,
-    midpoint: normalized.norm[6].our,
-    doubleReference: normalized.norm[6].opp,
-    pushedReferenceK: items[0]?.laneReferences?.["上单"]?.values?.k,
+    referenceK: references["上单"].values.participations,
+    referenceCount: references["上单"].counts.participations,
+    midpoint: normalized.norm[4].our,
+    doubleReference: normalized.norm[4].opp,
+    pushedReferenceK: items[0]?.laneReferences?.["上单"]?.values?.participations,
     kplPng,
     classicPng,
     kplOverviewPng,
@@ -101,6 +101,6 @@ console.log(JSON.stringify({
 
 if (result.referenceK !== 4) throw new Error("同分路均值应汇总系列赛内双方全部有效样本");
 if (result.referenceCount !== 6) throw new Error("上单 K 值应有 3 局 × 2 人共 6 个样本");
-if (Math.abs(result.midpoint - 0.5) > 1e-9) throw new Error("同路均值应落在图表 50%");
-if (Math.abs(result.doubleReference - 1) > 1e-9) throw new Error("均值 2 倍应落在图表外圈");
+if (Math.abs(result.midpoint - 2/3) > 1e-9) throw new Error("同路均值应落在图表约 67%");
+if (Math.abs(result.doubleReference - 4/3) > 1e-9) throw new Error("均值 2 倍的原始映射应为 4/3（绘制时限制在外圈）");
 if (result.pushedReferenceK !== 4) throw new Error("导播台推送项应携带系列赛分路基准");

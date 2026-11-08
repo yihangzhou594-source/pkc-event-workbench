@@ -109,10 +109,11 @@ try {
   const pixel = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Y9ZP7sAAAAASUVORK5CYII=";
   const ocrResponse = await fetch(`http://127.0.0.1:${pkcPort}/api/remote/ocr-draft`, {
     method:"POST", headers,
-    body:JSON.stringify({ matchKey:"R16-1", gameId:null, images:[pixel] }),
+    body:JSON.stringify({ matchKey:"R16-1", gameId:null, blueId:"r", images:[pixel] }),
   });
   const ocr = await ocrResponse.json();
   assert.equal(ocrResponse.status, 200, JSON.stringify(ocr));
+  assert.equal(ocr.draft.blueId,"r");
   assert.equal(ocr.draft.rows.length, 5);
   assert.equal(ocr.draft.blueScore, "10");
   assert.equal(providerRequests, 1);
@@ -129,6 +130,8 @@ try {
   });
   const saved = await savedResponse.json();
   assert.equal(savedResponse.status, 200, JSON.stringify(saved));
+  assert.equal(saved.game.ourId,"r");
+  assert.equal(saved.game.oppId,"b");
   assert.equal(saved.game.label, "第1局");
   assert.equal(saved.game.rows[0].our.hero, "廉颇");
   const disk = JSON.parse(fs.readFileSync(path.join(data, "matches.json"), "utf8"));
@@ -148,6 +151,9 @@ try {
   const audit = JSON.parse(fs.readFileSync(path.join(data, "_backup", "audit.json"), "utf8"));
   assert.ok(audit.some((entry) => entry.action === "remote-upload-save"));
 
+  const nextOcr = await fetch(`http://127.0.0.1:${pkcPort}/api/remote/ocr-draft`, {method:"POST",headers,body:JSON.stringify({matchKey:"R16-1",images:[pixel]})});
+  assert.equal(nextOcr.status,200);
+  assert.equal((await nextOcr.json()).draft.blueId,"b");
   providerFail = true;
   const providerError = await fetch(`http://127.0.0.1:${pkcPort}/api/remote/ocr-draft`, {
     method:"POST", headers,

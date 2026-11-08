@@ -446,6 +446,12 @@
 
     async function startOcr() {
       if (ocrBusy || !uploadFiles.length || !selectedMatch) return;
+      let blueId = "";
+      if (!selectedMatch.games.length) {
+        const choice = prompt("导入第一小局：请选择蓝方（另一队为红方）\n1：" + selectedMatch.blueName + "\n2：" + selectedMatch.redName, "");
+        if (choice !== "1" && choice !== "2") return;
+        blueId = choice === "1" ? selectedMatch.blueId : selectedMatch.redId;
+      }
       ocrBusy = true;
       $("remoteOcrBtn").textContent = "正在识别，请稍候…";
       resetReview();
@@ -459,6 +465,7 @@
           body:JSON.stringify({
             matchKey:selectedMatch.matchKey,
             gameId:selectedGame || null,
+            blueId,
             images,
           }),
         });

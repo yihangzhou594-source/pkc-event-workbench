@@ -286,7 +286,7 @@ function normVals(row, reference){
     norm: AXES.map((x,i) => {
       const pairMax = Math.max(a[i]||0, b[i]||0);
       const ref = parseNum(refs[x.key]);
-      const m = ref !== null && ref > 0 ? ref * 2 : pairMax;
+      const m = ref !== null && ref > 0 ? ref * 1.5 : pairMax;
       return { our: m>0 ? (a[i]||0)/m : 0, opp: m>0 ? (b[i]||0)/m : 0 };
     })
   };
@@ -438,7 +438,7 @@ function drawRadarReference(ctx, cx, cy, R, ang, V, color){
   ctx.save();
   ctx.beginPath();
   for (let i=0;i<AXES.length;i++){
-    const a=ang(i), px=cx+Math.cos(a)*R*.5, py=cy+Math.sin(a)*R*.5;
+    const a=ang(i), px=cx+Math.cos(a)*R*(2/3), py=cy+Math.sin(a)*R*(2/3);
     if (i) ctx.lineTo(px,py);
     else ctx.moveTo(px,py);
   }
@@ -452,8 +452,8 @@ function drawRadarReference(ctx, cx, cy, R, ang, V, color){
     if (V.reference[i] === null) continue;
     const a=ang(i), dx=Math.cos(a), dy=Math.sin(a);
     ctx.beginPath();
-    ctx.moveTo(cx+dx*R*.44, cy+dy*R*.44);
-    ctx.lineTo(cx+dx*R*.56, cy+dy*R*.56);
+    ctx.moveTo(cx+dx*R*(2/3-.06), cy+dy*R*(2/3-.06));
+    ctx.lineTo(cx+dx*R*(2/3+.06), cy+dy*R*(2/3+.06));
     ctx.strokeStyle = color;
     ctx.lineWidth = 2.2;
     ctx.stroke();

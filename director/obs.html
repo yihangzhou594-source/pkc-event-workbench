@@ -1458,7 +1458,9 @@ function renderInterval(settings, live) {
   const stageName = titleParts.length > 1 ? titleParts[titleParts.length - 1] : "赛间";
   const ctx = contextLine(live);
 
-  const key = "iv" + JSON.stringify([s, blue, red, cd.remainingMs, cd.running, allTeams.length, ctx]);
+  const clock = document.querySelector(".iv-clock");
+  if (clock) clock.textContent = fmtClock(cd.remainingMs);
+  const key = "iv" + JSON.stringify([s, blue, red, cd.running, allTeams, ctx]);
   if (key === lastBpKey) return;
   lastBpKey = key;
   clearStage();
