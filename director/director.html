@@ -8,8 +8,8 @@
 <style>
   :root{
     --bg:#eef1f6; --surface:#ffffff; --surface2:#f7f9fc; --line:#e2e7f0; --line2:#edf1f7;
-    --text:#18212f; --muted:#6b7c93; --faint:#9aa8bb;
-    --primary:#2f6bff; --primary-soft:#eaf1ff; --primary-line:#c9dbff;
+    --text:#18212f; --muted:#52647c; --faint:#5d6b80;
+    --primary:#2659d6; --primary-soft:#eaf1ff; --primary-line:#c9dbff;
     --nav-active:#1f2a44; --ok:#15a05a; --warn:#c2760a;
     --radius:12px; --shadow:0 1px 2px rgba(24,33,47,.05), 0 8px 24px rgba(24,33,47,.06);
   }
@@ -94,7 +94,7 @@
   .seg{display:flex;background:var(--surface2);border:1px solid var(--line);border-radius:9px;padding:2px}
   .seg button{border:0;background:transparent;padding:5px 14px;border-radius:7px;color:var(--muted);font-size:12.5px;transition:background-color .18s ease,color .18s ease}
   .seg button.on{background:var(--surface);color:var(--text);font-weight:700;box-shadow:0 1px 3px rgba(24,33,47,.12)}
-  .stage-canvas{flex:1;min-height:0;position:relative;background:repeating-conic-gradient(#eef1f6 0 25%,#fff 0 50%) 0 0/22px 22px}
+  .stage-canvas{flex:1;min-height:0;position:relative;background:var(--bg)}
   .stage-canvas iframe{position:absolute;inset:0;width:100%;height:100%;border:0;transition:opacity .28s ease}
   .stage-canvas iframe.fading{opacity:0}
 
@@ -144,6 +144,28 @@
   .bp-picked b{color:var(--primary);font-weight:700}
   .bp-stat{font-size:12.5px;color:var(--muted);margin-bottom:7px}
   .bp-stat b{color:var(--text)}
+  .scene{display:grid;justify-items:start;gap:4px;text-align:left;padding:12px;transition:background-color .2s ease,border-color .2s ease,color .2s ease}
+  .scene:hover{transform:none}
+  .scene.on{box-shadow:none}
+  .scene .live,.scene .scene-preview{position:static;padding:0;background:none;box-shadow:none;color:var(--muted);font-size:11px;font-weight:600}
+  .scene.on .scene-preview{color:var(--primary)}
+  .scene:focus-visible{outline:2px solid var(--primary);outline-offset:-3px}
+  @media(max-width:840px){
+    .director{height:auto;grid-template-columns:minmax(0,1fr)}
+    .scenes{flex-direction:row;align-items:center}
+    .scenes .cap,.scenes .scene{flex:none}
+    .stage-canvas{min-height:0;aspect-ratio:16/9}
+    .view-head{flex-wrap:wrap}
+  }
+  @media(prefers-reduced-motion:reduce){
+    .scene,.stage-canvas iframe{transition:none}
+  }
+  .publish-actions{display:flex;gap:8px;align-items:center}
+  .publish-actions button:focus-visible,.ops button:focus-visible{outline:2px solid var(--primary);outline-offset:2px}
+  @media(max-width:840px){
+    .publish-actions{width:100%;justify-content:flex-end}
+    .publish-actions button,.ops .btn{min-height:44px}
+  }
 </style>
 </head>
 <body>
@@ -229,10 +251,12 @@
     <section class="view on" id="view-director" style="padding:14px 16px">
       <div class="view-head" style="margin-bottom:10px">
         <h1 style="font-size:16px">导播台</h1>
-        <span class="dirty" id="dirtyTag">● 预览有未推送改动</span>
+        <span class="dirty" id="dirtyTag">预览有未推送改动</span>
         <span class="grow"></span>
-        <button class="btn ghost" id="btnDiscard">丢弃预览</button>
-        <button class="btn primary" id="btnPush">推送到直播端</button>
+        <div class="publish-actions" role="group" aria-label="直播推送">
+          <button class="btn ghost" id="btnDiscard">丢弃预览</button>
+          <button class="btn primary" id="btnPush">推送到直播端</button>
+        </div>
       </div>
 
       <div class="director">
@@ -254,15 +278,15 @@
 
         <div class="card ops">
           <div>
-            <h2>现场操作 · 点击即生效</h2>
+            <h2>现场倒计时</h2>
             <div class="row">
-              <input type="number" id="mm" min="0" max="99" value="5" /> <span class="kv">分</span>
-              <input type="number" id="ss" min="0" max="59" value="0" /> <span class="kv">秒</span>
+              <input type="number" id="mm" aria-label="分钟" min="0" max="99" value="5" /> <span class="kv">分</span>
+              <input type="number" id="ss" aria-label="秒钟" min="0" max="59" value="0" /> <span class="kv">秒</span>
             </div>
             <div class="row">
-              <button class="btn" id="btnStart">开始</button>
-              <button class="btn" id="btnResume">继续</button>
-              <button class="btn" id="btnResetTimer">重置</button>
+              <button class="btn" id="btnStart">开始倒计时</button>
+              <button class="btn" id="btnResume">继续计时</button>
+              <button class="btn" id="btnResetTimer">重置计时</button>
             </div>
             <div class="kv" id="timerState">—</div>
           </div>
@@ -356,6 +380,13 @@ function paintScenes() {
     b.className = "scene";
     if (s.id === preview.scene) b.classList.add("on");
     b.textContent = s.label;
+    b.setAttribute("aria-pressed", String(s.id === preview.scene));
+    if (s.id === preview.scene && s.id !== onAir.scene) {
+      const tag = document.createElement("span");
+      tag.className = "scene-preview";
+      tag.textContent = "待切换";
+      b.append(tag);
+    }
     if (s.id === onAir.scene) {
       const tag = document.createElement("span");
       tag.className = "live";
@@ -377,6 +408,7 @@ function paint() {
   const scenes = state.scenes || [];
 
   $("dirtyTag").classList.toggle("on", !!isPreviewDirty);
+  $("btnDiscard").disabled = !isPreviewDirty;
   $("pushState").textContent = isPreviewDirty
     ? "预览中的改动尚未推送至直播端"
     : "直播端与当前预览一致";

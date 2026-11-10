@@ -62,41 +62,19 @@ try {
   await page.fill("#deviceName", "自动化手机");
   await page.click("#pairBtn");
   await page.waitForFunction(() => !document.querySelector("#controlView").classList.contains("hidden"), null, { timeout: 10000 });
-  await page.waitForFunction(() => document.querySelectorAll("#sceneList .scene").length >= 5, null, { timeout: 10000 });
-
-  const session = await page.evaluate(async () => {
-    const bad = await fetch("/api/remote/action", {
-      method:"POST",
-      headers:{ "Content-Type":"application/json" },
-      body:JSON.stringify({ action:"select-scene", scene:"interval" }),
-    });
-    return { badStatus:bad.status };
-  });
-  if (session.badStatus !== 403) throw new Error("远程动作未校验 CSRF");
-
-  await page.getByRole("button", { name:/赛间/ }).click();
-  await page.waitForFunction(() => document.querySelector("#preview")?.textContent === "赛间");
-  await page.click("#pushBtn");
-  await page.waitForFunction(() => document.querySelector("#onAir")?.textContent === "赛间", null, { timeout:10000 });
-  if (await page.locator("#undoBtn").isDisabled()) throw new Error("推送后撤回应可用");
-  await page.click("#undoBtn");
-  await page.waitForFunction(() => document.querySelector("#onAir")?.textContent === "空白", null, { timeout:10000 });
-
-  await page.getByRole("button", { name:/赛后数据图/ }).click();
-  page.once("dialog", (dialog) => dialog.accept());
-  await page.click("#pushBtn");
-  await page.waitForFunction(() => document.querySelector("#onAir")?.textContent === "赛后数据图", null, { timeout:10000 });
-
-  await page.locator("#blankBtn").hover();
-  await page.mouse.down();
-  await page.waitForTimeout(1700);
-  await page.mouse.up();
-  await page.waitForFunction(() => document.querySelector("#onAir")?.textContent === "空白", null, { timeout:10000 });
+  await page.waitForFunction(() => document.querySelector("#remoteMatchSelect")?.options.length > 0);
+  if (await page.locator("#pushBtn,#undoBtn,#blankBtn,#sceneList").count()) {
+    throw new Error("手机录入页仍显示直播操作");
+  }
+  const actionStatus = await page.evaluate(async () => (await fetch("/api/remote/action", {
+    method:"POST",
+    headers:{"Content-Type":"application/json","X-PKC-CSRF":sessionStorage.getItem("pkcRemoteCsrf")},
+    body:JSON.stringify({action:"push"}),
+  })).status);
+  if (actionStatus !== 410) throw new Error("手机直播推送接口仍可使用");
   await page.evaluate(() => window.dispatchEvent(new Event("offline")));
-  if (!await page.locator("#pushBtn").isDisabled()) throw new Error("断网时推送按钮应禁用");
-  await page.evaluate(() => window.dispatchEvent(new Event("online")));
-
-  console.log(JSON.stringify({ access, remoteUi: true }, null, 2));
+  if (!await page.locator("#remoteOcrBtn").isDisabled()) throw new Error("断网时应禁用截图上传");
+  console.log("手机配对与专用录入页面检查通过");
 } finally {
   if (browser) await browser.close();
   if (server.exitCode === null) {

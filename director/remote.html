@@ -4,8 +4,8 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <meta name="theme-color" content="#101b2d">
-  <meta name="description" content="PKC 手机导播，上传赛后截图、核对识别数据并控制直播画面。">
-  <title>PKC 手机导播</title>
+  <meta name="description" content="PKC 手机对局录入，上传赛后截图并核对识别数据。">
+  <title>PKC 手机对局录入</title>
   <link rel="stylesheet" href="../assets/design-tokens.css" />
   <style>
     /* Hallmark · shape: app screen · genre: modern-minimal · scope: app · built: the project · redesign: polish · v2.0.0 */
@@ -19,10 +19,10 @@
     *{box-sizing:border-box}html,body{min-height:100%;margin:0;overflow-x:clip}
     body{font:15px/1.45 var(--font-body);color:var(--color-on-dark);background:var(--color-inverse)}
     button{font:inherit;color:inherit}button:focus-visible{outline:3px solid var(--color-gold-bright);outline-offset:2px}
-    .wrap{width:min(680px,100%);margin:0 auto;padding:max(var(--space-4),env(safe-area-inset-top)) var(--space-3) max(104px,env(safe-area-inset-bottom))}
+    .wrap{width:min(680px,100%);margin:0 auto;padding:max(var(--space-4),env(safe-area-inset-top)) var(--space-3) max(var(--space-6),env(safe-area-inset-bottom))}
     .brand{display:flex;align-items:center;gap:var(--space-2);margin:var(--space-1) var(--space-1) var(--space-4);color:var(--color-on-dark)}
     .brand .mark{width:42px;height:42px;border-radius:13px;background:var(--color-primary);display:grid;place-items:center;font:900 15px/1 var(--font-data);color:var(--color-on-primary)}
-    .brand b{display:block;font-size:17px}.brand span{display:block;font-size:11px;opacity:.65}
+    .brand b{display:block;font-size:17px}.brand span{display:block;font-size:12px;opacity:.65}
     .card{background:var(--color-white-96);border:1px solid var(--color-white-70);border-radius:18px;padding:var(--space-4);margin-bottom:var(--space-3)}
     .status{display:flex;gap:var(--space-2);align-items:center;flex-wrap:wrap;color:var(--color-on-dark);font-size:12px;margin:0 var(--space-1) var(--space-3)}
     .pill{padding:var(--space-1) var(--space-2);border-radius:999px;background:var(--color-white-16);border:1px solid var(--color-white-22)}
@@ -33,53 +33,24 @@
     input:focus{outline:2px solid var(--color-focus);border-color:var(--blue)}
     .btn{width:100%;border:1px solid var(--line);border-radius:12px;padding:var(--space-3) var(--space-4);background:transparent;font-weight:800;cursor:pointer}
     .btn.primary{border-color:var(--color-primary);background:var(--color-primary);color:var(--color-on-primary)}
-    .btn.danger{border-color:var(--color-negative);background:transparent;color:var(--color-on-primary)}
     .btn:disabled{opacity:.42;cursor:not-allowed}
-    .hero{padding:var(--space-4)}.hero-head{display:flex;justify-content:space-between;gap:var(--space-2);align-items:flex-start}
-    .hero h1{font-size:19px;margin:0}.hero p{margin:var(--space-1) 0 0;color:var(--sub);font-size:12px}
-    .live-badge{padding:var(--space-1) var(--space-2);border-radius:999px;background:var(--color-positive-soft);color:var(--color-positive-strong);font-size:11px;font-weight:800;white-space:nowrap}
-    .live-badge.dirty{background:var(--color-warning-soft);color:var(--color-on-gold)}
-    .route{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:var(--space-2);margin-top:var(--space-4)}
-    .route div{padding:var(--space-3);border-radius:12px;background:var(--color-surface-sunken);min-width:0}.route div:last-child{text-align:right}
-    .route span{display:block;color:var(--sub);font-size:10px;font-weight:700}.route b{display:block;font-size:18px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-    .route em{font-style:normal;color:var(--sub);font-weight:800;font-size:11px}
-    .section-title{display:flex;justify-content:space-between;align-items:center;margin:var(--space-1) var(--space-1) var(--space-2)}
-    .section-title b{font-size:14px}.section-title span{font-size:11px;color:var(--sub)}
-    .scenes{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--space-2)}
-    .scene{position:relative;text-align:left;border:1px solid var(--line);border-radius:14px;background:var(--color-paper);padding:var(--space-3);cursor:pointer;min-height:76px}
-    .scene.selected{border-color:var(--blue);background:var(--color-primary-soft);box-shadow:inset 0 0 0 2px var(--color-focus)}
-    .scene.live{border-color:var(--color-positive);background:var(--color-positive-soft)}
-    .scene b{display:block;font-size:15px}.scene small{display:block;color:var(--sub);font-size:10.5px;margin-top:var(--space-1);line-height:1.4}
-    .scene .dot{position:absolute;right:10px;top:10px;width:8px;height:8px;border-radius:50%;background:var(--ok)}.scene .dot.warning{background:var(--warn)}.scene .dot.blocked{background:var(--bad)}
-    .readiness-note{margin-top:var(--space-2);padding:var(--space-2) var(--space-2);border-radius:10px;background:var(--color-surface-sunken);color:var(--sub);font-size:11.5px}
-    .actions{position:fixed;left:0;right:0;bottom:0;z-index:20;padding:var(--space-2) var(--space-3) max(var(--space-2),env(safe-area-inset-bottom));background:var(--color-inverse);border-top:1px solid var(--color-on-dark-hairline)}
-    .actions-inner{width:min(680px,100%);margin:auto;display:grid;grid-template-columns:1fr auto auto;gap:var(--space-2);align-items:stretch}
-    .actions .btn{padding:var(--space-3) var(--space-2)}.actions .btn:not(.primary){background:transparent;border-color:var(--color-white-22);color:var(--color-on-dark)}
-    .undo{min-width:82px}.hold{width:auto;padding:var(--space-3) var(--space-3)!important;white-space:nowrap}
-    .message{min-height:18px;color:var(--color-on-dark);font-size:11.5px;text-align:center;margin-bottom:var(--space-2);opacity:.8}
+    .message{min-height:18px;color:var(--sub);font-size:12px;text-align:center;margin-bottom:var(--space-2);opacity:.8}
     .hidden{display:none!important}
-    .audit{font-size:11px;color:var(--sub)}.audit strong{color:var(--ink)}
-    .relink{margin-top:var(--space-2);border:1px solid var(--line);background:var(--color-surface);border-radius:8px;padding:var(--space-1) var(--space-2);color:var(--sub);font-size:11px;cursor:pointer}
-    .remote-tabs{display:grid;grid-template-columns:1fr 1fr;gap:var(--space-2);padding:var(--space-1);background:var(--color-white-16);border:1px solid var(--color-white-16);border-radius:13px;margin-bottom:var(--space-3)}
-    .remote-tabs button{border:0;border-radius:9px;padding:var(--space-2);background:transparent;color:var(--color-white-70);font-weight:800;cursor:pointer}.remote-tabs button.on{background:var(--color-paper);color:var(--ink)}
-    .entry-head{display:flex;align-items:flex-start;gap:var(--space-2)}.entry-head h1{font-size:19px;margin:0}.entry-head p{color:var(--sub);font-size:11.5px;margin:var(--space-1) 0 0}
+    .entry-head{display:flex;align-items:flex-start;gap:var(--space-2)}.entry-head h1{font-size:19px;margin:0}.entry-head p{color:var(--sub);font-size:12px;margin:var(--space-1) 0 0}
     .entry-step{display:inline-grid;place-items:center;width:25px;height:25px;border-radius:8px;background:var(--color-primary-soft);color:var(--color-primary-dark);font-weight:900;flex:none}
     .field-grid{display:grid;grid-template-columns:1fr 1fr;gap:var(--space-2);margin-top:var(--space-2)}.field-grid.three{grid-template-columns:repeat(3,1fr)}
     select{width:100%;border:1px solid var(--line);border-radius:10px;padding:var(--space-3);background:var(--color-paper);font:inherit;color:var(--ink)}
     .target{border:1px solid var(--line);border-radius:12px;background:var(--color-surface-sunken);padding:var(--space-2);margin-top:var(--space-2);font-size:12px;color:var(--sub)}
     .target b{color:var(--ink)}.upload-actions{display:grid;grid-template-columns:1fr 1fr;gap:var(--space-2);margin-top:var(--space-2)}.upload-actions .btn{position:relative;overflow:hidden}.upload-actions input{position:absolute;inset:0;opacity:0;width:100%;height:100%;cursor:pointer}
     .file-list{display:grid;grid-template-columns:repeat(4,1fr);gap:var(--space-2);margin-top:var(--space-2)}.thumb{position:relative;aspect-ratio:1;border-radius:10px;overflow:hidden;background:var(--color-surface-sunken)}.thumb img{width:100%;height:100%;object-fit:cover}.thumb button{position:absolute;right:3px;top:3px;width:22px;height:22px;border:0;border-radius:50%;background:var(--color-paper);color:var(--ink);font-size:14px;line-height:1;cursor:pointer}
-    .entry-note{font-size:11px;color:var(--sub);line-height:1.6;margin-top:var(--space-2)}.entry-status{font-size:12px;color:var(--sub);margin-top:var(--space-2);min-height:18px}.entry-status.bad{color:var(--bad)}
-    .warn-box{padding:var(--space-2) var(--space-2);border-radius:10px;background:var(--color-warning-soft);color:var(--color-on-gold);font-size:11.5px;margin-top:var(--space-2)}.warn-box ul{margin:var(--space-1) 0 0;padding-left:var(--space-4)}
+    .entry-note{font-size:12px;color:var(--sub);line-height:1.6;margin-top:var(--space-2)}.entry-status{font-size:12px;color:var(--sub);margin-top:var(--space-2);min-height:18px}.entry-status.bad{color:var(--bad)}
+    .warn-box{padding:var(--space-2) var(--space-2);border-radius:10px;background:var(--color-warning-soft);color:var(--color-on-gold);font-size:12px;margin-top:var(--space-2)}.warn-box ul{margin:var(--space-1) 0 0;padding-left:var(--space-4)}
     .player-card{border:1px solid var(--line);border-radius:12px;background:var(--color-paper);margin-top:var(--space-2);overflow:hidden}.player-card summary{cursor:pointer;padding:var(--space-2) var(--space-3);font-weight:800;font-size:12px;display:flex;gap:var(--space-2);align-items:center}.player-card summary span{font-weight:500;color:var(--sub);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.player-body{padding:0 var(--space-2) var(--space-3)}.side-block{margin-top:var(--space-2);padding:var(--space-2);border-radius:10px;background:var(--color-surface-sunken)}.side-block.blue{border:1px solid var(--blue)}.side-block.red{border:1px solid var(--bad)}
-    .mini-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:var(--space-2);margin-top:var(--space-2)}.mini-grid label{margin:0;font-size:10px}.mini-grid input{padding:var(--space-2);border-radius:8px;font-size:12px}.mini-grid .wide{grid-column:span 2}
+    .mini-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:var(--space-2);margin-top:var(--space-2)}.mini-grid label{margin:0;font-size:12px}.mini-grid input{padding:var(--space-2);border-radius:8px;font-size:12px}.mini-grid .wide{grid-column:span 2}
     .save-bar{padding-top:var(--space-3)}
-    @media(max-width:420px){.actions-inner{grid-template-columns:1fr 74px 82px}.hold{font-size:12px}.scene{padding:var(--space-3)}}
 
     /* Hallmark · mobile upload workbench · incumbent tokens · scope app */
     /* Critique: prioritize screenshot review and readable touch controls. */
-    .remote-tabs{position:sticky;top:0;z-index:12;background:var(--color-inverse);padding:var(--space-2) 0;border:0;border-radius:0}
-    .remote-tabs button{min-height:48px;font-size:16px}
     #dataPane .card{border-radius:14px;padding:var(--space-5) var(--space-4);margin-bottom:var(--space-5)}
     input,select,.mini-grid input{font-size:16px;min-height:48px;caret-color:var(--blue)}
     button,select{touch-action:manipulation}
@@ -105,17 +76,33 @@
  input,select{border-color:var(--sub)}
  h1,h2{ text-wrap:balance; overflow-wrap:break-word; min-width:0 }
  .btn{background:transparent}
- .btn.danger{background:transparent;color:var(--bad)}
  .side-block.blue,.side-block.red{border:0;border-top:1px solid var(--line)}
 
  .card{color:var(--ink)}
  button:focus-visible{outline:3px solid var(--blue);outline-offset:3px}
  .entry-step{color:var(--color-primary-dark)}
+    #dataPane .upload-actions{margin-bottom:var(--space-3)}
+    #dataPane .entry-note{margin-bottom:var(--space-3)}
+    #dataPane .btn,#dataPane select{min-height:44px}
+    #dataPane .save-bar{position:static}
+    #dataPane .save-bar .btn{width:100%}
+    .upload-actions .btn:focus-within{outline:2px solid var(--color-primary);outline-offset:2px}
+    .lane-overview{width:100%;table-layout:fixed;text-align:left;margin:var(--space-4) 0;border-collapse:collapse}
+    .lane-overview caption{text-align:left;font-weight:700;margin-bottom:var(--space-2)}
+    .lane-overview th:first-child{width:48px}
+    .lane-overview th,.lane-overview td{padding:var(--space-1);border-bottom:1px solid var(--line)}
+    .lane-overview label{margin:0}
+    .lane-overview label span{display:block;overflow-wrap:anywhere}
+    .save-feedback:empty{display:none}
+    .save-feedback:not(:empty){background:var(--card);color:var(--ink);padding:var(--space-3);border-radius:8px}
+    #remoteManual,#repairBtn{min-height:44px;margin-top:var(--space-2)}
+    #repairBtn{color:var(--color-on-dark)}
 </style>
+<link rel="stylesheet" href="/assets/side-picker.css">
 </head>
 <body>
   <main class="wrap">
-    <div class="brand"><div class="mark">PKC</div><div><b>手机导播</b><span>现场控制</span></div></div>
+    <div class="brand"><div class="mark">PKC</div><div><b>手机对局录入</b><span>薄扶林王者杯</span></div></div>
     <div class="status"><span class="pill" id="conn">连接中</span><span class="pill" id="device">未配对</span><span class="pill" id="expiry">等待连接</span></div>
 
     <section class="card pair-card" id="pairView">
@@ -127,27 +114,11 @@
       <input id="deviceName" maxlength="20" placeholder="例如：导播 iPhone">
       <div style="height:12px"></div>
       <button class="btn primary" id="pairBtn">连接</button>
-      <div class="message" id="pairMsg" style="color:var(--sub)" role="status" aria-live="polite"></div>
+      <div class="message" id="pairMsg" role="status" aria-live="polite"></div>
     </section>
 
     <section id="controlView" class="hidden">
-      <nav class="remote-tabs" aria-label="手机导播功能">
-        <button type="button" class="on" data-remote-tab="live">画面控制</button>
-        <button type="button" data-remote-tab="data">对局录入</button>
-      </nav>
-      <div id="livePane">
-      <section class="card hero">
-        <div class="hero-head">
-          <div><h1 id="matchTitle">当前直播</h1><p id="matchSub">等待赛事状态</p></div>
-          <span class="live-badge" id="dirty">同步</span>
-        </div>
-        <div class="route"><div><span>当前直播</span><b id="onAir">暂无</b></div><em>→</em><div><span>待推预览</span><b id="preview">暂无</b></div></div>
-      </section>
-      <div class="section-title"><b>选择预览场景</b><span>选择后仍需按“推送此画面”</span></div>
-      <section class="card"><div class="scenes" id="sceneList"></div><div class="readiness-note" id="readinessNote">正在读取场景预检…</div></section>
-      <section class="card audit"><strong>最近推送</strong><div id="lastPush">暂无</div><div id="remoteName"></div><button class="relink" id="repairBtn" type="button">重新配对或更换设备</button></section>
-      </div>
-      <section id="dataPane" class="hidden">
+      <section id="dataPane">
         <section class="card">
           <div class="entry-head"><span class="entry-step">1</span><div><h1>选择目标局次</h1><p>只能写入当前系列赛已排好双方的淘汰赛场次</p></div></div>
           <div class="field-grid">
@@ -155,6 +126,7 @@
             <label for="remoteGameSelect">局次<select id="remoteGameSelect"></select></label>
           </div>
           <div class="target" id="remoteTarget">正在读取场次…</div>
+          <button class="btn" id="remoteManual" type="button">手动录入</button>
         </section>
         <section class="card">
           <div class="entry-head"><span class="entry-step">2</span><div><h1>上传客户端截图</h1><p>最多 4 张；图片只在电脑内存中识别，不保存原图</p></div></div>
@@ -163,8 +135,7 @@
             <label class="btn">从相册选择<input id="remoteGallery" type="file" accept="image/jpeg,image/png,image/webp" multiple></label>
           </div>
           <div class="file-list" id="remoteFiles"></div>
-          <div class="entry-note">手机先把长边压到 2560px 再上传。请优先使用客户端原始“战绩 + 数据”截图，不要使用聊天软件二次压缩图。</div>
-          <div style="height:9px"></div>
+          <div class="entry-note">请使用客户端原始「战绩」和「数据」截图，避免聊天软件压缩影响识别</div>
           <button class="btn primary" id="remoteOcrBtn" disabled>上传并识别</button>
           <div class="entry-status" id="remoteOcrStatus" role="status" aria-live="polite"></div>
         </section>
@@ -180,31 +151,27 @@
             <label>识别目标<div class="target" id="remoteTargetSummary" style="margin:3px 0 0"></div></label>
           </div>
           <div id="remoteWarnings"></div>
+          <div id="remoteLanes"></div>
           <div id="remotePlayerCards"></div>
           <div class="save-bar"><button class="btn primary" id="remoteSaveBtn">确认保存到电脑</button></div>
-          <div class="entry-status" id="remoteSaveStatus" role="status" aria-live="polite"></div>
         </section>
+        <div class="entry-status save-feedback" id="remoteSaveStatus" role="status" aria-live="polite"></div>
       </section>
+      <button class="btn" id="repairBtn" type="button">重新配对</button>
     </section>
   </main>
-  <div class="actions hidden" id="actions">
-    <div class="actions-inner">
-      <button class="btn primary" id="pushBtn">推送此画面</button>
-      <button class="btn undo" id="undoBtn">撤回</button>
-      <button class="btn danger hold" id="blankBtn">长按切空</button>
-    </div>
-    <div class="message" id="message" role="status" aria-live="polite"></div>
-  </div>
+<script src="/assets/side-picker.js"></script>
   <script>
   (() => {
     "use strict";
     let state = null;
     let csrf = sessionStorage.getItem("pkcRemoteCsrf") || "";
-    let source = null;
+
     let online = false;
     let syncing = false;
-    let holdTimer = null;
-    let remoteTab = "live";
+
+
+
     let matchCatalog = null;
     let selectedMatch = null;
     let selectedGame = "";
@@ -213,18 +180,42 @@
     let reviewTarget = null;
     let ocrBusy = false;
     let saving = false;
+    const lanes = ["上单","打野","中路","发育路","游走"];
+    const draftKey = "pkcRemoteEntryDraft";
+    function persistDraft() {
+      if (!draft || !selectedMatch || !matchCatalog) return;
+      try {
+        localStorage.setItem(draftKey, JSON.stringify({
+          seriesId:matchCatalog.seriesId, matchKey:selectedMatch.matchKey, gameId:selectedGame, draft, reviewTarget,
+        }));
+      } catch {}
+    }
+    function restoreDraft() {
+      if (draft) return;
+      try {
+        const saved = JSON.parse(localStorage.getItem(draftKey));
+        if (saved?.seriesId !== matchCatalog.seriesId) return;
+        const match = matchCatalog.matches.find(item => item.matchKey === saved.matchKey);
+        if (!match || (saved.gameId && !match.games.some(game => game.id === saved.gameId))) return;
+        selectedMatch = match;
+        selectedGame = saved.gameId;
+        draft = saved.draft;
+        reviewTarget = saved.reviewTarget;
+        renderReview();
+      } catch {}
+    }
     const $ = (id) => document.getElementById(id);
-    const sceneName = (id) => (state?.scenes || []).find((scene) => scene.id === id)?.label || id || "暂无";
+
     const escHtml = (value) => String(value ?? "").replace(/[&<>"']/g, (char) => ({
       "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;",
     }[char]));
-    const setMessage = (text) => { $("message").textContent = text || ""; };
+
     const setConnected = (value, text) => {
       online = value;
       $("conn").classList.toggle("on", value);
       $("conn").classList.toggle("bad", !value);
       $("conn").textContent = text || (value ? "已连接" : "连接中断");
-      paintActions();
+      renderGameSelect();
     };
 
     async function request(url, options = {}) {
@@ -238,7 +229,7 @@
 
     async function pair() {
       const pin = $("pin").value.replace(/\D/g, "").slice(0, 6);
-      const deviceName = $("deviceName").value.trim() || "手机导播";
+      const deviceName = $("deviceName").value.trim() || "手机录入";
       if (pin.length !== 6) { $("pairMsg").textContent = "请输入 6 位口令"; return; }
       $("pairBtn").disabled = true;
       $("pairMsg").textContent = "正在连接…";
@@ -257,8 +248,6 @@
       $("controlView").classList.remove("hidden");
       $("device").textContent = result.deviceName;
       await loadState();
-      setRemoteTab("live");
-      connectStream();
     }
 
     async function loadState() {
@@ -275,27 +264,22 @@
         }
         $("pairView").classList.add("hidden");
         $("controlView").classList.remove("hidden");
-        render();
-        setRemoteTab(remoteTab);
+        $("device").textContent = state.remote?.deviceName || "已配对";
         setConnected(true, "已连接");
+        await loadMatchCatalog(!draft && !saving && !ocrBusy);
       } catch (error) {
         setConnected(false, "连接中断");
-        setMessage(error.message);
+        dataStatus(error.message, true);
       } finally {
         syncing = false;
       }
     }
 
     function showPair() {
-      if (source) source.close();
-      source = null;
       sessionStorage.removeItem("pkcRemoteCsrf");
       csrf = "";
       state = null;
       $("controlView").classList.add("hidden");
-      $("actions").classList.add("hidden");
-      $("dataPane").classList.add("hidden");
-      $("livePane").classList.remove("hidden");
       $("pairView").classList.remove("hidden");
       $("device").textContent = "未配对";
       setConnected(false, "未连接");
@@ -326,21 +310,26 @@
         dataStatus(result.message || "无法读取场次", true);
         return;
       }
+      if (matchCatalog && matchCatalog.seriesId === result.seriesId
+        && matchCatalog.matchesRevision === result.matchesRevision
+        && matchCatalog.contextRevision === result.contextRevision) return;
       matchCatalog = result;
-      const previous = selectedMatch;
+      const previous = selectedMatch?.matchKey;
       selectedMatch = result.matches.find((match) => match.matchKey === previous)
         || result.matches.find((match) => match.matchKey === result.selectedMatchKey)
         || result.matches[0]
         || null;
-      if (!selectedGame && selectedMatch?.matchKey === result.currentMatchKey && result.currentGameId) {
+      if (!previous && !selectedGame && selectedMatch?.matchKey === result.currentMatchKey && result.currentGameId) {
         selectedGame = result.currentGameId;
       }
       selectedGame = selectedMatch?.games.some((game) => game.id === selectedGame) ? selectedGame : "";
+      restoreDraft();
       renderMatchCatalog();
       dataStatus(matchCatalog.matches.length ? "" : "当前系列赛还没有双方队伍已排定的淘汰赛场次", !matchCatalog.matches.length);
     }
 
     function resetReview() {
+      try { localStorage.removeItem(draftKey); } catch {}
       draft = null;
       reviewTarget = null;
       $("remoteReviewCard").classList.add("hidden");
@@ -363,6 +352,7 @@
         select.innerHTML = '<option value="">暂无场次</option>';
         $("remoteTarget").textContent = "请先在电脑的淘汰赛赛程中排定双方队伍。";
         $("remoteOcrBtn").disabled = true;
+        $("remoteManual").disabled = true;
         return;
       }
       selectedMatch.games.forEach((game) => {
@@ -376,6 +366,8 @@
           ? "覆盖 " + escHtml(selectedMatch.games.find((game) => game.id === selectedGame)?.label || "")
           : "新建 " + escHtml(selectedMatch.nextGameLabel)}`;
       $("remoteOcrBtn").disabled = !online || !uploadFiles.length || ocrBusy;
+      $("remoteManual").hidden = !!selectedGame;
+      $("remoteManual").disabled = !online || ocrBusy || saving;
     }
 
     async function compressImage(file) {
@@ -448,17 +440,20 @@
       if (ocrBusy || !uploadFiles.length || !selectedMatch) return;
       let blueId = "";
       if (!selectedMatch.games.length) {
-        const choice = prompt("导入第一小局：请选择蓝方（另一队为红方）\n1：" + selectedMatch.blueName + "\n2：" + selectedMatch.redName, "");
-        if (choice !== "1" && choice !== "2") return;
-        blueId = choice === "1" ? selectedMatch.blueId : selectedMatch.redId;
+        const match = selectedMatch;
+        const gameId = selectedGame;
+        const choice = await chooseFirstGameBlue(match.blueName, match.redName);
+        if (choice === null || selectedMatch !== match || selectedGame !== gameId || ocrBusy) return;
+        blueId = choice === 0 ? match.blueId : match.redId;
       }
+      const files = [...uploadFiles];
       ocrBusy = true;
+      $("remoteMatchSelect").disabled = $("remoteGameSelect").disabled = true;
       $("remoteOcrBtn").textContent = "正在识别，请稍候…";
-      resetReview();
       renderFiles();
       dataStatus("正在上传到电脑…");
       try {
-        const images = await Promise.all(uploadFiles.map(fileDataUrl));
+        const images = await Promise.all(files.map(fileDataUrl));
         dataStatus("电脑正在识别，请稍候…");
         const { ok, status, result } = await request("/api/remote/ocr-draft", {
           method:"POST",
@@ -473,12 +468,15 @@
         if (!ok) throw new Error(result.message || result.error || "识别失败");
         draft = result.draft;
         reviewTarget = result.target;
+        uploadFiles = uploadFiles.filter(file => !files.includes(file));
+        persistDraft();
         renderReview();
         dataStatus("识别完成，请逐项核对后保存");
       } catch (error) {
         dataStatus(error.message, true);
       } finally {
         ocrBusy = false;
+        $("remoteMatchSelect").disabled = $("remoteGameSelect").disabled = false;
         $("remoteOcrBtn").textContent = "重新识别截图";
         renderFiles();
       }
@@ -492,8 +490,7 @@
 
     function sideEditor(side, label, row, index) {
       return `<div class="side-block ${side === "our" ? "blue" : "red"}">
-        <label>${label}分路<select data-lane="${side}" data-row="${index}"><option value="">待确认分路</option>${["上单","打野","中路","发育路","游走"].map((lane) =>
-          `<option${((side === "our" ? row.pos : row.posOpp) === lane) ? " selected" : ""}>${lane}</option>`).join("")}</select></label>
+        <strong>${label}</strong>
         <div class="mini-grid">${SIDE_FIELDS.map(([field, title]) =>
           `<label class="${field === "name" || field === "hero" ? "wide" : ""}">${title}<input data-side="${side}" data-row="${index}" data-field="${field}" value="${escHtml(row[side]?.[field] || "")}" ${["k","d","a","gold","dmgPct","tankPct","goldShare","kp","dmgWan"].includes(field) ? 'inputmode="decimal"' : ""}></label>`
         ).join("")}</div></div>`;
@@ -545,10 +542,17 @@
         input.addEventListener("input", () => {
           const row = draft.rows[Number(input.dataset.row)];
           if (row?.[input.dataset.side]) row[input.dataset.side][input.dataset.field] = input.value.trim();
+          const name = $("remoteLanes").querySelector(`[data-lane-player="${input.dataset.side}-${input.dataset.row}"]`);
+          if (name) name.textContent = row[input.dataset.side].name || row[input.dataset.side].hero || (input.dataset.side === "our" ? "蓝方" : "红方");
           renderWarnings();
         });
       }
-      for (const select of $("remotePlayerCards").querySelectorAll("[data-lane]")) {
+      $("remoteLanes").innerHTML = '<table class="lane-overview"><caption>分路一览</caption><thead><tr><th scope="col">对位</th><th scope="col">蓝方</th><th scope="col">红方</th></tr></thead><tbody>'
+        + draft.rows.map((row, index) => '<tr><th scope="row">' + (index + 1) + '</th>'
+          + [["our","蓝方","pos"],["opp","红方","posOpp"]].map(([side,label,key]) =>
+            `<td><label><span data-lane-player="${side}-${index}">${escHtml(row[side]?.name || row[side]?.hero || label)}</span><select aria-label="${label}第 ${index + 1} 位分路" data-lane="${side}" data-row="${index}"><option value="">待确认</option>${lanes.map(lane => `<option${row[key] === lane ? " selected" : ""}>${lane}</option>`).join("")}</select></label></td>`).join("")
+          + '</tr>').join("") + '</tbody></table>';
+      for (const select of $("remoteLanes").querySelectorAll("[data-lane]")) {
         select.addEventListener("change", () => {
           const row = draft.rows[Number(select.dataset.row)];
           if (select.dataset.lane === "our") row.pos = select.value;
@@ -561,12 +565,13 @@
 
     async function saveRemoteData() {
       if (!draft || saving) return;
-      if (draft.rows.some(row => !row.pos || !row.posOpp)) { $("remoteSaveStatus").textContent = "请先确认每位选手的分路，再保存"; return; }
+      if (["pos","posOpp"].some(key => new Set(draft.rows.map(row => row[key]).filter(Boolean)).size !== lanes.length)) { $("remoteSaveStatus").textContent = "请为每一方分别设置五条不同的分路"; return; }
       const gameLabel = reviewTarget?.gameLabel || selectedMatch?.nextGameLabel || "新局";
       if (!confirm("保存到「" + selectedMatch.label + " · " + gameLabel + "」？\n"
         + (selectedGame ? "将覆盖该局原有玩法数据。" : "将新建这一局。"))) return;
       saving = true;
       $("remoteSaveBtn").disabled = true;
+      $("remoteMatchSelect").disabled = $("remoteGameSelect").disabled = true;
       $("remoteSaveStatus").textContent = "正在保存到电脑…";
       try {
         const { ok, status, result } = await request("/api/remote/match-data", {
@@ -575,6 +580,7 @@
             seriesId:matchCatalog.seriesId,
             matchKey:selectedMatch.matchKey,
             gameId:selectedGame || null,
+            overwriteLatest:true,
             baseRev:matchCatalog.matchesRevision,
             contextRevision:matchCatalog.contextRevision,
             draft,
@@ -583,155 +589,23 @@
         if (status === 401) return showPair();
         if (!ok) throw new Error(result.message || result.error || "保存失败");
         $("remoteSaveStatus").textContent = "已保存 " + result.game.label + " · 缺失 " + result.missing.length
-          + " 项 · 请到电脑刷新本局后生成数据图";
+          + " 项，电脑端会自动同步";
+        try { localStorage.removeItem(draftKey); } catch {}
+        draft = null;
+        reviewTarget = null;
+        $("remoteReviewCard").classList.add("hidden");
         selectedGame = result.game.id;
-        matchCatalog = null;
-        await loadState();
-        await loadMatchCatalog(true);
-        await loadState();
+        await loadMatchCatalog(true).catch(() => dataStatus("已保存，暂时无法更新小局列表", true));
       } catch (error) {
         $("remoteSaveStatus").textContent = error.message;
       } finally {
         saving = false;
         $("remoteSaveBtn").disabled = false;
+        $("remoteMatchSelect").disabled = $("remoteGameSelect").disabled = false;
       }
-    }
-
-    function setRemoteTab(name) {
-      remoteTab = name === "data" ? "data" : "live";
-      document.querySelectorAll("[data-remote-tab]").forEach((button) => {
-        button.classList.toggle("on", button.dataset.remoteTab === remoteTab);
-      });
-      $("livePane").classList.toggle("hidden", remoteTab !== "live");
-      $("dataPane").classList.toggle("hidden", remoteTab !== "data");
-      $("actions").classList.toggle("hidden", !state || remoteTab !== "live");
-      if (remoteTab === "data") loadMatchCatalog();
-    }
-
-    function readiness(sceneId) {
-      return (state?.readiness?.scenes || []).find((scene) => scene.id === sceneId) || null;
-    }
-
-    function renderScenes() {
-      const host = $("sceneList");
-      host.replaceChildren();
-      (state?.scenes || []).filter((scene) => scene.id !== "blank").forEach((scene) => {
-        const ready = readiness(scene.id);
-        const button = document.createElement("button");
-        button.type = "button";
-        button.className = "scene";
-        if (scene.id === state.preview.scene) button.classList.add("selected");
-        if (scene.id === state.onAir.scene) button.classList.add("live");
-        button.innerHTML = '<i class="dot ' + (ready?.status || "") + '"></i><b>' + scene.label + '</b><small>'
-          + (ready?.summary || "预检信息暂不可用") + '</small>';
-        button.onclick = () => act("select-scene", { scene:scene.id });
-        host.append(button);
-      });
-      const ready = readiness(state.preview.scene);
-      $("readinessNote").textContent = ready
-        ? "待推场景：" + ready.label + " · " + ready.summary
-        : "场景预检暂不可用";
-    }
-
-    function render() {
-      if (!state) return;
-      $("onAir").textContent = sceneName(state.onAir.scene);
-      $("preview").textContent = sceneName(state.preview.scene);
-      $("dirty").textContent = state.isPreviewDirty ? "未推送" : "已同步";
-      $("dirty").classList.toggle("dirty", !!state.isPreviewDirty);
-      $("matchTitle").textContent = state.live?.context?.matchLabel || "当前直播";
-      $("matchSub").textContent = [state.live?.context?.gameLabel, state.live?.context?.blueTeam, state.live?.context?.redTeam].filter(Boolean).join(" · ") || "未选择当前场次";
-      $("lastPush").textContent = state.lastPush ? new Date(state.lastPush.at).toLocaleString("zh-CN", { hour12:false }) + " · " + sceneName(state.lastPush.scene) : "还没有推送记录";
-      $("remoteName").textContent = state.remote ? "设备：" + state.remote.deviceName + " · 会话至 " + new Date(state.remote.expiresAt).toLocaleTimeString("zh-CN", { hour12:false }) : "";
-      renderScenes();
-      paintActions();
-    }
-
-    function paintActions() {
-      const disabled = !online || !state;
-      $("pushBtn").disabled = disabled || state?.preview?.scene === "blank";
-      $("undoBtn").disabled = disabled || !state?.canUndoPush;
-      $("blankBtn").disabled = disabled;
-    }
-
-    async function act(action, body = {}, force = false) {
-      if (!online || !state) return;
-      setMessage("正在执行…");
-      try {
-        let response = await request("/api/remote/action", {
-          method:"POST",
-          body:JSON.stringify({ action, ...body, force }),
-        });
-        if (response.status === 401) return showPair();
-        if (response.status === 409 && !force) {
-          if (!confirm((response.result.message || "当前画面预检未通过") + "\n\n确认仍要推送？")) {
-            setMessage("已取消推送");
-            return;
-          }
-          response = await request("/api/remote/action", {
-            method:"POST",
-            body:JSON.stringify({ action, ...body, force:true }),
-          });
-        }
-        if (!response.ok) throw new Error(response.result.message || response.result.error || "操作失败");
-        state = { ...state, ...response.result };
-        render();
-        setMessage(action === "push" ? "已推送" : action === "blank" ? "已切到空白" : action === "undo-push" ? "已撤回" : "预览已切换");
-      } catch (error) {
-        setMessage(error.message);
-      }
-    }
-
-    function connectStream() {
-      if (source) source.close();
-      try {
-        source = new EventSource("/api/remote/stream");
-        const update = (event) => {
-          try {
-            const incoming = JSON.parse(event.data);
-            if (!state) return;
-            state = {
-              ...state,
-              onAir:incoming.onAir,
-              preview:incoming.preview,
-              isPreviewDirty:incoming.isPreviewDirty,
-              canUndoPush:incoming.canUndoPush,
-              lastPush:incoming.lastPush,
-              live:incoming.live,
-              scenes:incoming.scenes || state.scenes,
-            };
-            render();
-            setConnected(true, "已连接");
-          } catch {}
-        };
-        ["hello","live","onAir","preview"].forEach((name) => source.addEventListener(name, update));
-        source.onerror = () => setConnected(false, "连接中断");
-      } catch {
-        setConnected(false, "连接中断");
-      }
-    }
-
-    function beginBlankHold(event) {
-      event.preventDefault();
-      if (!online || !state) return;
-      $("blankBtn").textContent = "按住…";
-      clearTimeout(holdTimer);
-      holdTimer = setTimeout(async () => {
-        $("blankBtn").textContent = "切空中…";
-        await act("blank");
-        $("blankBtn").textContent = "长按切空";
-      }, 1500);
-    }
-    function cancelBlankHold() {
-      clearTimeout(holdTimer);
-      holdTimer = null;
-      if (online) $("blankBtn").textContent = "长按切空";
     }
 
     $("pairBtn").onclick = pair;
-    document.querySelectorAll("[data-remote-tab]").forEach((button) => {
-      button.onclick = () => setRemoteTab(button.dataset.remoteTab);
-    });
     $("remoteMatchSelect").onchange = () => {
       selectedMatch = matchCatalog?.matches.find((match) => match.matchKey === $("remoteMatchSelect").value) || null;
       selectedGame = selectedMatch?.matchKey === matchCatalog?.currentMatchKey ? matchCatalog?.currentGameId || "" : "";
@@ -750,6 +624,24 @@
       });
     });
     $("remoteOcrBtn").onclick = startOcr;
+    $("remoteManual").onclick = async () => {
+      if (!selectedMatch || selectedGame || saving || ocrBusy) return;
+      if (draft) { $("remoteReviewCard").scrollIntoView({block:"start"}); return; }
+      const match = selectedMatch;
+      const gameId = selectedGame;
+      let blueId = "";
+      if (!match.games.length) {
+        const choice = await chooseFirstGameBlue(match.blueName, match.redName);
+        if (choice === null || selectedMatch !== match || selectedGame !== gameId) return;
+        blueId = choice === 0 ? match.blueId : match.redId;
+      }
+      draft = {blueId, result:"win", rows:lanes.map(pos => ({pos, posOpp:pos, our:{}, opp:{}}))};
+      reviewTarget = {gameLabel:match.games.find(game => game.id === gameId)?.label || match.nextGameLabel};
+      persistDraft();
+      renderReview();
+    };
+    $("remoteReviewCard").addEventListener("input", persistDraft);
+    $("remoteReviewCard").addEventListener("change", persistDraft);
     $("remoteSaveBtn").onclick = saveRemoteData;
     $("remoteBlueScore").oninput = () => { if (draft) draft.blueScore = $("remoteBlueScore").value.trim(); renderWarnings(); };
     $("remoteRedScore").oninput = () => { if (draft) draft.redScore = $("remoteRedScore").value.trim(); renderWarnings(); };
@@ -757,18 +649,11 @@
     $("remoteResult").onchange = () => { if (draft) draft.result = $("remoteResult").value; };
     $("pin").addEventListener("input", (event) => { event.target.value = event.target.value.replace(/\D/g, "").slice(0, 6); });
     $("pin").addEventListener("keydown", (event) => { if (event.key === "Enter") pair(); });
-    $("pushBtn").onclick = () => act("push");
-    $("undoBtn").onclick = () => act("undo-push");
-    $("repairBtn").onclick = repair;
-    ["pointerdown"].forEach((name) => $("blankBtn").addEventListener(name, beginBlankHold));
-    ["pointerup","pointercancel","pointerleave"].forEach((name) => $("blankBtn").addEventListener(name, cancelBlankHold));
     window.addEventListener("offline", () => setConnected(false, "网络已断开"));
     window.addEventListener("online", () => loadState());
 
-    loadState().then(() => {
-      if (state) connectStream();
-      else showPair();
-    });
+    $("repairBtn").onclick = repair;
+    loadState();
     setInterval(() => {
       if (state) loadState();
     }, 15000);

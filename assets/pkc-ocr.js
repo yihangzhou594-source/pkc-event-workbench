@@ -952,7 +952,7 @@ function matchTeamsByName(names){
   return { best: scored[0] || null, second: scored[1] || null };
 }
 async function runOCR(files){
-  if (!confirmFirstGameSides()) return 0;
+  if (!files?.length || !(await confirmFirstGameSides())) return 0;
   clientDebug = null;
   const box = $("#ocrBox"); box.style.display = "block";
   ocrMsg("正在加载识别引擎…"); ocrPct(0);
@@ -1267,8 +1267,7 @@ function applyAIResult(data, files){
 }
 
 async function runAIOCR(files){
-  if (!confirmFirstGameSides()) return 0;
-  if (!files || !files.length){ toast("请先选择截图"); return; }
+  if (!files?.length || !(await confirmFirstGameSides())) return 0;
   const box = $("#ocrBox"); box.style.display = "block";
   ocrMsg("DeepSeek 正在读取截图…");
   ocrPct(.08);

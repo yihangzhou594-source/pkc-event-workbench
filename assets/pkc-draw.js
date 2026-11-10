@@ -236,60 +236,59 @@ function lanePair(g, pos){
            our: a ? a.our : emptyP(), opp: b ? b.opp : emptyP(),
            hasOur: !!a, hasOpp: !!b };
 }
-/** 系列赛同分路基准：逐局收集两边该路的选手记录，再对每项已填数据取平均值。 */
-function laneReferencesForSeries(series){
-  const sums = {};
-  POSITIONS.forEach(pos => {
-    sums[pos] = {};
-    ALL_AXES.forEach(axis => { sums[pos][axis.key] = { total:0, count:0 }; });
-  });
+/** 外圈取系列赛此前同分路的纪录，死亡轴以最少死亡为纪录。 */
+function laneReferencesForSeries(series, game){
+  const games = series?.games || [];
+  const index = game ? games.findIndex(item => item.id === game.id) : -1;
+  const prior = index < 0 ? games : games.slice(0, index);
+  const references = Object.fromEntries(POSITIONS.map(pos => [
+    pos, { values:{}, counts:{} },
+  ]));
   const add = (pos, player) => {
-    if (!POSITIONS.includes(pos) || !player) return;
-    ALL_AXES.forEach(axis => {
-      const value = axisVal(player, axis.key).num;
-      if (value === null || !Number.isFinite(value)) return;
-      sums[pos][axis.key].total += value;
-      sums[pos][axis.key].count += 1;
+    const entry = references[pos];
+    if (!entry || !player) return;
+    ALL_AXES.forEach(({key}) => {
+      const value = axisVal(player, key).num;
+      if (!Number.isFinite(value)) return;
+      const record = entry.values[key] ?? value;
+      entry.values[key] = key === "d" ? Math.min(record, value) : Math.max(record, value);
+      entry.counts[key] = (entry.counts[key] || 0) + 1;
     });
   };
-  ((series && series.games) || []).forEach(g => {
-    (Array.isArray(g && g.rows) ? g.rows : []).forEach(raw => {
-      const row = effRow(raw, g);
-      add(row.pos, row.our);
-      add(row.posOpp, row.opp);
-    });
-  });
-  return Object.fromEntries(POSITIONS.map(pos => {
-    const values = {}, counts = {};
-    ALL_AXES.forEach(axis => {
-      const cell = sums[pos][axis.key];
-      values[axis.key] = cell.count ? cell.total / cell.count : null;
-      counts[axis.key] = cell.count;
-    });
-    return [pos, { values, counts }];
+  prior.forEach(g => (g.rows || []).forEach(raw => {
+    const row = effRow(raw, g);
+    add(row.pos, row.our);
+    add(row.posOpp, row.opp);
   }));
-}
-function referenceValues(reference){
-  return reference && reference.values ? reference.values : (reference || {});
+  return references;
 }
 function normVals(row, reference){
-  const AXES = axesFor(row);
-  const a = AXES.map(x => axisVal(row.our, x.key).num);
-  const b = AXES.map(x => axisVal(row.opp, x.key).num);
-  const refs = referenceValues(reference);
+  const axes = axesFor(row);
+  const a = axes.map(x => axisVal(row.our, x.key).num);
+  const b = axes.map(x => axisVal(row.opp, x.key).num);
+  const refs = reference?.values || reference || {};
+  const records = axes.map(x => parseNum(refs[x.key]));
   return {
     raw:{ our:a, opp:b },
-    reference: AXES.map(x => {
-      const value = parseNum(refs[x.key]);
-      return value !== null && value > 0 ? value : null;
-    }),
-    norm: AXES.map((x,i) => {
-      const pairMax = Math.max(a[i]||0, b[i]||0);
-      const ref = parseNum(refs[x.key]);
-      const m = ref !== null && ref > 0 ? ref * 1.5 : pairMax;
-      return { our: m>0 ? (a[i]||0)/m : 0, opp: m>0 ? (b[i]||0)/m : 0 };
+    reference: records,
+    norm: axes.map(({key},i) => {
+      const values = [a[i], b[i]].filter(Number.isFinite);
+      const lowerIsBetter = key === "d";
+      const record = records[i] ?? (values.length ? (lowerIsBetter ? Math.min(...values) : Math.max(...values)) : 0);
+      const score = value => {
+        if (value === null) return 0;
+        if (lowerIsBetter) return (1 + record) / (1 + value);
+        if (record > 0) return value / record;
+        return value > 0 ? 2 : 1;
+      };
+      return { our:score(a[i]), opp:score(b[i]) };
     })
   };
+}
+/** Compress the overflow into the space between the outer ring and axis labels. */
+function radarRadius(score){
+  if (score <= 1) return Math.max(0, score);
+  return 1 + .18 * (1 - 1 / score);
 }
 function gameHasData(g){
   if (!g || !Array.isArray(g.rows)) return false;
@@ -491,7 +490,7 @@ function drawRadar(ctx, cx, cy, R, row, ourColor, oppColor, reference){
   const refColor = DB.prefs.chartStyle === "kpl" ? KPL_GOLD : (t.isDark ? "#d8b35b" : "#8d7441");
   // Keep series normalization, but omit the yellow reference overlay.
   const pts = who => V.norm.map((v,i) => {
-    const a=ang(i), rr2 = R*clamp(v[who],0,1);
+    const a=ang(i), rr2 = R*radarRadius(v[who]);
     return [cx+Math.cos(a)*rr2, cy+Math.sin(a)*rr2];
   });
   const drawPoly = (p, color, fillA, lw, glow) => {
@@ -683,7 +682,7 @@ function drawKplCard(ctx, g, posIdx, reference){
   drawKplStatChips(ctx, 70, 650, pw, row.our, C_BLUE, "蓝方数据");
   drawKplStatChips(ctx, DW-70-pw, 650, pw, row.opp, C_RED, "红方数据");
   T(ctx, "对位雷达 · 蓝 ←→ 红", 960, 156, { size:18, weight:"700", align:"center", color:"rgba(255,255,255,.66)", spacing:1.4 });
-  T(ctx, "按系列赛同分路均值归一化", 960, 179, { size:14, weight:"500", align:"center", color:"rgba(255,255,255,.52)" });
+  T(ctx, "外圈为此前同分路纪录", 960, 179, { size:14, weight:"500", align:"center", color:"rgba(255,255,255,.52)" });
   drawRadar(ctx, 960, 505, 212, row, KPL_BLUE, KPL_RED, reference);
 
   drawCompare(ctx, row, KPL_BLUE, KPL_RED);
@@ -708,7 +707,7 @@ function drawCard(ctx, g, posIdx, reference){
   const pw = 306;
   drawSide(ctx, 84, 214, pw, row.our, C_BLUE, pos + " · 蓝方" + (row.hasOur ? "" : "（未指定）"));
   drawSide(ctx, DW-84-pw, 214, pw, row.opp, C_RED, pos + " · 红方" + (row.hasOpp ? "" : "（未指定）"));
-  T(ctx, "按系列赛同分路均值归一化", 960, 205,
+  T(ctx, "外圈为此前同分路纪录", 960, 205,
     { size:16, weight:"600", align:"center", color:t.sub });
   drawRadar(ctx, 960, 520, 205, row, C_BLUE, C_RED, reference);
   drawCompare(ctx, row, C_BLUE, C_RED);
@@ -873,7 +872,7 @@ function drawRadarMini(ctx, cx, cy, R, row, ourColor, oppColor, showLabels = tru
   const refColor = DB.prefs.chartStyle === "kpl" ? KPL_GOLD : (t.isDark ? "#d8b35b" : "#8d7441");
   // Keep series normalization, but omit the yellow reference overlay.
   const pts = who => V.norm.map((v,i) => {
-    const a=ang(i), rr2=R*clamp(v[who],0,1);
+    const a=ang(i), rr2=R*radarRadius(v[who]);
     return [cx+Math.cos(a)*rr2, cy+Math.sin(a)*rr2];
   });
   [[pts("opp"),oppColor,.18,2.7],[pts("our"),ourColor,.28,2.6]].forEach(([p,color,fa,lw]) => {
@@ -1251,7 +1250,7 @@ function renderInto(canvas, kind, g, rowIdx, w, h){
   ctx.clearRect(0,0,w,h);
   const sc = w / DW;
   ctx.setTransform(sc,0,0,sc,0,0);
-  const references = laneReferencesForSeries(S.series);
+  const references = laneReferencesForSeries(S.series, g);
   if (kind === "card") drawCard(ctx, g, rowIdx, references && references[POSITIONS[rowIdx]]);
   else if (kind === "overview") drawOverview(ctx, g, references);
   else drawMulti(ctx);
@@ -1271,6 +1270,10 @@ const shots = [];
 function buildPreview(){
   const host = $("#preview");
   host.innerHTML = ""; shots.length = 0;
+  const guide = document.createElement("p");
+  guide.className = "preview-guide";
+  guide.textContent = "外圈是此前同分路纪录，超出外圈表示破纪录。中路和发育路的死亡轴以更少为优";
+  host.append(guide);
   const [W,H] = targetSize();
   const pw = Math.round(W*PREVIEW_Q), ph = Math.round(H*PREVIEW_Q);
   POSITIONS.forEach((pos, i) => {

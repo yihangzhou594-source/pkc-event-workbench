@@ -169,7 +169,6 @@ function applyPlayer(side, pos, player, seq){
   if (pos) S.game.rows[idx][laneKey] = pos;      // 粘贴里带了分路就照填（不自动猜）
 }
 function parseLines(text){
-  if (!confirmFirstGameSides()) return 0;
   const lines = String(text).split(/\r?\n/).map(l => l.trim()).filter(Boolean);
   let count = 0, seq = 0;
   lines.forEach(line => {

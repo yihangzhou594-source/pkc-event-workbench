@@ -25,7 +25,7 @@ function exportList(allGames){
 /** 导播台数据图轮播：当前一局的 5 张对位图 + 五路总览，共 6 张。 */
 function chartItems(){
   const s = S.series;
-  const laneReferences = laneReferencesForSeries(s);
+  const laneReferences = laneReferencesForSeries(s, S.game);
   const meta = contextSnapshot() || {};
   const ctx = {
     series: [{
@@ -62,7 +62,7 @@ function drawExport(item, W, H){
   const sc = W/DW;
   ctx.setTransform(sc,0,0,sc,0,0);
   const pos = POSITIONS[item.idx] || POSITIONS[0];
-  const references = item.laneReferences || laneReferencesForSeries(S.series);
+  const references = item.laneReferences || laneReferencesForSeries(S.series, item.game);
   if (item.kind === "card") drawCard(ctx, item.game, item.idx, references && references[pos]);
   else if (item.kind === "overview") drawOverview(ctx, item.game, references);
   else if (item.kind === "bigMatch") drawBigMatchSummary(ctx);

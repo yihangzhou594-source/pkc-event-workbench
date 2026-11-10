@@ -657,7 +657,8 @@ async function init(){
   };
   $("#btnSwap").onclick = swapSides;
   $("#btnSwapTop").onclick = swapSides;
-  $("#btnParse").onclick = () => {
+  $("#btnParse").onclick = async () => {
+    if (!(await confirmFirstGameSides())) return;
     const n = parseLines($("#pasteBox").value);
     const mo = autoMatchPlayers("our"), mp = autoMatchPlayers("opp");
     renderTables(); renderPreview(); scheduleSave();
@@ -803,14 +804,43 @@ async function init(){
   }
   const tabParam = new URLSearchParams(location.search).get("tab");
   if (tabParam && document.getElementById("panel-" + tabParam)) switchTab(tabParam);
+  let remoteSync = Promise.resolve();
+  let lastRemoteSave = "";
+  function syncRemoteGame(saved) {
+    if (!saved?.remoteSavedAt || saved.remoteSavedAt === lastRemoteSave) return;
+    lastRemoteSave = saved.remoteSavedAt;
+    remoteSync = remoteSync.then(async () => {
+      const series = DB.series.find(item => item.id === saved.seriesId);
+      if (!series) return;
+      await STORE_QUEUES.get("matches");
+      const matches = await STORE.load("matches");
+      const games = matches?.games?.[series.id];
+      if (!Array.isArray(games)) return;
+      const incoming = games.find(game => game.id === saved.gameId);
+      if (!incoming) return;
+      const index = series.games.findIndex(game => game.id === incoming.id);
+      const previous = series.games[series.current];
+      if (index < 0) series.games.push(normGame(incoming, series.games.length));
+      else series.games[index] = normGame(incoming, index);
+      if (series === S.series) {
+        if ((!previous?.matchKey && !gameHasData(previous))
+          || (index < 0 && previous?.matchKey === incoming.matchKey)) {
+          series.current = index < 0 ? series.games.length - 1 : index;
+        }
+        renderGameBar(); renderGameForm(); renderTables(); buildPreview(); renderPreview();
+      }
+      showContextStatus("手机已更新「" + incoming.label + "」，已同步到电脑");
+    }).catch(() => { lastRemoteSave = ""; });
+  }
   window.addEventListener("message", (event) => {
-    if (event.origin !== location.origin) return;
-    if (event.data?.type !== "pkc:remote-data-saved") return;
-    const saved = event.data.context || {};
-    showContextStatus("手机已更新本局「" + (saved.gameLabel || S.game?.label || "当前局") + "」，请重新加载后再编辑或生成图表。", [
-      { label:"加载最新数据", run:() => location.reload() },
-    ]);
-  }, { passive:true });
+    if (event.origin === location.origin && event.data?.type === "pkc:remote-data-saved") syncRemoteGame(event.data.context);
+  });
+  if (window.parent === window) {
+    const stream = new EventSource("/api/director/stream");
+    for (const name of ["hello","live"]) stream.addEventListener(name, event => {
+      try { syncRemoteGame(JSON.parse(event.data)?.live?.context); } catch {}
+    });
+  }
 
   window.PKC = {
     db: () => DB, heroes: () => HEROES, series: () => S.series, game: () => S.game,

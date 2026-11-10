@@ -124,3 +124,11 @@ const chosen = buildRemoteGame({matchKey:"FIRST",blueTeam:blue,redTeam:red,draft
 assert.equal(chosen.game.ourId,"r");
 assert.equal(chosen.game.oppId,"b");
 assert.equal(chosen.game.sidesConfirmed,true);
+
+const history = Array.from({length:2}, () => ({rows:[{pos:"上单", our:{hero:"吕布"}}]}));
+const inferred = mergeRemoteDraft({ocr:{blue:[{hero:"吕布"}]}, history});
+assert.equal(inferred.rows[0].pos, "上单");
+const ambiguous = mergeRemoteDraft({ocr:{blue:[{hero:"吕布"}]}, history:[
+  ...history, ...history.map(() => ({rows:[{pos:"中路",our:{hero:"吕布"}}]})),
+]});
+assert.equal(ambiguous.rows[0].pos, "");

@@ -24,8 +24,9 @@ try {
    g.ourId=series.teams[0].id;g.oppId=series.teams[1].id;g.matchKey='REGRESSION';delete g.sidesConfirmed;
    return [g.ourId,g.oppId];
   });
-  page.once('dialog',d=>d.accept('2'));
-  await page.evaluate(()=>PKC.parseLines(''));
+  await page.locator('#btnParse').click();
+  await page.getByRole('dialog').locator('button[value="1"]').click();
+  await page.getByRole('dialog').waitFor({state:'hidden'});
   const chosen=await page.evaluate(()=>[PKC.game().ourId,PKC.game().oppId,PKC.normGame(PKC.game(),0).sidesConfirmed]);
   assert.deepEqual(chosen,[result[1],result[0],true]);
   await page.evaluate(()=>PKC.renderGameBar());

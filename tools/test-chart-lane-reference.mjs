@@ -45,8 +45,8 @@ const result = await page.evaluate(() => {
   setPlayer(g3, 0, "opp", "上单", { name: "红三", k: "8", d: "1", a: "0", gold: "11000" });
 
   series.games = [g1, g2, g3];
-  series.current = 0;
-  const references = window.PKC.laneReferencesForSeries(series);
+  series.current = 2;
+  const references = window.PKC.laneReferencesForSeries(series, g3);
   const midpointGame = game("基准验证", blue.id, red.id);
   setPlayer(midpointGame, 0, "our", "上单", { k: "4", d: "1", a: "0" });
   setPlayer(midpointGame, 0, "opp", "上单", { k: "8", d: "1", a: "0" });
@@ -54,12 +54,19 @@ const result = await page.evaluate(() => {
     window.PKC.lanePair(midpointGame, "上单"),
     references["上单"],
   );
+  const death = window.PKC.normVals({pos:"中路", our:{d:"0"}, opp:{d:"2"}}, {d:2});
+  if (death.norm[6].our !== 3 || death.norm[6].opp !== 1) {
+    throw new Error("更少的死亡应超出外圈，追平最低死亡纪录应落在外圈");
+  }
+  const first = window.PKC.normVals(window.PKC.lanePair(g1, "上单"),
+    window.PKC.laneReferencesForSeries(series, g1)["上单"]);
+  if (first.norm[4].opp !== 1) throw new Error("首局应以本局较高值作为外圈");
   const items = window.PKC.chartItems();
-  const exportItem = { kind: "card", idx: 0, game: g1, laneReferences: references };
+  const exportItem = { kind: "card", idx: 0, game: g3, laneReferences: references };
   const kplPng = window.PKC.drawExport(exportItem, 1920, 1080).toDataURL("image/png");
   window.PKC.db().prefs.chartStyle = "classic";
   const classicPng = window.PKC.drawExport(exportItem, 1920, 1080).toDataURL("image/png");
-  const overviewItem = { kind: "overview", idx: -1, game: g1, laneReferences: references };
+  const overviewItem = { kind: "overview", idx: -1, game: g3, laneReferences: references };
   const classicOverviewPng = window.PKC.drawExport(overviewItem, 1920, 1080).toDataURL("image/png");
   window.PKC.db().prefs.chartStyle = "kpl";
   const kplOverviewPng = window.PKC.drawExport(overviewItem, 1920, 1080).toDataURL("image/png");
@@ -99,8 +106,8 @@ console.log(JSON.stringify({
   classicOverviewPath,
 }, null, 2));
 
-if (result.referenceK !== 4) throw new Error("同分路均值应汇总系列赛内双方全部有效样本");
-if (result.referenceCount !== 6) throw new Error("上单 K 值应有 3 局 × 2 人共 6 个样本");
-if (Math.abs(result.midpoint - 2/3) > 1e-9) throw new Error("同路均值应落在图表约 67%");
-if (Math.abs(result.doubleReference - 4/3) > 1e-9) throw new Error("均值 2 倍的原始映射应为 4/3（绘制时限制在外圈）");
+if (result.referenceK !== 4) throw new Error("同分路纪录应取此前双方的最大值");
+if (result.referenceCount !== 4) throw new Error("纪录基准只应包含此前两局双方的样本");
+if (Math.abs(result.midpoint - 1) > 1e-9) throw new Error("追平纪录应落在外圈");
+if (Math.abs(result.doubleReference - 2) > 1e-9) throw new Error("两倍纪录应保留大于 1 的映射");
 if (result.pushedReferenceK !== 4) throw new Error("导播台推送项应携带系列赛分路基准");

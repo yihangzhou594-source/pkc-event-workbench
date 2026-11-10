@@ -87,7 +87,15 @@ function renderMatchBar(){
   const add = $("#btnMatchData");
   if (add) add.disabled = !cur;
   const clr = $("#btnClearMatch");
-  if (clr) clr.style.display = matchHasData(cur) ? "" : "none";
+  if (clr) {
+    const available = matchHasData(cur);
+    clr.style.display = available ? "" : "none";
+    const tools = clr.closest("details");
+    if (tools) {
+      tools.hidden = !available;
+      if (!available) tools.open = false;
+    }
+  }
 }
 function matchTeamMismatch(key, g){
   const m = bkMatchByKey(key);
@@ -131,13 +139,16 @@ function renderGameBar(){
   const key = S.game ? (S.game.matchKey || "") : "";
   const list = s.games.map((g, i) => ({ g, i })).filter(x => (x.g.matchKey || "") === key);
   bar.innerHTML = "";
+  $("#btnDeleteGame")?.remove();
   list.forEach(({ g, i }) => {
     const b = document.createElement("button");
     b.className = "mini" + (i===s.current ? " primary" : "");
     b.textContent = g.label;
+    b.setAttribute("aria-pressed", String(i === s.current));
     b.onclick = () => {
       s.current = i;
       renderGameBar(); renderGameForm(); renderTables(); renderPreview();
+      bar.querySelector('[aria-pressed="true"]')?.focus();
       renderMatchWarn(); publishContext(0);
     };
     bar.appendChild(b);
@@ -162,13 +173,15 @@ function renderGameBar(){
     s.games.push(ng);
     s.current = s.games.length-1;
     renderMatchBar(); renderGameBar(); renderGameForm(); renderTables(); renderPreview();
+    bar.querySelector('[aria-pressed="true"]')?.focus();
     publishContext(0); scheduleSave();
     toast(swapped ? ("已新建「" + ng.label + "」，红蓝方已互换") : ("已新建「" + ng.label + "」"));
   };
   bar.appendChild(add);
   if (list.length > 1){
     const del = document.createElement("button");
-    del.className = "mini"; del.textContent = "删除本局";
+    del.id = "btnDeleteGame";
+    del.className = "mini danger"; del.textContent = "删除本局";
     del.onclick = async () => {
       if (!confirm("删除「"+S.game.label+"」？")) return;
       await window.PKC_RECOVERY?.snapshotBeforeChange("delete-game", ["matches"], "删除 " + S.game.label);
@@ -177,7 +190,7 @@ function renderGameBar(){
       renderMatchBar(); renderGameBar(); renderGameForm(); renderTables(); renderPreview();
       publishContext(0); scheduleSave();
     };
-    bar.appendChild(del);
+    $("#btnSwapTop").after(del);
   }
   const m = S.game.matchKey ? bkMatchByKey(S.game.matchKey) : null;
   $("#gameHint").textContent = s.games.length + " 局已录入 · "

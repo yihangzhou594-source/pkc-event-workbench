@@ -789,15 +789,15 @@ function heroMissing(){
   return Array.from(used);
 }
 
-function confirmFirstGameSides(){
+async function confirmFirstGameSides(){
   const g = S.game;
   const games = S.series.games.filter(x => (x.matchKey || "") === (g.matchKey || ""));
   if (games[0] !== g || g.sidesConfirmed) return true;
   const a = S.team(g.ourId), b = S.team(g.oppId);
   if (!a || !b) { alert("请先选择本场的两支队伍，再导入第一小局。"); return false; }
-  const choice = prompt("导入第一小局：请选择蓝方（另一队为红方）\n1：" + a.name + "\n2：" + b.name, "");
-  if (choice !== "1" && choice !== "2") return false;
-  if (choice === "2") { const id = g.ourId; g.ourId = g.oppId; g.oppId = id; }
+  const choice = await chooseFirstGameBlue(a.name, b.name);
+  if (choice === null || S.game !== g) return false;
+  if (choice === 1) { const id = g.ourId; g.ourId = g.oppId; g.oppId = id; }
   g.sidesConfirmed = true;
   renderGameForm();
   return true;

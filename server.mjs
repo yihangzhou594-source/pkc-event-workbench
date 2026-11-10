@@ -15,7 +15,7 @@ import { spawn, spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import {
   handleDirector, closeDirectorStreams, remoteDirectorState,
-  remoteDirectorAction, directorStreamApi, setDirectorContext,
+  directorStreamApi, setDirectorContext,
   refreshDirectorDataFromStore,
 } from "./director/routes.mjs";
 import { writeJsonAtomic } from "./lib/json-store.mjs";
@@ -478,13 +478,13 @@ async function saveRemoteMatchData(body) {
   if (body.seriesId && String(body.seriesId) !== String(series.id)) {
     throw Object.assign(new Error("远程录入只能写入当前系列赛"), { code:"series_scope_denied" });
   }
-  if (!body.baseRev || body.baseRev !== catalog.matchesRevision) {
+  if (body.overwriteLatest !== true && (!body.baseRev || body.baseRev !== catalog.matchesRevision)) {
     throw Object.assign(new Error("对局数据已在其他页面更新，请重新读取"), {
       code:"revision_conflict",
       revision:catalog.matchesRevision,
     });
   }
-  if (body.contextRevision !== undefined
+  if (body.overwriteLatest !== true && body.contextRevision !== undefined
     && Number(body.contextRevision) !== Number(catalog.contextRevision)) {
     throw Object.assign(new Error("当前场次已在其他页面更新，请重新读取"), {
       code:"context_conflict",
@@ -521,7 +521,7 @@ async function saveRemoteMatchData(body) {
   };
   const previousMatches = source.matches;
   const matchWrite = await dataStore.writeData("matches", nextMatches, {
-    baseRevision:storeRev("matches"),
+    baseRevision:catalog.matchesRevision,
     forceBackup:true,
     actor:body.actor || "remote",
   });
@@ -541,10 +541,10 @@ async function saveRemoteMatchData(body) {
       matchRound:match.roundLabel,
       gameId:built.game.id,
       gameLabel:built.game.label,
-      blueId:match.blueId,
-      redId:match.redId,
-      blueTeam:match.blueName,
-      redTeam:match.redName,
+      blueId:built.game.ourId,
+      redId:built.game.oppId,
+      blueTeam:built.game.ourId === match.blueId ? match.blueName : match.redName,
+      redTeam:built.game.oppId === match.redId ? match.redName : match.blueName,
       blueScore:built.game.ourScore,
       redScore:built.game.oppScore,
       remoteSavedAt:new Date().toISOString(),
@@ -577,7 +577,7 @@ async function saveRemoteMatchData(body) {
     };
   } catch (error) {
     try {
-      await dataStore.writeData("matches", previousMatches, { actor:"rollback" });
+      await dataStore.writeData("matches", previousMatches, { baseRevision:matchWrite.revision, actor:"rollback" });
     } catch { /* original write remains backed up in Supabase */ }
     throw error;
   }
@@ -738,7 +738,6 @@ const server = http.createServer(async (req, res) => {
     }
     if (p === "/api/remote/state" && req.method === "GET") {
       return sendJSON(res, {
-        ...remoteDirectorState(),
         remote: {
           deviceName: remoteSession.deviceName,
           expiresAt: remoteSession.expiresAt,
@@ -746,22 +745,8 @@ const server = http.createServer(async (req, res) => {
         },
       });
     }
-    if (p === "/api/remote/stream" && req.method === "GET") {
-      directorStreamApi(res);
-      return;
-    }
-    if (p === "/api/remote/action" && req.method === "POST") {
-      if (!remoteAccess.verifyCsrf(remoteSession?.id, req.headers["x-pkc-csrf"])) {
-        return sendJSON(res, { error: "csrf_rejected" }, 403);
-      }
-      const body = JSON.parse((await readBody(req)) || "{}");
-      const result = remoteDirectorAction(body);
-      if (result.status >= 200 && result.status < 300) {
-        if (["push", "undo-push", "blank"].includes(body.action)) {
-          await appendDataAudit("remote-" + body.action, remoteSession.deviceName, "remote", req.pkcUser?.email || "");
-        }
-      }
-      return sendJSON(res, result.body, result.status);
+    if (p === "/api/remote/stream" || p === "/api/remote/action") {
+      return sendJSON(res, { error:"remote_broadcast_removed", message:"请在电脑导播台操作直播画面" }, 410);
     }
     if (p === "/api/remote/match-context" && req.method === "GET") {
       try {
@@ -800,6 +785,7 @@ const server = http.createServer(async (req, res) => {
         const out = await callDeepSeekOCR(images, hint);
         const draft = mergeRemoteDraft({
           ocr:out.data,
+          history:Object.values(catalog.source.matches?.games || {}).flat().filter(game => game.id !== existingGame?.id),
           existingGame,
           blueTeam,
           redTeam,
