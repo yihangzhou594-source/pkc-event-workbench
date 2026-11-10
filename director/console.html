@@ -770,6 +770,15 @@ async function pushCurrent(force = false) {
     state = next;
     paint();
     syncFrame();
+    if (next.onAir?.scene === "chart" && next.live?.chartPlaylist?.items?.length) {
+      try {
+        const api = await prepareChartEngine();
+        await api.publishLiveCharts(next.live.chartPlaylist.items);
+      } catch (error) {
+        $("chartStatus").textContent = error.message;
+        if (window.__pkSay) window.__pkSay(error.message);
+      }
+    }
     return true;
   } catch (error) {
     $("pushState").textContent = "推送失败，请重试：" + error.message;

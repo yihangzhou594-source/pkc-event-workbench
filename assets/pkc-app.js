@@ -850,7 +850,7 @@ async function init(){
     renderMatchBar, renderGameBar, renderGameForm, renderBracket, matchTeamMismatch, matchRecord, bkLinkIssues,
     teamGroupOf, bkTeamStatus, bkTeamMatchKey, syncTeamGroups,
     multiGames, gamesForExport, bigMatchSummary, summaryPercent, laneReferencesForSeries, normVals,
-    parseLines, heroCandidates, heroPickRec, exportList, chartItems, drawExport, drawMulti,
+    parseLines, heroCandidates, heroPickRec, exportList, chartItems, drawExport, drawMulti, publishLiveCharts,
     switchTab, showCands, focusHero, runOCR, runAIOCR, swapSides, save: saveAll, lanePair,
     bracket: B, bkTree, bkR16Pairs, bkChampion, drawBk, drawBk16, drawBkDE, drawBkAll,
     bkDrawIssues, bkTeamSeed,

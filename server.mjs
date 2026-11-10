@@ -10,6 +10,8 @@ import { obsReadAllowed, tokenMatches } from "./lib/obs-access.mjs";
 import fs from "node:fs";
 import path from "node:path";
 import crypto from "node:crypto";
+import { chartBundleLimit, createChartStorage, validChartBundle } from "./lib/game-chart-storage.mjs";
+import { createMatchReadApi } from "./lib/match-read-api.mjs";
 import os from "node:os";
 import { spawn, spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
@@ -297,6 +299,22 @@ function send(res, code, body, headers = {}) {
 function sendJSON(res, obj, code = 200) {
   send(res, code, Buffer.from(JSON.stringify(obj)), { "Content-Type": "application/json; charset=utf-8" });
 }
+const chartStorage = createChartStorage({
+  directory: path.join(DIR_DATA, "published-charts"),
+  cloud: process.env.PKC_CLOUD === "1",
+});
+const matchReadApi = createMatchReadApi({
+  chartStorage,
+  sendPng: (res, body) => send(res, 200, body, {
+    "Content-Type": "image/png", "Cache-Control": "private, no-store",
+  }),
+  keyHashes: process.env.PKC_MATCH_API_KEY_HASHES,
+  readData: (key, fallback) => dataStore.readData(key, fallback),
+  sendJson: (res, body, status) => send(res, status, Buffer.from(JSON.stringify(body)), {
+    "Content-Type": "application/json; charset=utf-8",
+    "Cache-Control": "private, no-store",
+  }),
+});
 function readBody(req) {
   return new Promise((resolve, reject) => {
     const chunks = [];
@@ -590,6 +608,7 @@ const server = http.createServer(async (req, res) => {
   const localRequest = isLoopbackAddress(req.socket.remoteAddress);
   let remoteSession = null;
   try {
+    if (await matchReadApi(req, res, url)) return;
     if (p === "/healthz") {
       return sendJSON(res, {
         ok: true,
@@ -1098,6 +1117,26 @@ const server = http.createServer(async (req, res) => {
       // 素材随时可能被整批替换：每次请求都重新扫描（129 张小图，开销可忽略），
       // 这样换完素材刷新页面就生效，不必重启服务。
       return sendJSON(res, scanHeroes(true));
+    }
+    if (p === "/api/game-charts" && req.method === "POST") {
+      if (!authGate.enabled && !localRequest) return sendJSON(res, {error:"local_only"}, 403);
+      try {
+        const {seriesId, gameId, images} = JSON.parse(await readBodyLimited(req, chartBundleLimit));
+        const games = dataStore.readData("matches", {})?.games;
+        if (typeof seriesId !== "string" || typeof gameId !== "string"
+          || !games || !Object.hasOwn(games, seriesId)
+          || !games[seriesId]?.some(game => game.id === gameId)) {
+          return sendJSON(res, {error:"game_not_found"}, 404);
+        }
+        if (!validChartBundle(images)) return sendJSON(res, {error:"invalid_charts"}, 400);
+        const publishedAt = new Date().toISOString();
+        await chartStorage.write(seriesId, gameId, {images, publishedAt});
+        return sendJSON(res, {publishedAt});
+      } catch (error) {
+        if (error.code === "payload_too_large") return sendJSON(res, {error:"charts_too_large"}, 413);
+        if (error instanceof SyntaxError) return sendJSON(res, {error:"invalid_json"}, 400);
+        return sendJSON(res, {error:"chart_storage_unavailable"}, 503);
+      }
     }
     if (p.startsWith("/api/store/")) {
       const key = p.slice("/api/store/".length);

@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import fs from "node:fs";
@@ -47,6 +48,7 @@ const pkc = spawn(process.execPath, ["server.mjs"], {
     ...process.env,
     PKC_PORT:String(pkcPort),
     PKC_REMOTE:"1",
+    PKC_MATCH_API_KEY_HASHES:createHash("sha256").update("fixture-key").digest("hex"),
     PKC_OPEN:"0",
     PKC_DATA_DIR:data,
     DEEPSEEK_API_KEY:"test-secret-key",
@@ -122,6 +124,8 @@ try {
 
   ocr.draft.rows[0].our.hero = "廉颇";
   ocr.draft.duration = "12:31";
+  ocr.draft.rows[0].our.k = 0;
+  ocr.draft.rows[0].our.dmgPct = "12.345";
   const savedResponse = await fetch(`http://127.0.0.1:${pkcPort}/api/remote/match-data`, {
     method:"POST", headers,
     body:JSON.stringify({
@@ -134,6 +138,44 @@ try {
   assert.equal(saved.game.oppId,"b");
   assert.equal(saved.game.label, "第1局");
   assert.equal(saved.game.rows[0].our.hero, "廉颇");
+  const api = `http://127.0.0.1:${pkcPort}/api/v1/series`;
+  const apiHeaders = {Authorization:"Bearer fixture-key"};
+  const detailUrl = api + "/s1/games/" + saved.game.id;
+  const chartUrl = detailUrl + "/charts";
+  const get = async (url) => {
+    const response = await fetch(url, {headers:apiHeaders});
+    assert.equal(response.status, 200);
+    return response.json();
+  };
+  assert.equal((await fetch(api)).status, 401);
+  assert.equal((await fetch(api, {headers:{Authorization:"Bearer revoked-key"}})).status, 401);
+  assert.equal((await fetch(api, {method:"POST", headers:apiHeaders})).status, 405);
+  assert.deepEqual((await get(api)).series, [{id:"s1", name:"测试杯"}]);
+  const detail = (await get(detailUrl)).game;
+  assert.equal(detail.blue.teamId, "r");
+  assert.equal(detail.red.teamId, "b");
+  assert.equal(detail.blue.players[0].hero, "廉颇");
+  assert.equal(detail.blue.players[0].metrics.k, "0");
+  assert.equal(detail.blue.players[0].metrics.dmgPct, "12.345");
+  assert.equal(detail.blue.players[0].metrics.cs, null);
+  assert.equal(detail.chartsUrl, new URL(chartUrl).pathname);
+  assert.equal((await get(api + "/s1/games?matchKey=R16-1&limit=1")).games[0].id, saved.game.id);
+  assert.deepEqual((await get(api + "/s1/games?offset=1")).games, []);
+  assert.deepEqual((await get(api + "/s1/games?matchKey=absent")).games, []);
+  assert.deepEqual((await get(chartUrl)).charts, []);
+  const png = pixel.split(",")[1];
+  const images = Object.fromEntries(["top","jungle","mid","bottom","support","overview"].map(name => [name,png]));
+  const chartWrite = await fetch(new URL("/api/game-charts", api), {
+    method:"POST", headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({seriesId:"s1", gameId:saved.game.id, images}),
+  });
+  assert.equal(chartWrite.status, 200, await chartWrite.text());
+  assert.equal((await get(chartUrl)).charts.length, 6);
+  assert.equal((await fetch(chartUrl + "/overview.png")).status, 401);
+  const image = await fetch(chartUrl + "/overview.png", {headers:apiHeaders});
+  assert.equal(image.headers.get("content-type"), "image/png");
+  assert.deepEqual(Buffer.from(await image.arrayBuffer()), Buffer.from(png,"base64"));
+
   const disk = JSON.parse(fs.readFileSync(path.join(data, "matches.json"), "utf8"));
   assert.equal(disk.games.s1[0].rows[0].our.hero, "廉颇");
   assert.equal(disk.games.s1[0].duration, "12:31");
@@ -148,6 +190,17 @@ try {
     }),
   });
   assert.equal(conflict.status, 409);
+  ocr.draft.duration = "12:32";
+  const overwrite = await fetch(`http://127.0.0.1:${pkcPort}/api/remote/match-data`, {
+    method:"POST", headers,
+    body:JSON.stringify({
+      seriesId:"s1", matchKey:"R16-1", gameId:saved.game.id, overwriteLatest:true, draft:ocr.draft,
+    }),
+  });
+  assert.equal(overwrite.status, 200, await overwrite.text());
+  assert.equal((await get(detailUrl)).game.duration, "12:32");
+  assert.equal((await get(chartUrl)).charts.length, 6);
+
   const audit = JSON.parse(fs.readFileSync(path.join(data, "_backup", "audit.json"), "utf8"));
   assert.ok(audit.some((entry) => entry.action === "remote-upload-save"));
 

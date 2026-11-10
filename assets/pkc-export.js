@@ -48,6 +48,45 @@ function chartItems(){
   items.push({ kind: "overview", idx: -1, game, label: "五路总览", laneReferences, ...ctx });
   return items;
 }
+/** Render the exact playlist snapshot that was pushed to the live scene. */
+async function publishLiveCharts(items){
+  const first = items?.[0];
+  if (!first?.seriesId || !first.game?.id || !Array.isArray(first.series)) return;
+  const names = ["top", "jungle", "mid", "bottom", "support"];
+  if (items.some(item => item.seriesId !== first.seriesId || item.game?.id !== first.game.id)) return;
+  function render(encode){
+    const previous = {series:DB.series, currentId:DB.currentId, prefs:DB.prefs, heroPick:DB.heroPick};
+    const images = {};
+    try {
+      DB.series = first.series;
+      DB.currentId = first.seriesId;
+      DB.prefs = first.prefs || DB.prefs;
+      DB.heroPick = first.heroPick || DB.heroPick;
+      for (const item of items) {
+        const name = item.kind === "overview" ? "overview" : item.kind === "card" ? names[item.idx] : null;
+        if (!name) continue;
+        const canvas = drawExport(item, 1920, 1080);
+        if (encode) images[name] = canvas.toDataURL("image/png").split(",")[1];
+      }
+      return images;
+    } finally {
+      Object.assign(DB, previous);
+    }
+  }
+  render(false);
+  const pending = Object.values(IMG).filter(record => !record.img.complete);
+  await Promise.race([
+    Promise.allSettled(pending.map(record => record.img.decode())),
+    new Promise(resolve => setTimeout(resolve, 4000)),
+  ]);
+  const images = render(true);
+  if (Object.keys(images).length !== 6) return;
+  const response = await fetch("/api/game-charts", {
+    method:"POST", headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({seriesId:first.seriesId, gameId:first.game.id, images}),
+  });
+  if (!response.ok) throw new Error("数据图接口同步失败，请重新推送本局");
+}
 function drawExport(item, W, H){
   if (BK_VIEW[item.kind]){                          // 淘汰赛赛程图：按自己的比例出图
     const [bw, bh] = bkExportSize(item.kind, W);
