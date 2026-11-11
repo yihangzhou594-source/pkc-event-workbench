@@ -1332,7 +1332,8 @@ function renderCommentary(settings, live) {
   /* 比分不进缓存键：改比分只原地换数字，不重建演播厅、不重播横幅动画。 */
   const { score: _score, ...look } = s;
   const key = "cm" + JSON.stringify([look, ctx.seriesName, ctx.matchRound, ctx.blueTeam, ctx.redTeam]);
-  if (key === lastBpKey) {
+  // 其他场景可能已替换舞台，但没有更新解说所用的缓存键。
+  if (key === lastBpKey && stage.querySelector(".st")) {
     /* 只有比分变了就原地改数字，不重建整个演播厅 —— 解说和横幅都不能被顶动。 */
     if (scoreKey !== lastCmScoreKey) {
       lastCmScoreKey = scoreKey;
