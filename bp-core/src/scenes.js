@@ -10,6 +10,7 @@
  */
 
 export const SceneId = Object.freeze({
+  GAME_LIVE: 'game-live',
   BLANK: 'blank',
   INTERVAL: 'interval',
   BRACKET: 'bracket',
@@ -28,6 +29,7 @@ export const SceneId = Object.freeze({
  */
 export const SCENES = Object.freeze([
   { id: SceneId.COMMENTARY, label: '解说', kind: 'pushed', obsPath: '/obs/commentary' },
+  { id: SceneId.GAME_LIVE, label: '比赛直播', kind: 'pushed', obsPath: '/obs/game-live' },
   { id: SceneId.INTERVAL, label: '赛间', kind: 'pushed', obsPath: '/obs/interval' },
   { id: SceneId.BRACKET, label: '赛程图', kind: 'immediate', obsPath: '/obs/bracket' },
   { id: SceneId.CHART, label: '赛后数据图', kind: 'pushed', obsPath: '/obs/chart' },

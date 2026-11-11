@@ -38,6 +38,7 @@ function initialLive() {
     bracket: null,   // 淘汰赛赛程图快照（由生成器实时推送）
     bracketChange: null, // 最近一次落位/改动，用于 OBS 端做强调动画
     context: null,   // 当前系列赛 / 场次 / 局（由生成器发布）
+    gameLive: null,
     revision: 0,
   };
 }
@@ -254,11 +255,19 @@ export function createStore(options = {}) {
   }
 
   /** 写入当前场次上下文。上下文是现场指针，直接进 live，不经过预览推送。 */
-  function setContext(ctx) {
+  function setContext(ctx, gameLive = live.gameLive) {
     live.context = ctx ? JSON.parse(JSON.stringify(ctx)) : null;
+    live.gameLive = gameLive;
     live.revision += 1;
     notify('live');
     return snapshot();
+  }
+
+  function setGameLive(gameLive) {
+    if (JSON.stringify(live.gameLive) === JSON.stringify(gameLive)) return;
+    live.gameLive = gameLive;
+    live.revision += 1;
+    notify('live');
   }
 
   function subscribe(fn) {
@@ -283,6 +292,7 @@ export function createStore(options = {}) {
     setBracket,
     replayBracket,
     setContext,
+    setGameLive,
     subscribe,
     /** 供测试与调试：当前订阅者数量 */
     subscriberCount: () => subscribers.size,

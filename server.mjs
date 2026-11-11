@@ -18,7 +18,7 @@ import { fileURLToPath } from "node:url";
 import {
   handleDirector, closeDirectorStreams, remoteDirectorState,
   directorStreamApi, setDirectorContext,
-  refreshDirectorDataFromStore,
+  refreshDirectorDataFromStore, refreshGameLive,
 } from "./director/routes.mjs";
 import { writeJsonAtomic } from "./lib/json-store.mjs";
 import { getSharedDataStore } from "./lib/data-store.mjs";
@@ -926,6 +926,7 @@ const server = http.createServer(async (req, res) => {
       }
       try {
         const restored = await dataStore.restoreBackup(key, body.name);
+        if (key === "matches" || key === "library") refreshGameLive();
         const rev = storeRev(key);
         await appendDataAudit("restore-version", "恢复版本 " + restored.name, key, req.pkcUser?.email || "");
         return sendJSON(res, { ok: true, key, rev, restored });
@@ -1172,6 +1173,7 @@ const server = http.createServer(async (req, res) => {
           res.setHeader("X-PKC-Rev", written.revision);
           return sendJSON(res, { error: "conflict", key, rev: written.revision }, 409);
         }
+        if (key === "matches" || key === "library") refreshGameLive();
         res.setHeader("X-PKC-Rev", written.revision);
         return sendJSON(res, { ok: true, key, bytes: raw.length });
       }

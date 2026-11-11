@@ -371,6 +371,7 @@
             <div class="wk-card">
               <h3>OBS 浏览器源 <span class="wk-card-meta">1920 × 1080</span></h3>
               <div class="wk-obs">
+                <div class="wk-obs-row"><span class="nm">比赛直播</span><code>/obs/game-live</code><button class="wk-copy" data-copy="/obs/game-live">复制</button></div>
                 <div class="wk-obs-row"><span class="nm">解说</span><code>/obs/commentary</code><button class="wk-copy" data-copy="/obs/commentary">复制</button></div>
                 <div class="wk-obs-row"><span class="nm">赛间板</span><code>/obs/interval</code><button class="wk-copy" data-copy="/obs/interval">复制</button></div>
                 <div class="wk-obs-row"><span class="nm">赛程图</span><code>/obs/bracket</code><button class="wk-copy" data-copy="/obs/bracket">复制</button></div>
@@ -540,6 +541,15 @@
 
 
 
+          <div id="gameLiveOps" class="scene-ops">
+            <label class="kv" for="gameLiveBackground">直播背景</label>
+            <select id="gameLiveBackground" disabled></select>
+            <p class="kv" id="gameLiveCapture"></p>
+            <p id="gameLiveScore" role="status"></p>
+            <button type="button" class="btn ghost" id="gameLiveSwap" disabled>手动换边</button>
+            <button type="button" class="btn ghost" id="gameLiveAuto" disabled>恢复自动</button>
+            <p class="kv" id="gameLiveFeedback" role="status"></p>
+          </div>
           <div id="opsGeneric" class="scene-ops">
             <h2>这个场景没有额外面板</h2>
             <div class="kv">切到「解说 / 赛间 / 赛程图 / 数据图」时，这里会出现对应操作。</div>
@@ -802,8 +812,8 @@ function paintScenes() {
   cap.textContent = "直播场景";
   box.append(cap);
 
-  const GROUP = { commentary: "赛前", interval: "赛前", spotlight: "赛前", bracket: "赛中", chart: "赛后", blank: "其他" };
-  const ORDER = { commentary: 0, interval: 1, spotlight: 2, bracket: 3, chart: 4, blank: 5 };
+  const GROUP = { commentary: "赛前", interval: "赛前", spotlight: "赛前", "game-live": "赛中", bracket: "赛中", chart: "赛后", blank: "其他" };
+  const ORDER = { commentary: 0, interval: 1, spotlight: 2, "game-live": 3, bracket: 4, chart: 5, blank: 6 };
   const sorted = scenes.slice().sort((a, b) => (ORDER[a.id] ?? 99) - (ORDER[b.id] ?? 99));
   let lastGroup = "";
   for (const s of sorted) {
@@ -894,9 +904,9 @@ function paintOps(preview, scenes) {
   const scene = preview.scene;
   const label = (scenes.find(s => s.id === scene) || {}).label || scene;
   const hint = $("opsSceneHint");
-  const effect = {spotlight:"名单修改需推送；轮播控制即时生效", interval:"名单修改需推送；倒计时即时生效", chart:"数据图与轮播控制即时生效", bracket:"赛程更新即时生效"};
+  const effect = {spotlight:"名单修改需推送；轮播控制即时生效", interval:"名单修改需推送；倒计时即时生效", chart:"数据图与轮播控制即时生效", bracket:"赛程更新即时生效", "game-live":"背景修改需推送；比分和换边即时生效"};
   if (hint) hint.textContent = "编辑" + label + "：" + (effect[scene] || "修改后推送上线");
-  const specific = scene === "commentary" || scene === "interval" || scene === "bracket" || scene === "chart" || scene === "spotlight";
+  const specific = Object.hasOwn(effect, scene) || scene === "commentary";
   ["opsTimer", "opsInterval"].forEach((id) => {
     const el = $(id);
     if (el) el.classList.toggle("on", scene === "interval");
@@ -905,7 +915,68 @@ function paintOps(preview, scenes) {
   if (generic) generic.classList.toggle("on", !specific);
   const cm = $("commentaryOps");
   if (cm) cm.classList.toggle("on", scene === "commentary");
+  $("gameLiveOps").classList.toggle("on", scene === "game-live");
+  if (scene === "game-live") paintGameLive();
 }
+
+let gameLiveCatalog = null;
+let gameLiveBusy = false;
+function paintGameLive() {
+  const select = $("gameLiveBackground");
+  const selected = state?.preview?.settings?.["game-live"]?.backgroundId;
+  const preset = gameLiveCatalog?.backgrounds.find((item) => item.id === (selected || gameLiveCatalog.defaultId));
+  if (preset) {
+    select.value = preset.id;
+    const [x, y, width, height] = preset.capture;
+    $("gameLiveCapture").textContent = `OBS 捕获窗口 ${width}×${height}，位置 (${x}, ${y})`;
+  }
+  select.disabled = !gameLiveCatalog || gameLiveBusy;
+  const live = state?.live?.gameLive;
+  $("gameLiveScore").textContent = live
+    ? `${live.blue.name} ${live.blue.score ?? "—"} : ${live.red.score ?? "—"} ${live.red.name}（${live.swapped ? "手动换边" : "自动跟随"}）`
+    : "等待当前场次";
+  $("gameLiveSwap").disabled = !live?.assigned || gameLiveBusy;
+  $("gameLiveAuto").disabled = !live?.swapped || gameLiveBusy;
+}
+
+async function updateGameLive(action, body) {
+  if (gameLiveBusy) return;
+  gameLiveBusy = true;
+  paintGameLive();
+  const feedback = $("gameLiveFeedback");
+  feedback.textContent = "";
+  try {
+    const next = await post(action, body);
+    if (next.error) throw new Error(next.message || next.error);
+    state = next;
+    paint();
+    syncFrame();
+  } catch (error) {
+    feedback.textContent = "更新失败：" + error.message;
+  } finally {
+    gameLiveBusy = false;
+    paintGameLive();
+  }
+}
+
+$("gameLiveBackground").onchange = (event) => updateGameLive("settings", {
+  id: "game-live", patch: { backgroundId: event.target.value },
+});
+function changeGameLiveSides(mode) {
+  const context = state?.live?.context;
+  const selectionKey = JSON.stringify([context?.seriesId, context?.matchKey, context?.gameId].map((id) => String(id ?? "")));
+  return updateGameLive("game-live/sides", { mode, selectionKey });
+}
+$("gameLiveSwap").onclick = () => changeGameLiveSides("swap");
+$("gameLiveAuto").onclick = () => changeGameLiveSides("auto");
+fetch("/assets/live-background/catalog.json").then((response) => {
+  if (!response.ok) throw new Error("背景目录加载失败");
+  return response.json();
+}).then((catalog) => {
+  gameLiveCatalog = catalog;
+  $("gameLiveBackground").replaceChildren(...catalog.backgrounds.map((item) => new Option(item.label, item.id)));
+  paintGameLive();
+}).catch(() => { $("gameLiveFeedback").textContent = "背景目录加载失败，请刷新导播台重试。"; });
 
 function paintContext() {
   const c = state && state.live && state.live.context;

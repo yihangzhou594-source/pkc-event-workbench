@@ -41,7 +41,7 @@ const overview = await page.evaluate(() => ({
   checks: document.querySelector("#ovChecks")?.children.length || 0,
   remoteText: document.querySelector("#remoteAccessBody")?.innerText || "",
 }));
-if (overview.scenes.length !== 6) throw new Error("概览应显示 6 个场景的预检结果");
+if (overview.scenes.length !== 7) throw new Error("概览应显示 7 个场景的预检结果");
 if (!overview.scenes.some((text) => /就绪|注意|阻断/.test(text))) throw new Error("场景预检缺少状态文字");
 if (!overview.remoteText.includes("127.0.0.1") && !overview.remoteText.includes("局域网已开启")) {
   throw new Error("概览缺少手机远程控制状态");

@@ -39,6 +39,7 @@ import {
 } from '../lib/competition-teams.mjs';
 import { readCompetitionContext, saveCompetitionContext } from '../lib/competition-context.mjs';
 import { buildProductionReadiness } from '../lib/production-readiness.mjs';
+import { buildGameLive, DEFAULT_GAME_BACKGROUND, GAME_BACKGROUNDS, gameLiveSelectionKey } from '../lib/game-live.mjs';
 import { getSharedDataStore } from '../lib/data-store.mjs';
 
 const DIR = path.dirname(fileURLToPath(import.meta.url));
@@ -48,6 +49,22 @@ const OBS_PAGE = path.join(DIR, 'obs.html');
 const GENERATOR_PAGE = path.join(ROOT, 'PKC赛后数据图生成器.html');
 
 const store = createStore();
+let gameLiveSelection = "";
+let gameLiveSwapped = false;
+
+function gameLiveData(context) {
+  const selection = gameLiveSelectionKey(context);
+  if (selection !== gameLiveSelection) {
+    gameLiveSelection = selection;
+    gameLiveSwapped = false;
+  }
+  const data = getSharedDataStore();
+  return buildGameLive(context, data.readData('library', null), data.readData('matches', null), gameLiveSwapped);
+}
+
+export function refreshGameLive() {
+  store.setGameLive(gameLiveData(store.snapshot().live.context));
+}
 
 /**
  * 倒计时推进：服务端每秒走一格，导播台与 OBS 页面看到的是同一个时间。
@@ -175,7 +192,7 @@ export function remoteDirectorState() {
 }
 
 export function setDirectorContext(context) {
-  store.setContext(context || null);
+  store.setContext(context || null, gameLiveData(context));
 }
 
 function pushPreview(force = false) {
@@ -298,7 +315,7 @@ function withTeamAvailability(teams, seriesId) {
 
 async function persistContext(candidate, revision, opts = {}, actor = '') {
   const result = await saveCompetitionContext(candidate, revision, { ...opts, actor });
-  if (!result.conflict) store.setContext(result.context);
+  if (!result.conflict) setDirectorContext(result.context);
   return result;
 }
 
@@ -312,6 +329,14 @@ export async function handleDirector(req, res, url, helpers) {
   /* ---------- 页面 ---------- */
   /* 这两个页面是现场一直在调的对象，别让浏览器缓存住旧版 */
   if (p === '/director' || p === '/director/') return serveFile(res, DIRECTOR_PAGE, { 'Cache-Control': 'no-store' }), true;
+  if (req.method === 'GET' && p === '/assets/live-background/catalog.json') {
+    return sendJSON(res, { defaultId: DEFAULT_GAME_BACKGROUND, backgrounds: GAME_BACKGROUNDS.map(({ file, ...preset }) => preset) }), true;
+  }
+  if (req.method === 'GET' && p.startsWith('/assets/live-background/')) {
+    const preset = GAME_BACKGROUNDS.find((item) => item.url === p);
+    if (!preset) return sendJSON(res, { error: 'unknown_background' }, 404), true;
+    return serveFile(res, path.join(ROOT, '直播素材', preset.file)), true;
+  }
   if (p === '/obs' || p.startsWith('/obs/')) return serveFile(res, OBS_PAGE, { 'Cache-Control': 'no-store' }), true;
 
   /**
@@ -500,7 +525,26 @@ export async function handleDirector(req, res, url, helpers) {
         break;
       case 'settings':
         if (!isSceneId(body.id)) return sendJSON(res, { error: 'unknown_scene' }, 400), true;
+        if (body.id === SceneId.GAME_LIVE) {
+          const backgroundId = body.patch?.backgroundId;
+          if (!GAME_BACKGROUNDS.some((item) => item.id === backgroundId)) {
+            return sendJSON(res, { error: 'unknown_background' }, 400), true;
+          }
+          store.setSceneSettings(body.id, { backgroundId });
+          break;
+        }
         store.setSceneSettings(body.id, body.patch ?? {});
+        break;
+      case 'game-live/sides':
+        if (!['swap', 'auto'].includes(body.mode)) return sendJSON(res, { error: 'unknown_side_mode' }, 400), true;
+        if (body.mode === 'swap' && !store.snapshot().live.gameLive?.assigned) {
+          return sendJSON(res, { error: 'game_live_teams_missing', message: '请先选择双方队伍' }, 409), true;
+        }
+        if (body.selectionKey !== gameLiveSelection) {
+          return sendJSON(res, { error: 'game_live_selection_changed', message: '当前场次已变更，请重试' }, 409), true;
+        }
+        gameLiveSwapped = body.mode === 'swap' && !gameLiveSwapped;
+        refreshGameLive();
         break;
       case 'push':
         {
@@ -636,7 +680,7 @@ seedBracketFromDisk();
 
 function seedContextFromDisk() {
   const ctx = readCompetitionContext().context;
-  if (ctx && ctx.seriesId) store.setContext(ctx);
+  setDirectorContext(ctx);
 }
 seedContextFromDisk();
 
