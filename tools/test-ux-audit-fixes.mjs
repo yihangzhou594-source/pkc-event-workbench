@@ -28,16 +28,10 @@ const hotkeyFn = hotkeyStart >= 0 ? consoleHtml.slice(hotkeyStart, hotkeyEnd) : 
 if (!hotkeyFn.includes("BUTTON") || !hotkeyFn.includes("SUMMARY")) {
   fail("空格和字母快捷键在按钮、链接上不应触发");
 }
-if (!consoleHtml.includes("function opsScrollsOnSpace")) {
-  fail("操作栏还能滚动时，空格应滚动操作栏，而不是推送");
+if (!consoleHtml.includes('e.shiftKey && e.code === "KeyP"') || !consoleHtml.includes('aria-keyshortcuts="Shift+P"')) {
+  fail("应通过 Shift + P 推送并标注快捷键");
 }
-const spaceArm = consoleHtml.slice(consoleHtml.indexOf("if (e.key === \" \")"), consoleHtml.indexOf("if (e.key === \"b\""));
-if (!spaceArm.includes("opsScrollsOnSpace") || !spaceArm.includes("hotkeyBlocked")) {
-  fail("空格推送前应先避开控件，并优先滚动操作栏");
-}
-if (!consoleHtml.includes(">推送到直播端 · 空格<")) {
-  fail("推送按钮应标出空格");
-}
+if (consoleHtml.includes('if (e.key === " ")')) fail("空格应保留浏览器默认行为");
 
 const blankArm = consoleHtml.slice(consoleHtml.indexOf("if (e.key === \"b\""), consoleHtml.indexOf("if (e.key === \"u\""));
 if (!blankArm.includes("confirm(") || blankArm.indexOf("confirm(") > blankArm.indexOf("post(\"scene\"")) {

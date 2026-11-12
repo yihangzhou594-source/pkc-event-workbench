@@ -2,18 +2,31 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
 const html=fs.readFileSync(new URL('../director/console.html',import.meta.url),'utf8');
-const scrollCode=html.slice(html.indexOf('function opsScrollsOnSpace('),html.indexOf('document.addEventListener("keydown"'));
-let delta=0;
-const pane={scrollHeight:2000,clientHeight:700,scrollTop:300,scrollBy({top}){delta+=top}};
-const sandbox={document:{querySelector(selector){assert.equal(selector,'#pane-director');return pane}}};
-vm.createContext(sandbox);vm.runInContext(scrollCode,sandbox);
-assert.equal(sandbox.opsScrollsOnSpace(false),true);assert.equal(delta,80);
-assert.equal(sandbox.opsScrollsOnSpace(true),true);assert.equal(delta,0);
-pane.scrollTop=1300;assert.equal(sandbox.opsScrollsOnSpace(false),false);
+const hotkeyCode = html.slice(html.indexOf('document.addEventListener("keydown"'), html.indexOf('  if (e.key === "b"'));
+let handleKey;
+let hotkeyPushes = 0;
+const body = { closest() { return null; } };
+const hotkeys = {
+  document: { body, addEventListener(type, handler) { handleKey = handler; } },
+  window: { __wkView: "director" },
+  pushCurrent() { hotkeyPushes++; },
+  hotkeyBlocked() { return false; },
+};
+vm.createContext(hotkeys);
+vm.runInContext(hotkeyCode + "});", hotkeys);
+let prevented = 0;
+const key = { target: body, preventDefault() { prevented++; } };
+await handleKey({ ...key, code: "Space" });
+assert.equal(prevented, 0);
+await handleKey({ ...key, shiftKey: true, code: "KeyP", repeat: true });
+assert.equal(hotkeyPushes, 0);
+await handleKey({ ...key, shiftKey: true, code: "KeyP" });
+assert.equal(prevented, 1);
+assert.equal(hotkeyPushes, 1);
 const button={disabled:false,setAttribute(){},textContent:''}, status={textContent:''};
 let resolvePush, calls=0;
 const pending=new Promise(resolve=>resolvePush=resolve);
-const context={$(id){return id==='btnPush'?button:status},postPush(){calls++;return pending},paint(){},syncFrame(){},window:{},state:null};
+const context={$(id){return id==='btnPush'?button:status},postPush(){calls++;return pending},paint(){},syncFrame(){},window:{},state:{preview:{}}};
 vm.createContext(context);
 const pushCode=html.slice(html.indexOf('let pushBusy = false;'),html.indexOf('function paintScenes()'));
 vm.runInContext(pushCode,context);
@@ -22,4 +35,4 @@ assert.equal(await context.pushCurrent(),false);assert.equal(calls,1);
 resolvePush({preview:{}});assert.equal(await first,true);assert.equal(button.disabled,false);
 context.postPush=async()=>{throw new Error('offline')};
 assert.equal(await context.pushCurrent(),false);assert.match(status.textContent,/offline/);assert.equal(button.disabled,false);
-console.log('test-director-editor: scroll guard, duplicate push and recovery passed');
+console.log('test-director-editor: push shortcut, duplicate push and recovery passed');

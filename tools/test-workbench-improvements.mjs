@@ -52,7 +52,7 @@ await page.waitForFunction(() => window.__wkView === "director");
 const director = await page.evaluate(() => ({
   undo: !!document.querySelector("#btnUndoPush"),
   readiness: document.querySelectorAll("#directorReadiness .wk-readiness-item").length,
-  shortcut: document.querySelector("#sceneList")?.innerText.includes("空格推送") || false,
+  shortcut: document.querySelector("#btnPush")?.getAttribute("aria-keyshortcuts") === "Shift+P" || false,
 }));
 if (!director.undo || director.readiness !== 6 || !director.shortcut) {
   throw new Error("导播台缺少撤回、场景预检或快捷键提示");
@@ -81,6 +81,7 @@ const initialIssueRows = await dataPage.locator("#issueList > .issue").count();
 if (initialIssueRows > 3) throw new Error("待核对清单首屏不应超过 3 项");
 const hasMore = await dataPage.locator("#issueList .issue-more").count();
 if (!hasMore) throw new Error("待核对清单缺少其余项展开入口");
+if (await dataPage.locator("#importTools").isHidden()) await dataPage.locator("#btnImportToggle").click();
 await dataPage.locator("#btnImportToggle").click();
 if (!await dataPage.locator("#importTools").isHidden()) throw new Error("导入工具无法收起");
 await dataPage.locator("#btnImportToggle").click();

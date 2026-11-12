@@ -128,6 +128,12 @@
   @media (max-width:1400px){ .layout{grid-template-columns:1fr} .pv{position:static !important;max-height:none !important} }
   @media (max-width:900px){ .contextbar{position:static} .subnav{position:static} .ctx-series,.ctx-match{width:100%} }
   .pv{position:sticky;top:150px;max-height:calc(100vh - 166px);overflow:auto;display:flex;flex-direction:column;gap:var(--space-3)}
+  #laneEntry,#bkExport{scroll-margin-top:165px}
+  .pv-close{display:none}
+  @media(max-width:1400px){
+    .layout:not(.focus):not(.single) .pv{position:fixed!important;inset:56px 12px 12px auto;z-index:35;width:min(520px,calc(100% - 24px));overflow:auto;border:1px solid var(--line);border-radius:12px;background:var(--color-surface);padding:12px}
+    .layout:not(.focus):not(.single) .pv-close{display:block;position:fixed;right:12px;top:12px;z-index:36}
+  }
   .layout.focus{grid-template-columns:1fr}
   .layout.focus .pv{display:none}
   .layout.single{grid-template-columns:1fr}
@@ -711,15 +717,20 @@
               </div>
               <div class="row" style="margin-top:8px;align-items:center">
                 <button class="primary mini" id="btnAiOcr">用 DeepSeek 识别</button>
-                <button class="mini" id="btnAiKey">AI 设置</button>
+                <a href="#laneEntry">手动录入</a>
+              </div>
+              <details>
+                <summary>AI 设置</summary>
+                <button class="mini" id="btnAiKey">配置 DeepSeek</button>
                 <label class="sw"><input type="checkbox" id="swAiAuto" checked> 拖图后自动用 AI</label>
                 <span class="hint" id="aiStatus">正在检查 AI 接口…</span>
-              </div>
+              </details>
               <div id="ocrBox" style="display:none;margin-top:12px">
                 <div class="bar" style="margin-bottom:6px"><i id="ocrBar"></i></div>
                 <div class="hint" id="ocrMsg">准备中…</div>
               </div>
-              <div style="margin-top:12px">
+              <details style="margin-top:12px">
+                <summary>粘贴表格数据</summary>
                 <textarea id="pasteBox" rows="3" placeholder="也可以直接粘贴：位置 选手 英雄 击杀 死亡 助攻 总经济 分均经济 输出伤害 承受伤害 经济占比 参团率 经济转伤 总输出万　（可加“蓝方/红方”前缀，5/2/7 这种合并 KDA 也能识别；列要对齐，空位写 - ）"></textarea>
                 <div class="row" style="margin-top:8px">
                   <button class="mini" id="btnParse">解析粘贴内容</button>
@@ -727,7 +738,7 @@
                   <button class="mini" id="btnSwap">交换红蓝方</button>
                   <button class="mini" id="btnFillHero">按英雄名自动配图</button>
                 </div>
-              </div>
+              </details>
             </div>
             <div id="ocrReview" style="display:none;margin-top:12px"></div>
           </div>
@@ -740,7 +751,7 @@
           </div>
         </div>
 
-        <div class="card">
+        <div class="card" id="laneEntry" tabindex="-1">
           <div class="card-h"><b>对位数据</b><span class="sub" id="laneStat"></span>
             <button class="mini" id="btnHeroLanes" title="按英雄的常用位置重新匹配双方分路；会覆盖当前分路">按英雄分路</button>
             <button class="mini" id="btnLanes" title="把蓝方、红方的分路都按 上单→打野→中路→发育路→游走 顺序各填一遍，之后按需单独修改">按顺序填分路</button></div>
@@ -896,7 +907,7 @@
           <button data-bk-jump="bkGroups">① 分组</button>
           <button data-bk-jump="bkDrawTable">② 抽签</button>
           <button data-bk-jump="bkMatches">③ 赛果</button>
-          <button data-bk-jump="bkPreview">④ 导出</button>
+          <button data-bk-jump="bkExport">④ 导出</button>
         </div>
         <div class="bk-layout">
           <div class="bk-ctrl">
@@ -951,7 +962,7 @@
               <div class="card-b"><div id="bkMatches"></div></div>
             </div>
 
-            <div class="card">
+            <div class="card" id="bkExport" tabindex="-1">
               <div class="card-h"><b>④ 导出赛程图</b><span class="sub">尺寸跟随「④ 多局与导出」里的输出尺寸</span></div>
               <div class="card-b">
                 <div class="row">
@@ -976,7 +987,8 @@
       </section>
     </div>
 
-    <aside class="pv" id="preview" aria-label="数据图预览"></aside>
+    <button class="mini pv-close" id="btnClosePreview" type="button">关闭预览</button>
+    <aside class="pv" id="preview" tabindex="-1" aria-label="数据图预览"></aside>
   </div>
 </div>
 

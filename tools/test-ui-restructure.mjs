@@ -101,8 +101,8 @@ const previewModes = await page.evaluate(async () => {
 if (!previewModes.compact) {
   throw new Error("队伍管理页应自动收起右侧预览");
 }
-if (previewModes.data) {
-  throw new Error("返回对局数据页时应恢复可用的画面预览");
+if (!previewModes.data || !await page.locator("#wkPreviewToggle").isVisible()) {
+  throw new Error("中等宽度下对局数据页应默认收起预览，并保留打开按钮");
 }
 await page.evaluate(() => document.querySelector("#genFrame").contentWindow.PKC.switchTab("teams"));
 await page.waitForTimeout(100);

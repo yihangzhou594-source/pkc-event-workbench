@@ -489,6 +489,7 @@ h1,h2,h3{text-wrap:balance}
   .wk-top-title,.wk-top-right{display:none}
   .wk-context-disclosure{flex:1 1 auto;margin-left:0}
   .wk-context-summary{width:100%;max-width:none}
+  .wk-context-summary .wk-context-short{max-width:none}
   .wk-nav-toggle>span:last-child{display:none}
   .wk-ov{padding:var(--space-3) var(--space-3) var(--space-7)}
   .wk-command{border-radius:16px}

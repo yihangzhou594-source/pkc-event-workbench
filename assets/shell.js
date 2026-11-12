@@ -53,6 +53,8 @@
   const contextDisclosure = $("#wkContextDisclosure");
   const contextSummary = $("#wkContextDisclosure > summary");
   const contextSummaryText = $("#wkCtxSummary");
+  const drawerMedia = window.matchMedia("(max-width: 620px)");
+  const rail = $("#wkRail");
   const compactNavMedia = window.matchMedia("(max-width: 1150px)");
   const compactContextMedia = window.matchMedia("(max-width: 1220px)");
   let desktopNavExpanded = true;
@@ -62,6 +64,7 @@
     const expanded = compactNavMedia.matches ? shellRoot.classList.contains("nav-expanded") : desktopNavExpanded;
     shellRoot.classList.toggle("nav-collapsed", !compactNavMedia.matches && !expanded);
     navToggle.setAttribute("aria-expanded", String(expanded));
+    if (rail) rail.inert = drawerMedia.matches && !expanded;
     navToggle.title = expanded ? "收起导航" : "展开导航";
     const label = navToggle.querySelector("span:last-child");
     if (label) label.textContent = expanded ? "收起导航" : "展开导航";
@@ -74,7 +77,12 @@
       try { localStorage.setItem("pkc.navExpanded", String(desktopNavExpanded)); } catch {}
     }
     paintNavToggle();
+    if (drawerMedia.matches) {
+      if (expanded) (rail?.querySelector('[aria-current="page"]') || rail?.querySelector(".wk-brand"))?.focus();
+      else navToggle.focus();
+    }
   }
+  drawerMedia.addEventListener("change", paintNavToggle);
   function syncResponsiveShell() {
     if (!compactNavMedia.matches && shellRoot) shellRoot.classList.remove("nav-expanded");
     paintNavToggle();
@@ -301,6 +309,13 @@
   });
 
   /* 数据引擎的右侧预览很占宽，外壳给一个收起 / 显示入口 */
+  window.addEventListener("message", (event) => {
+    if (event.origin !== location.origin || event.source !== frame?.contentWindow) return;
+    if (event.data?.type === "pkc:preview") {
+      $("#wkPreviewToggle").textContent = event.data.visible ? "收起预览" : "显示预览";
+    }
+    if (event.data?.type === "pkc:preview-focus") $("#wkPreviewToggle").focus();
+  });
   const pvToggle = $("#wkPreviewToggle");
   if (pvToggle) {
     pvToggle.addEventListener("click", () => {
@@ -371,13 +386,9 @@
       liveEl.innerHTML = "<i></i>在播：<b>" + (scene ? scene.label : "—") + "</b>";
     }
     if (contextSummaryText) {
-      const seriesName = ctx.seriesName || "未选择系列赛";
       const matchName = shortMatch || ctx.matchRound || "未关联赛程";
-      const gameName = ctx.gameLabel || "";
-      const teamsName = (ctx.blueTeam || "蓝方") + " VS " + (ctx.redTeam || "红方");
-      const scoreName = (bs === "" || bs === undefined ? "-" : bs) + " : " + (rs === "" || rs === undefined ? "-" : rs);
-      const liveName = scene && scene.id !== "blank" ? "在播 " + scene.label : "未推送";
-      contextSummaryText.textContent = [seriesName, matchName, gameName, teamsName, scoreName, liveName].join(" · ");
+      const liveName = scene ? "在播 " + scene.label : "未推送";
+      contextSummaryText.textContent = [matchName, ctx.gameLabel, liveName].filter(Boolean).join(" · ");
     }
     paintOverview(st);
   }
@@ -465,8 +476,17 @@
       { title:"赛后整理", text:gameReady ? "当前局数据已录入，可核对赛果并导出图表。" : "录完五路数据后，回填赛果并整理输出。", view:gameReady ? "out" : "data", ready:gameReady, label:gameReady ? "核对并导出" : "继续录入数据" },
     ];
     const nextIndex = ctx.gameId ? (gameReady ? 2 : 1) : (!rosterReady || !drawReady ? 0 : 1);
+    const next = steps[nextIndex];
+    const primary = $("#ovNext");
+    if (primary) {
+      primary.dataset.go = next.view;
+      primary.textContent = ctx.gameLabel && ctx.gameId
+        ? (gameReady ? "核对" + ctx.gameLabel + "并导出" : "继续录入" + ctx.gameLabel)
+        : next.label;
+    }
     host.innerHTML = steps.map((step, index) =>
-      '<div class="wk-flow-step' + (index === nextIndex ? ' next' : '') + '"><b>' + escHtml(step.title) + (step.ready ? ' · 已就绪' : ' · 待处理') + (index === nextIndex ? ' <em class="wk-flow-next">建议下一步</em>' : '') + '</b><p>' + escHtml(step.text) + '</p><button class="wk-btn' + (index === nextIndex ? ' primary' : '') + '" data-workflow-go="' + step.view + '">' + escHtml(step.label) + '</button></div>'
+      '<div class="wk-flow-step"><b>' + escHtml(step.title) + (step.ready ? ' · 已就绪' : ' · 待处理') + '</b><p>' + escHtml(step.text) + '</p>'
+      + (index === nextIndex ? '' : '<button class="wk-btn" data-workflow-go="' + step.view + '">' + escHtml(step.label) + '</button>') + '</div>'
     ).join("");
     $$('[data-workflow-go]', host).forEach((button) => button.addEventListener("click", () => setView(button.dataset.workflowGo, true)));
   }

@@ -21,7 +21,7 @@ function setImportToolsOpen(open, summary){
   if (!tools || !button) return;
   tools.hidden = !open;
   button.setAttribute("aria-expanded", String(open));
-  button.textContent = open ? "收起导入工具" : "展开重新识别";
+  button.textContent = open ? "收起导入工具" : "上传截图或粘贴数据";
   if (card) card.classList.toggle("import-collapsed", !open);
   if (note && summary) note.textContent = summary;
 }
@@ -247,8 +247,14 @@ function applySideTeam(side, id){
   fillTeamSelects(); renderTables(); renderPreview(); renderMgInfo(); renderMatchWarn();
   publishContext(0); scheduleSave();
 }
+let importToolsGame;
 function renderGameForm(){
   const g = S.game;
+  if (g !== importToolsGame) {
+    importToolsGame = g;
+    const hasData = (g.rows || []).some(row => row.our?.hero || row.opp?.hero || row.our?.name || row.opp?.name);
+    setImportToolsOpen(!hasData, hasData ? "已有录入数据" : "上传截图或手动录入");
+  }
   fillTeamSelects();
   $("#inOurTeam").value = g.ourId || "";
   $("#inOppTeam").value = g.oppId || "";
@@ -1234,7 +1240,7 @@ function renderTables(){
 /* ============================================================
    六、标签页
    ============================================================ */
-let previewPreferenceVisible = true;
+let previewPreferenceVisible = !matchMedia("(max-width: 1400px)").matches;
 
 function syncPreviewControls(){
   const layout = document.querySelector(".layout");
@@ -1253,6 +1259,7 @@ function switchTab(name){
   });
   $$(".panel").forEach(p => p.classList.toggle("on", p.id === "panel-" + name));
   const wide = name === "bracket" || name === "help";
+  $("#btnZip").textContent = name === "bracket" ? "导出赛程图" : "导出当前局";
   const management = name === "teams" || name === "hero";
   $$(".layout").forEach(l => l.classList.toggle("single", wide));
   $$(".layout").forEach(l => l.classList.toggle("focus", wide || management || !previewPreferenceVisible));

@@ -721,7 +721,14 @@ async function init(){
     syncPrefsForm(); renderPreview(); scheduleSave();
     toast(DB.prefs.chartStyle === "kpl" ? "已切换为 KPL 单场数据面板风格" : "已切换回经典对位图风格");
   };
-  $("#btnZip").onclick = () => exportZip(DB.prefs.allGames);
+  $("#btnZip").onclick = () => {
+    if ($("#panel-bracket").classList.contains("on")) {
+      $("#bkExport").focus();
+      $("#bkExport").scrollIntoView({ block: "start" });
+      return;
+    }
+    exportZip(DB.prefs.allGames);
+  };
   $("#btnZip2").onclick = () => exportZip($("#swAllGames").checked);
   $("#btnEach").onclick = () => downloadFixed($("#swAllGames").checked);
   $("#btnMgDown").onclick = downloadMulti;
@@ -781,7 +788,7 @@ async function init(){
   $$("[data-bk-jump]").forEach(b => {
     b.onclick = () => {
       const el = $("#" + b.dataset.bkJump);
-      if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+      if (el) el.scrollIntoView({ block: "start" });
     };
   });
 
@@ -799,7 +806,25 @@ async function init(){
       layoutEl.classList.toggle("focus");
       previewPreferenceVisible = !layoutEl.classList.contains("focus");
       syncPreviewControls();
+      if (previewPreferenceVisible && matchMedia("(max-width: 1400px)").matches) {
+        $("#btnClosePreview").focus();
+      }
+      if (window.parent !== window) {
+        window.parent.postMessage({ type: "pkc:preview", visible: previewPreferenceVisible }, location.origin);
+      }
     };
+    $("#btnClosePreview").onclick = () => {
+      pvBtn.click();
+      if (pvBtn.getBoundingClientRect().width) pvBtn.focus();
+      else window.parent.postMessage({ type: "pkc:preview-focus" }, location.origin);
+    };
+    $("#preview").addEventListener("keydown", (event) => {
+      if (event.key === "Escape" && matchMedia("(max-width: 1400px)").matches) $("#btnClosePreview").click();
+    });
+    $("#btnClosePreview").addEventListener("keydown", (event) => {
+      if (event.key === "Escape") $("#btnClosePreview").click();
+    });
+    layoutEl.classList.toggle("focus", !previewPreferenceVisible);
     syncPreviewControls();
   }
   const tabParam = new URLSearchParams(location.search).get("tab");
