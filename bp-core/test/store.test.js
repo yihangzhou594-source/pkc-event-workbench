@@ -24,6 +24,18 @@ test('切换场景只改预览，不影响在播', () => {
   assert.equal(snap.isPreviewDirty, true);
 });
 
+test('存档恢复未推送设置、直播和撤回历史', () => {
+  const original = createStore();
+  original.setScene(SceneId.INTERVAL);
+  original.push();
+  original.setScene(SceneId.COMMENTARY);
+  original.setSceneSettings(SceneId.COMMENTARY, { title: '未推送标题' });
+  const restored = createStore();
+  restored.restore(JSON.parse(JSON.stringify(original.checkpoint())));
+  assert.deepEqual(restored.snapshot(), original.snapshot());
+  assert.equal(restored.undoPush().onAir.scene, SceneId.BLANK);
+});
+
 test('推送后预览与在播一致，脏标记清除', () => {
   const s = createStore();
   s.setScene(SceneId.INTERVAL);

@@ -410,6 +410,7 @@
         <span class="ctx-chip" id="ctxChip">未选择场次</span>
         <span class="grow"></span>
         <span class="director-push-feedback" id="pushState" role="status" aria-live="polite" aria-atomic="true">等待操作</span>
+        <span class="kv" id="workspaceSaveState" role="status"></span>
         <button class="btn ghost" id="btnUndoPush" disabled>撤回上次推送</button>
         <button class="btn ghost" id="btnDiscard">丢弃预览</button>
         <button class="btn primary" id="btnPush" aria-keyshortcuts="Shift+P" disabled>推送到直播</button>
@@ -734,13 +735,20 @@ let framedScene = null;
 let framedMode = null;
 const lastSceneKey = "pkc.director.lastScene";
 
-async function post(action, body, { rememberScene = true } = {}) {
+async function sendDirectorRequest(action, body, { rememberScene = true } = {}) {
+  const json = JSON.stringify(action === "scene" ? { ...body, rememberScene } : body || {});
   const res = await fetch("/api/director/" + action, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body || {}),
+    body: json,
+    keepalive: json.length <= 12000,
   });
   const data = await res.json();
+  if (data.workspaceSaveFailed) {
+    $("workspaceSaveState").textContent = "云端保存失败，当前更改仍在导播台";
+  } else if (res.ok && typeof document !== "undefined" && !Object.keys(pendingDraft).length) {
+    $("workspaceSaveState").textContent = "";
+  }
   if (action === "scene" && rememberScene && res.ok && data.preview?.scene === body.id) {
     try { localStorage.setItem(lastSceneKey, body.id); } catch {}
   }
@@ -753,6 +761,87 @@ async function post(action, body, { rememberScene = true } = {}) {
     });
   }
   return data;
+}
+
+const draftWriteKey = "pkc.director.pendingDraft";
+let pendingDraft = {};
+try { pendingDraft = JSON.parse(localStorage.getItem(draftWriteKey)) || {}; } catch {}
+let settingsWrite = Promise.resolve();
+
+function post(action, body, options) {
+  if (action !== "settings") {
+    if (["push", "discard", "undo-push"].includes(action)) {
+      return settingsWrite.then(() => sendDirectorRequest(action, body, options));
+    }
+    return sendDirectorRequest(action, body, options);
+  }
+  const key = "settings:" + body.id;
+  const previous = pendingDraft[key]?.value || {};
+  const patch = { ...previous, ...body.patch };
+  for (const field of ["banner", "score"]) {
+    if (body.patch[field]) patch[field] = { ...previous[field], ...body.patch[field] };
+  }
+  const entry = { value: patch };
+  pendingDraft[key] = entry;
+  rememberPendingDraft();
+  const request = settingsWrite.then(async () => {
+    try {
+      const result = await sendDirectorRequest(action, { id: body.id, patch });
+      if (!result.workspaceSaveFailed && !result.error && pendingDraft[key] === entry) {
+        delete pendingDraft[key];
+        rememberPendingDraft();
+        if (!Object.keys(pendingDraft).length) $("workspaceSaveState").textContent = "";
+      }
+      return result;
+    } catch {
+      $("workspaceSaveState").textContent = "设置尚未同步，刷新后会重试";
+      return state;
+    }
+  });
+  settingsWrite = request.catch(() => {});
+  return request;
+}
+
+function rememberPendingDraft() {
+  try { localStorage.setItem(draftWriteKey, JSON.stringify(pendingDraft)); } catch {}
+}
+
+function saveDirectorDraft(section, value) {
+  const entry = { value };
+  pendingDraft[section] = entry;
+  rememberPendingDraft();
+  settingsWrite = settingsWrite.then(async () => {
+    if (pendingDraft[section] !== entry) return;
+    try {
+      const result = await post("draft", { section, value });
+      if (result.workspaceSaveFailed || result.error) throw new Error("draft_save_failed");
+      if (pendingDraft[section] === entry) {
+        delete pendingDraft[section];
+        rememberPendingDraft();
+        if (!Object.keys(pendingDraft).length) $("workspaceSaveState").textContent = "";
+      }
+    } catch {
+      if (pendingDraft[section] === entry) $("workspaceSaveState").textContent = "草稿尚未同步，刷新后会重试";
+    }
+  });
+  return settingsWrite;
+}
+
+function restoreDirectorDraft(saved = {}) {
+  const timer = pendingDraft.timer?.value ?? saved.timer;
+  if (timer) {
+    $("mm").value = timer.minutes;
+    $("ss").value = timer.seconds;
+  }
+  const spotlight = pendingDraft.spotlight ? pendingDraft.spotlight.value : saved.spotlight;
+  if (spotlight) {
+    ensureSpotlightEditor();
+    $("spotlightRoster").dataset.dirty = "true";
+    writeSpotlightEditor(spotlight);
+  }
+  for (const section of ["timer", "spotlight"]) {
+    if (pendingDraft[section]) saveDirectorDraft(section, pendingDraft[section].value);
+  }
 }
 
 async function postPush(force = false) {
@@ -1066,7 +1155,7 @@ function paintSpotlightOps() {
   if (p && $("spotlightRoster").dataset.dirty !== "true") writeSpotlightEditor(p);
   const previewCanvas = $("spotlightDraftPreview");
   const signature = JSON.stringify(p ? [p.index, p.items, p.teams] : null);
-  if (previewCanvas && previewCanvas.dataset.signature !== signature) {
+  if (previewCanvas && $("spotlightRoster").dataset.dirty !== "true" && previewCanvas.dataset.signature !== signature) {
     previewCanvas.dataset.signature = signature;
     if (p) window.PKCSpotlight?.draw(previewCanvas, p).catch(() => {});
   }
@@ -1079,7 +1168,11 @@ function ensureSpotlightEditor() {
   host.innerHTML = teamRow("blue", "蓝") + teamRow("red", "红")
     + LANES.map((lane, i) => `<div style="display:grid;grid-template-columns:38px 1fr 1fr;gap:4px;align-items:center;margin:4px 0"><span class="kv">${lane}</span><input type="text" data-player="blue" data-index="${i}" placeholder="蓝方选手" aria-label="蓝方${lane}选手"><input type="text" data-hero="blue" data-index="${i}" placeholder="代表英雄（搜索或手填）" aria-label="蓝方${lane}代表英雄"></div><div style="display:grid;grid-template-columns:38px 1fr 1fr;gap:4px;align-items:center;margin:4px 0"><span class="kv"></span><input type="text" data-player="red" data-index="${i}" placeholder="红方选手" aria-label="红方${lane}选手"><input type="text" data-hero="red" data-index="${i}" placeholder="代表英雄（搜索或手填）" aria-label="红方${lane}代表英雄"></div>`).join("")
     + '<datalist id="spotlightHeroNames"></datalist>';
-  host.addEventListener("input", () => { host.dataset.dirty = "true"; drawSpotlightEditorPreview(); });
+  host.addEventListener("input", () => {
+    host.dataset.dirty = "true";
+    drawSpotlightEditorPreview();
+    saveDirectorDraft("spotlight", readSpotlightEditor());
+  });
   window.PKCSpotlight?.loadHeroCatalog().then((heroes) => {
     const list = $("spotlightHeroNames");
     if (list) heroes.forEach((hero) => { const option = document.createElement("option"); option.value = hero.name; list.append(option); });
@@ -1295,7 +1388,10 @@ $("btnSpotlightPush").onclick = async () => {
   const editor = $("spotlightRoster");
   state = await post("spotlight/playlist", { patch: readSpotlightEditor() });
   state = await post("scene", { id: "spotlight" });
-  if (await pushCurrent()) editor.dataset.dirty = "false";
+  if (await pushCurrent()) {
+    editor.dataset.dirty = "false";
+    saveDirectorDraft("spotlight", null);
+  }
 };
 $("btnSpotlightExport").onclick = async () => {
   const canvas = document.createElement("canvas");
@@ -1308,6 +1404,9 @@ $("btnSpotlightExport").onclick = async () => {
 };
 
 const durationMs = () => (Number($("mm").value) || 0) * 60000 + (Number($("ss").value) || 0) * 1000;
+for (const id of ["mm", "ss"]) {
+  $(id).addEventListener("input", () => saveDirectorDraft("timer", { minutes: $("mm").value, seconds: $("ss").value }));
+}
 $("btnStart").onclick = async () => {
   const d = durationMs();
   state = await post("countdown", { patch: { running: true, durationMs: d, remainingMs: d } });
@@ -1474,7 +1573,7 @@ const cmPatch = async (patch) => {
   paint();
   syncFrame();
 };
-const cmBannerPatch = async (patch) => cmPatch({ banner: { ...cmBanner(), ...patch } });
+const cmBannerPatch = async (patch) => cmPatch({ banner: patch });
 /* 大场比分：导播手填，不做自动推断。 */
 const cmScore = () => ({
   blue: 0, red: 0, bo: "auto",
@@ -2056,13 +2155,20 @@ const portEl = $("portLabel"); if (portEl) portEl.textContent = location.port ||
 fetch("/api/director/state", { cache: "no-store" }).then(r => r.json()).then(async s => {
   let lastScene;
   try { lastScene = localStorage.getItem(lastSceneKey); } catch {}
+  lastScene = s.lastManualScene ?? lastScene;
   if (s.scenes?.some(scene => scene.id === lastScene) && s.preview.scene !== lastScene) {
-    const restored = await post("scene", { id: lastScene }, { rememberScene: false }).catch(() => null);
+    const restored = await post("scene", { id: lastScene }, { rememberScene: !s.lastManualScene }).catch(() => null);
     if (restored?.preview && !restored.error) s = restored;
   }
   state = s;
+  for (const id of ["commentary", "interval", "game-live"]) {
+    const pending = pendingDraft["settings:" + id];
+    if (pending) state = await post("settings", { id, patch: pending.value }) || state;
+  }
+  restoreDirectorDraft(s.directorDraft);
   window.__pkDirectorReady = true;
   paint();
+  if ($("spotlightRoster").dataset.dirty === "true") drawSpotlightEditorPreview();
   syncFrame();
   applyContextToInterval().catch(() => {});
 }).catch((err) => {

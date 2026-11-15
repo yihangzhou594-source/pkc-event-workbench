@@ -110,6 +110,43 @@ async function getTencentHeroes() {
 let bpGame = null;
 let bpConfig = normalizeConfig({ banCount: 5, globalBp: true, peakDuel: true, boFormat: 7 });
 let bpTeams = { blue: '', red: '' };
+const workspaceKey = 'directorWorkspace';
+let directorDraft = {};
+let lastManualScene = null;
+let workspaceWrite = Promise.resolve();
+
+function saveDirectorWorkspace(actor) {
+  const data = getSharedDataStore();
+  if (!data.hasCloudDataStore()) return;
+  const saved = {
+    version: 1, savedAt: Date.now(), state: store.checkpoint(),
+    draft: structuredClone(directorDraft), lastManualScene,
+    bpGame: structuredClone(bpGame), bpConfig, bpTeams,
+    gameLiveSelection, gameLiveSwapped,
+  };
+  const write = workspaceWrite.then(() => data.writeData(workspaceKey, saved, { actor }));
+  workspaceWrite = write.catch(() => {});
+  return write;
+}
+
+export function restoreDirectorWorkspace() {
+  const saved = getSharedDataStore().readData(workspaceKey, null);
+  if (saved?.version !== 1) return;
+  store.restore(saved.state);
+  directorDraft = saved.draft || {};
+  lastManualScene = isSceneId(saved.lastManualScene) ? saved.lastManualScene : null;
+  bpGame = saved.bpGame ?? null;
+  bpConfig = normalizeConfig(saved.bpConfig || bpConfig);
+  bpTeams = saved.bpTeams || bpTeams;
+  gameLiveSelection = saved.gameLiveSelection || '';
+  gameLiveSwapped = saved.gameLiveSwapped === true;
+  const countdown = store.snapshot().live.countdown;
+  if (countdown.running) {
+    const remainingMs = Math.max(0, countdown.remainingMs - Math.max(0, Date.now() - saved.savedAt));
+    store.setCountdown({ remainingMs, running: remainingMs > 0 });
+    cdLast = Date.now();
+  }
+}
 
 /** 每次变更后写入现场通道，OBS 端据此重绘。 */
 function syncBp() {
@@ -174,6 +211,8 @@ function stateBody() {
   return {
     ...store.snapshot(),
     scenes: sceneList(),
+    directorDraft,
+    lastManualScene,
   };
 }
 
@@ -364,6 +403,7 @@ export async function handleDirector(req, res, url, helpers) {
 
   /* ---------- 读状态 ---------- */
   if (p === '/api/director/state' && req.method === 'GET') {
+    await workspaceWrite;
     return sendJSON(res, stateBody()), true;
   }
   if (p === '/api/director/readiness' && req.method === 'GET') {
@@ -505,6 +545,7 @@ export async function handleDirector(req, res, url, helpers) {
   }
 
   if (!p.startsWith('/api/director/')) return false;
+  if (req.method !== 'POST') return sendJSON(res, { error: 'method_not_allowed' }, 405), true;
 
   /* ---------- 写操作 ---------- */
   const action = p.slice('/api/director/'.length);
@@ -521,8 +562,20 @@ export async function handleDirector(req, res, url, helpers) {
     switch (action) {
       case 'scene':
         if (!isSceneId(body.id)) return sendJSON(res, { error: 'unknown_scene' }, 400), true;
+        if (body.rememberScene !== false) lastManualScene = body.id;
         store.setScene(body.id);
         break;
+      case 'draft': {
+        if (body.section === 'timer' && [body.value?.minutes, body.value?.seconds].every(value => typeof value === 'string' && value.length <= 12)) {
+          directorDraft = { ...directorDraft, timer: body.value };
+        } else if (body.section === 'spotlight' && (body.value === null ||
+          (Array.isArray(body.value?.items) && body.value.items.length === 5 && JSON.stringify(body.value).length <= 12000))) {
+          directorDraft = { ...directorDraft, spotlight: body.value };
+        } else {
+          return sendJSON(res, { error: 'invalid_director_draft' }, 400), true;
+        }
+        break;
+      }
       case 'settings':
         if (!isSceneId(body.id)) return sendJSON(res, { error: 'unknown_scene' }, 400), true;
         if (body.id === SceneId.GAME_LIVE) {
@@ -533,7 +586,12 @@ export async function handleDirector(req, res, url, helpers) {
           store.setSceneSettings(body.id, { backgroundId });
           break;
         }
-        store.setSceneSettings(body.id, body.patch ?? {});
+        if (body.id === SceneId.COMMENTARY && body.patch?.banner) {
+          const current = store.snapshot().preview.settings.commentary?.banner;
+          store.setSceneSettings(body.id, { ...body.patch, banner: { ...current, ...body.patch.banner } });
+        } else {
+          store.setSceneSettings(body.id, body.patch ?? {});
+        }
         break;
       case 'game-live/sides':
         if (!['swap', 'auto'].includes(body.mode)) return sendJSON(res, { error: 'unknown_side_mode' }, 400), true;
@@ -641,6 +699,12 @@ export async function handleDirector(req, res, url, helpers) {
     return sendJSON(res, { error: err.code || 'error', message: err.message }, status), true;
   }
 
+  try {
+    await saveDirectorWorkspace(req.pkcUser?.email || 'director');
+  } catch (error) {
+    console.error('导播台云端保存失败', error.message);
+    return sendJSON(res, { ...stateBody(), workspaceSaveFailed: true }, 503), true;
+  }
   return sendJSON(res, stateBody()), true;
 }
 

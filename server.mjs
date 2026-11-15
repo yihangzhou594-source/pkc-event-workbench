@@ -18,7 +18,7 @@ import { fileURLToPath } from "node:url";
 import {
   handleDirector, closeDirectorStreams, remoteDirectorState,
   directorStreamApi, setDirectorContext,
-  refreshDirectorDataFromStore, refreshGameLive,
+  refreshDirectorDataFromStore, refreshGameLive, restoreDirectorWorkspace,
 } from "./director/routes.mjs";
 import { writeJsonAtomic } from "./lib/json-store.mjs";
 import { getSharedDataStore } from "./lib/data-store.mjs";
@@ -1213,6 +1213,7 @@ server.on("error", (err) => {
 });
 
 await dataStore.initialize();
+restoreDirectorWorkspace();
 refreshDirectorDataFromStore();
 
 server.listen(PORT, LISTEN_HOST, () => {

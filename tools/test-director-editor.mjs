@@ -39,15 +39,21 @@ const scenes = ['blank', 'bracket', 'spotlight'].map(id => ({ id }));
 let preview = { scene: 'blank' };
 const onAir = { scene: 'blank' };
 const saved = new Map();
+const fields = new Map();
+const timer = { minutes: '12', seconds: '15' };
 const editor = {
   state: null,
+  $(id) {
+    if (!fields.has(id)) fields.set(id, { dataset: {} });
+    return fields.get(id);
+  },
   localStorage: {
     getItem: key => saved.get(key) ?? null,
     setItem: (key, value) => saved.set(key, value),
   },
   async fetch(url, options) {
     if (url.endsWith('/scene')) preview = { scene: JSON.parse(options.body).id };
-    return { ok: true, json: async () => ({ preview, onAir, scenes }) };
+    return { ok: true, json: async () => ({ preview, onAir, scenes, directorDraft: { timer } }) };
   },
   window: {},
   paint() {},
@@ -64,4 +70,6 @@ const startup = html.slice(html.indexOf('fetch("/api/director/state"'), html.las
 await vm.runInContext(startup, editor);
 assert.equal(editor.state.preview.scene, 'bracket', 'refresh restores the last manual scene');
 assert.equal(editor.state.onAir.scene, 'blank', 'refresh only changes preview');
+assert.equal(editor.$('mm').value, '12', 'refresh restores typed countdown minutes');
+assert.equal(editor.$('ss').value, '15', 'refresh restores typed countdown seconds');
 console.log('test-director-editor: push shortcut, duplicate push, recovery and scene restore passed');

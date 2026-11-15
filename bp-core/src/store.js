@@ -277,6 +277,17 @@ export function createStore(options = {}) {
 
   return {
     snapshot,
+    checkpoint: () => structuredClone({ preview, onAir, live, pushHistory, lastPush }),
+    restore(checkpoint) {
+      if (!isSceneId(checkpoint?.preview?.scene) || !isSceneId(checkpoint?.onAir?.scene)) return;
+      const saved = structuredClone(checkpoint);
+      Object.assign(preview, saved.preview);
+      Object.assign(onAir, saved.onAir);
+      Object.assign(live, saved.live);
+      pushHistory.splice(0, pushHistory.length, ...(saved.pushHistory || []).slice(-20));
+      lastPush = saved.lastPush ?? null;
+      notify('preview');
+    },
     setScene,
     setSceneSettings,
     push,

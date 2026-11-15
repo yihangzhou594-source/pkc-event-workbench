@@ -22,6 +22,7 @@ function sendJson(res, status, body) {
   res.end(text);
 }
 
+let directorWorkspaceRevision = 0;
 const fakeSupabase = http.createServer(async (req, res) => {
   const url = new URL(req.url, `http://127.0.0.1:${fakePort}`);
   const chunks = [];
@@ -38,6 +39,9 @@ const fakeSupabase = http.createServer(async (req, res) => {
   }
   if (url.pathname === "/rest/v1/pkc_audit" && req.method === "POST") {
     return sendJson(res, 201, []);
+  }
+  if (url.pathname === "/rest/v1/rpc/pkc_write_record" && req.method === "POST" && body.p_key === "directorWorkspace") {
+    return sendJson(res, 200, { revision: ++directorWorkspaceRevision, updatedAt: new Date().toISOString() });
   }
   if (url.pathname === "/auth/v1/token" && url.searchParams.get("grant_type") === "password") {
     if (body.email === "staff@example.com" && body.password === "secret-123") {
