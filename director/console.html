@@ -732,14 +732,18 @@ let state = null;
 let stageMode = "preview";
 let framedScene = null;
 let framedMode = null;
+const lastSceneKey = "pkc.director.lastScene";
 
-async function post(action, body) {
+async function post(action, body, { rememberScene = true } = {}) {
   const res = await fetch("/api/director/" + action, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body || {}),
   });
   const data = await res.json();
+  if (action === "scene" && rememberScene && res.ok && data.preview?.scene === body.id) {
+    try { localStorage.setItem(lastSceneKey, body.id); } catch {}
+  }
   if (action === "push" && !data.error) {
     stageMode = "live";
     document.querySelectorAll(".seg button").forEach((button) => {
@@ -2020,34 +2024,42 @@ if ($("bpStart")) bindBp();
 loadIvTeams();
 
 /* ================= 连接 ================= */
-const source = new EventSource("/api/director/stream");
-const setConn = (t) => { const el = $("connLabel"); if (el) el.textContent = t; };
-source.addEventListener("hello", (e) => {
-  setConn("已连接");
-  state = JSON.parse(e.data);
-  window.__pkDirectorReady = true;
-  paint();
-  syncFrame();
-  applyContextToInterval().catch(() => {});
-});
-source.addEventListener("preview", (e) => { state = JSON.parse(e.data); paint(); syncFrame(); });
-source.addEventListener("onAir", (e) => { state = JSON.parse(e.data); paint(); syncFrame(); });
-source.addEventListener("live", (e) => {
-  state = JSON.parse(e.data);
-  paint();
-  syncFrame();
-  applyContextToInterval().catch(() => {});
-});
-source.addEventListener("error", () => { setConn("已断开，重连中…"); });
+function connectDirector() {
+  const source = new EventSource("/api/director/stream");
+  const setConn = (t) => { const el = $("connLabel"); if (el) el.textContent = t; };
+  source.addEventListener("hello", (e) => {
+    setConn("已连接");
+    state = JSON.parse(e.data);
+    window.__pkDirectorReady = true;
+    paint();
+    syncFrame();
+    applyContextToInterval().catch(() => {});
+  });
+  source.addEventListener("preview", (e) => { state = JSON.parse(e.data); paint(); syncFrame(); });
+  source.addEventListener("onAir", (e) => { state = JSON.parse(e.data); paint(); syncFrame(); });
+  source.addEventListener("live", (e) => {
+    state = JSON.parse(e.data);
+    paint();
+    syncFrame();
+    applyContextToInterval().catch(() => {});
+  });
+  source.addEventListener("error", () => { setConn("已断开，重连中…"); });
+}
 window.addEventListener("pkc:view", async (event) => {
   if (event.detail?.name !== "spotlight" || !state) return;
   document.querySelector('.seg button[data-mode="preview"]')?.click();
-  if (state.preview.scene !== "spotlight") state = await post("scene", { id: "spotlight" });
+  if (state.preview.scene !== "spotlight") state = await post("scene", { id: "spotlight" }, { rememberScene: false });
   paint(); syncFrame();
 });
 
 const portEl = $("portLabel"); if (portEl) portEl.textContent = location.port || "80";
-fetch("/api/director/state").then(r => r.json()).then(s => {
+fetch("/api/director/state", { cache: "no-store" }).then(r => r.json()).then(async s => {
+  let lastScene;
+  try { lastScene = localStorage.getItem(lastSceneKey); } catch {}
+  if (s.scenes?.some(scene => scene.id === lastScene) && s.preview.scene !== lastScene) {
+    const restored = await post("scene", { id: lastScene }, { rememberScene: false }).catch(() => null);
+    if (restored?.preview && !restored.error) s = restored;
+  }
   state = s;
   window.__pkDirectorReady = true;
   paint();
@@ -2056,7 +2068,7 @@ fetch("/api/director/state").then(r => r.json()).then(s => {
 }).catch((err) => {
   // 不再静默吞错：失败时显示在自诊断条里
   console.error("状态接口失败", err);
-});
+}).finally(connectDirector);
 loadTeams();
 })();
 

@@ -35,4 +35,33 @@ assert.equal(await context.pushCurrent(),false);assert.equal(calls,1);
 resolvePush({preview:{}});assert.equal(await first,true);assert.equal(button.disabled,false);
 context.postPush=async()=>{throw new Error('offline')};
 assert.equal(await context.pushCurrent(),false);assert.match(status.textContent,/offline/);assert.equal(button.disabled,false);
-console.log('test-director-editor: push shortcut, duplicate push and recovery passed');
+const scenes = ['blank', 'bracket', 'spotlight'].map(id => ({ id }));
+let preview = { scene: 'blank' };
+const onAir = { scene: 'blank' };
+const saved = new Map();
+const editor = {
+  state: null,
+  localStorage: {
+    getItem: key => saved.get(key) ?? null,
+    setItem: (key, value) => saved.set(key, value),
+  },
+  async fetch(url, options) {
+    if (url.endsWith('/scene')) preview = { scene: JSON.parse(options.body).id };
+    return { ok: true, json: async () => ({ preview, onAir, scenes }) };
+  },
+  window: {},
+  paint() {},
+  syncFrame() {},
+  applyContextToInterval: async () => {},
+  connectDirector() {},
+};
+vm.createContext(editor);
+vm.runInContext(html.slice(html.indexOf('let framedMode = null;'), html.indexOf('async function postPush(')), editor);
+await editor.post('scene', { id: 'bracket' });
+await editor.post('scene', { id: 'spotlight' }, { rememberScene: false });
+preview = { scene: 'blank' };
+const startup = html.slice(html.indexOf('fetch("/api/director/state"'), html.lastIndexOf('loadTeams();'));
+await vm.runInContext(startup, editor);
+assert.equal(editor.state.preview.scene, 'bracket', 'refresh restores the last manual scene');
+assert.equal(editor.state.onAir.scene, 'blank', 'refresh only changes preview');
+console.log('test-director-editor: push shortcut, duplicate push, recovery and scene restore passed');
