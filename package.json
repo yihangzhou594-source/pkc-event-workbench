@@ -9,6 +9,10 @@
   "scripts": {
     "start": "node server.mjs",
     "test": "node tools/test-all.mjs --fast",
+    "test:smoke": "node tools/test-console-context.mjs && node tools/test-obs-context.mjs && node tools/test-remote-data-ui.mjs",
     "check": "node --check server.mjs"
+  },
+  "devDependencies": {
+    "playwright": "1.62.1"
   }
 }

@@ -247,6 +247,20 @@ function pushPreview(force = false) {
       },
     };
   }
+  if (snapshot.preview.scene === SceneId.CHART) {
+    const playlist = snapshot.preview.chartPlaylist || snapshot.live.chartPlaylist;
+    const context = snapshot.live.context;
+    const matchesContext = (item) => context?.gameId && item?.game
+      && String(item.game.id) === String(context.gameId)
+      && String(item.seriesId) === String(context.seriesId)
+      && String(item.game.matchKey || item.matchKey) === String(context.matchKey);
+    if (playlist?.items?.length !== 6 || !playlist.items.every(matchesContext)) {
+      return { status: 409, body: {
+        error: "chart_not_prepared",
+        message: "请先准备当前局的六张数据图，直播画面未切换。",
+      } };
+    }
+  }
   if (!force && selected?.status === "blocked") {
     return {
       status: 409,
@@ -625,11 +639,13 @@ export async function handleDirector(req, res, url, helpers) {
       case 'chart':
         store.setChart(body.data ?? null);
         break;
-      case 'chart/playlist':
-        store.setChartPlaylist(body.patch ?? body);
+      case 'chart/playlist': {
+        const patch = body.patch ?? body;
+        store.setChartPlaylist(patch, body.stage === true || Object.hasOwn(patch, 'items'));
         break;
+      }
       case 'chart/step':
-        store.stepChartPlaylist(Number(body.dir) || 1);
+        store.stepChartPlaylist(Number(body.dir) || 1, body.stage === true);
         break;
       case 'spotlight/playlist':
         store.setSpotlightPlaylist(body.patch ?? body);

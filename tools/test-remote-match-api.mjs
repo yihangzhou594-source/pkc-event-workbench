@@ -46,7 +46,7 @@ const pkc = spawn(process.execPath, ["server.mjs"], {
   cwd: root,
   env: {
     ...process.env,
-    PKC_PORT:String(pkcPort),
+    PORT:"", PKC_CLOUD:"0", PKC_PORT:String(pkcPort),
     PKC_REMOTE:"1",
     PKC_MATCH_API_KEY_HASHES:createHash("sha256").update("fixture-key").digest("hex"),
     PKC_OPEN:"0",
@@ -126,18 +126,24 @@ try {
   ocr.draft.duration = "12:31";
   ocr.draft.rows[0].our.k = 0;
   ocr.draft.rows[0].our.dmgPct = "12.345";
-  const savedResponse = await fetch(`http://127.0.0.1:${pkcPort}/api/remote/match-data`, {
-    method:"POST", headers,
-    body:JSON.stringify({
-      seriesId:"s1", matchKey:"R16-1", gameId:null, baseRev:catalog.matchesRevision, draft:ocr.draft,
-    }),
+  const remoteWrite = (payload) => fetch(`http://127.0.0.1:${pkcPort}/api/remote/match-data`, {
+    method:"POST", headers, body:JSON.stringify(payload),
   });
+  const draftPayload = {
+    seriesId:"s1", matchKey:"R16-1", gameId:null, baseRev:catalog.matchesRevision,
+    contextRevision:catalog.contextRevision, draft:ocr.draft, saveId:"ab".repeat(16),
+  };
+  const savedResponse = await remoteWrite(draftPayload);
   const saved = await savedResponse.json();
   assert.equal(savedResponse.status, 200, JSON.stringify(saved));
   assert.equal(saved.game.ourId,"r");
   assert.equal(saved.game.oppId,"b");
   assert.equal(saved.game.label, "第1局");
   assert.equal(saved.game.rows[0].our.hero, "廉颇");
+  assert.equal(saved.activated, true);
+  const retryResponse = await remoteWrite(draftPayload);
+  assert.equal(retryResponse.status, 200);
+  assert.equal((await retryResponse.json()).game.id, saved.game.id);
   const api = `http://127.0.0.1:${pkcPort}/api/v1/series`;
   const apiHeaders = {Authorization:"Bearer fixture-key"};
   const detailUrl = api + "/s1/games/" + saved.game.id;
@@ -203,6 +209,75 @@ try {
 
   const audit = JSON.parse(fs.readFileSync(path.join(data, "_backup", "audit.json"), "utf8"));
   assert.ok(audit.some((entry) => entry.action === "remote-upload-save"));
+
+  const base = `http://127.0.0.1:${pkcPort}`;
+  const write = (url, body, extra = {}) => fetch(base + url, {
+    method:"POST", headers:{ "Content-Type":"application/json", ...extra }, body:JSON.stringify(body),
+  });
+  const director = async (action, body = {}, status = 200) => {
+    const response = await write("/api/director/" + action, body);
+    const data = await response.json();
+    assert.equal(response.status, status, JSON.stringify(data));
+    return data;
+  };
+  const getState = async () => (await fetch(base + "/api/director/state")).json();
+  const stage = game => director("chart/playlist", { stage:true, patch:{ running:true,
+    items:Array.from({ length:6 }, () => ({ seriesId:"s1", game })),
+  } });
+  await director("scene", { id:"chart" });
+  assert.equal((await director("push", { force:true }, 409)).error, "chart_not_prepared");
+  await stage(saved.game);
+  await director("push");
+  assert.equal((await getState()).live.chartPlaylist.items[0].game.id, saved.game.id);
+
+  const latest = await (await fetch(base + "/api/remote/match-context", {headers})).json();
+  const auditFile = path.join(data, "_backup", "audit.json");
+  fs.renameSync(auditFile, auditFile + ".fixture");
+  fs.mkdirSync(auditFile);
+  const partialResponse = await remoteWrite({
+    ...draftPayload, saveId:"cd".repeat(16), baseRev:latest.matchesRevision,
+    contextRevision:catalog.contextRevision,
+  });
+  const partial = await partialResponse.json();
+  assert.equal(partialResponse.status, 200);
+  assert.equal(partial.activated, false);
+  assert.match(partial.warnings.join(" "), /审计记录写入失败/);
+  assert.equal((await getState()).live.context.gameId, saved.game.id);
+  assert.equal((await get(base + "/api/v1/series/s1/games/" + partial.game.id)).game.id, partial.game.id);
+  const activatedResponse = await remoteWrite({
+    ...draftPayload, gameId:partial.game.id, activateOnly:true, contextRevision:latest.contextRevision,
+  });
+  assert.equal((await activatedResponse.json()).activated, true);
+  assert.equal((await getState()).live.chartPlaylist.items[0].game.id, saved.game.id);
+  assert.equal((await director("push", {}, 409)).error, "chart_not_prepared");
+  await stage(partial.game);
+  const staged = await getState();
+  assert.equal(staged.preview.chartPlaylist.items[0].game.id, partial.game.id);
+  assert.equal(staged.live.chartPlaylist.items[0].game.id, saved.game.id);
+  assert.equal(staged.live.chartPlaylist.running, true);
+  await director("push");
+  assert.equal((await getState()).live.chartPlaylist.items[0].game.id, partial.game.id);
+  await director("undo-push");
+  assert.equal((await getState()).live.chartPlaylist.items[0].game.id, saved.game.id);
+
+  fs.rmdirSync(auditFile);
+  fs.renameSync(auditFile + ".fixture", auditFile);
+
+  const libraryResponse = await fetch(base + "/api/store/library");
+  const libraryRevision = libraryResponse.headers.get("x-pkc-rev");
+  const original = await libraryResponse.json();
+  assert.equal((await write("/api/store/library", original)).status, 428);
+  const teamUrl = base + "/api/competition/teams?seriesId=s1";
+  const roster = await (await fetch(teamUrl)).json();
+  const updated = await fetch(teamUrl, { method:"PUT", headers:{ "Content-Type":"application/json" },
+    body:JSON.stringify({ revision:roster.revision, teams:roster.teams.map(team =>
+      team.id === "b" ? { ...team, players:["更新后的名单"] } : team) }),
+  });
+  assert.equal(updated.status, 200, await updated.text());
+  assert.equal((await write("/api/store/library", original, { "X-PKC-Base-Rev":libraryRevision })).status, 409);
+  const latestLibrary = await (await fetch(teamUrl)).json();
+  assert.equal(latestLibrary.teams.find(team => team.id === "b").players[0], "更新后的名单");
+
 
   const nextOcr = await fetch(`http://127.0.0.1:${pkcPort}/api/remote/ocr-draft`, {method:"POST",headers,body:JSON.stringify({matchKey:"R16-1",images:[pixel]})});
   assert.equal(nextOcr.status,200);

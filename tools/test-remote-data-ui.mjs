@@ -1,16 +1,11 @@
-import { spawn } from "node:child_process";
-import { createRequire } from "node:module";
+import { launchBrowser, startTestServer } from "./browser-test-fixture.mjs"; // playwright
 import fs from "node:fs";
 import http from "node:http";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+const root = fileURLToPath(new URL("../", import.meta.url));
 
-const require = createRequire(import.meta.url);
-const PW = process.env.PKC_PW_ROOT ||
-  "C:/Users/12113/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules";
-const { chromium } = require(path.join(PW, "playwright"));
-const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const temp = fs.mkdtempSync(path.join(os.tmpdir(), "pkc-remote-ui-"));
 const data = path.join(temp, "data");
 fs.mkdirSync(data, { recursive: true });
@@ -33,34 +28,23 @@ const provider = http.createServer((req, res) => {
 });
 await new Promise((resolve) => provider.listen(0, "127.0.0.1", resolve));
 const providerPort = provider.address().port;
-const port = 19800 + Math.floor(Math.random() * 300);
-const pkc = spawn(process.execPath, ["server.mjs"], {
-  cwd: root,
-  env:{ ...process.env, PKC_PORT:String(port), PKC_REMOTE:"1", PKC_PUBLIC_URL:"https://live.pkchku.com", PKC_OPEN:"0", PKC_DATA_DIR:data, DEEPSEEK_API_KEY:"secret-test", DEEPSEEK_BASE_URL:`http://127.0.0.1:${providerPort}` },
-  stdio:"ignore", windowsHide:true,
-});
+let pkc;
 let browser;
-const getAccess = async () => {
-  for (let i = 0; i < 50; i++) {
-    try {
-      const response = await fetch(`http://127.0.0.1:${port}/api/remote/access`);
-      if (response.ok) return response.json();
-    } catch {}
-    await new Promise((resolve) => setTimeout(resolve, 120));
-  }
-  throw new Error("远程录入测试服务未启动");
-};
 try {
-  const access = await getAccess();
-  browser = await chromium.launch({ channel:"msedge", headless:true });
+  pkc = await startTestServer(data, {
+    PKC_REMOTE:"1", PKC_PUBLIC_URL:"https://live.pkchku.com",
+    DEEPSEEK_API_KEY:"secret-test", DEEPSEEK_BASE_URL:`http://127.0.0.1:${providerPort}`,
+  });
+  const access = await (await fetch(pkc.url + "/api/remote/access")).json();
+  browser = await launchBrowser();
   const desktop = await browser.newPage({ viewport:{ width:1680, height:1000 } });
-  await desktop.goto(`http://127.0.0.1:${port}/`, { waitUntil:"load" });
+  await desktop.goto(`${pkc.url}/`, { waitUntil:"load" });
   await desktop.waitForFunction(() => document.querySelector("#remoteMode")?.textContent === "公网已开启");
   await desktop.click('.wk-item[data-view="data"]');
   await desktop.waitForFunction(() => document.querySelector("#genFrame")?.contentWindow?.PKC);
 
   const phone = await browser.newPage({ viewport:{ width:390, height:844 }, isMobile:true, hasTouch:true, acceptDownloads:true });
-  await phone.goto(`http://127.0.0.1:${port}/remote`, { waitUntil:"load" });
+  await phone.goto(`${pkc.url}/remote`, { waitUntil:"load" });
   if ((await phone.locator("#pairView").innerText()).includes("同一 Wi-Fi")) {
     throw new Error("云端远程页不应要求手机与电脑处于同一 Wi-Fi");
   }
@@ -109,6 +93,9 @@ try {
 
   phone.once("dialog", dialog => dialog.accept());
   await phone.click("#remoteSaveBtn");
+  await phone.waitForFunction(() => document.querySelector("#remoteSaveStatus").textContent.includes("其他页面更新"));
+  phone.once("dialog", dialog => dialog.accept());
+  await phone.click("#remoteSaveBtn");
   await generator.waitForFunction((id) => PKC.series().games.find(item => item.id === id)?.duration === "12:32", disk.games.s1[0].id);
   const overwritten = JSON.parse(fs.readFileSync(path.join(data, "matches.json"), "utf8"));
   if (overwritten.games.s1.filter(game => game.matchKey === "R16-1").length !== 1) throw new Error("覆盖操作创建了重复小局");
@@ -116,13 +103,28 @@ try {
   await phone.selectOption("#remoteGameSelect", "__new__");
   await phone.click("#remoteManual");
   await phone.fill("#remoteDuration", "13:00");
+  const state = await (await fetch(pkc.url + "/api/director/state")).json();
+  const bumped = await fetch(pkc.url + "/api/director/context", {
+    method:"POST", headers:{ "Content-Type":"application/json" },
+    body:JSON.stringify(state.live.context),
+  });
+  if (!bumped.ok) throw new Error(await bumped.text());
   phone.once("dialog", dialog => dialog.accept());
   await phone.click("#remoteSaveBtn");
+  await phone.locator("#remoteActivateBtn").waitFor({ state:"visible" });
+  const pendingGames = JSON.parse(fs.readFileSync(path.join(data, "matches.json"), "utf8")).games.s1;
+  const roundGames = pendingGames.filter(game => game.matchKey === "R16-1");
+  if (roundGames.length !== 2 || !roundGames.some(game => game.duration === "13:00")) {
+    throw new Error("切换冲突时新局未独立保存，场次局数：" + roundGames.length);
+  }
+  phone.once("dialog", dialog => dialog.accept());
+  await phone.click("#remoteActivateBtn");
+  await phone.waitForFunction(() => document.querySelector("#remoteSaveStatus").textContent.includes("已切换到 第2局"));
   await generator.waitForFunction(() => PKC.series().games.some(game => game.label === "第2局" && game.duration === "13:00"));
   console.log(JSON.stringify({ remoteDataUi:true, desktopNotice:true, savedGame:disk.games.s1[0].label, reviewScreenshot }, null, 2));
 } finally {
   if (browser) await browser.close();
-  pkc.kill();
+  await pkc?.stop();
   provider.close();
   fs.rmSync(temp, { recursive:true, force:true });
 }

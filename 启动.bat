@@ -47,29 +47,6 @@ goto check_existing
 echo.
 echo 当前启动模式：%PKC_MODE_LABEL%
 set "PKC_ROOT=%~dp0"
-set "STOP_RESULT=NONE"
-rem Probe the owning PKC process directly without depending on Windows CIM.
-for /f "usebackq delims=" %%S in (`node tools/prepare-local-server.mjs`) do set "STOP_RESULT=%%S"
-if /i "%STOP_RESULT%"=="CONFLICT" (
-  echo.
-  echo [ERROR] 端口 %DISPLAY_PORT% 被其他程序占用，已停止启动以避免误杀。
-  echo 请关闭占用该端口的程序，或设置其他 PKC_PORT 后重试。
-  echo.
-  pause
-  exit /b 1
-)
-if /i "%STOP_RESULT%"=="FAILED" (
-  echo.
-  echo [ERROR] 旧 PKC 服务未能完全关闭，端口 %DISPLAY_PORT% 仍被占用。
-  echo 请在任务管理器中结束残留的 node.exe 后重试。
-  echo.
-  pause
-  exit /b 1
-)
-if /i "%STOP_RESULT%"=="STOPPED" (
-  echo 已关闭端口 %DISPLAY_PORT% 上的旧 PKC 服务，正在启动新实例…
-)
-
 if not exist "server.mjs" (
   echo [ERROR] 找不到 server.mjs。
   echo 请完整解压项目后，从项目文件夹内运行启动.bat。
@@ -106,6 +83,29 @@ if errorlevel 1 (
   echo.
   pause
   exit /b 1
+)
+
+set "STOP_RESULT=FAILED"
+rem Probe the owning PKC process directly without depending on Windows CIM.
+for /f "usebackq delims=" %%S in (`""%NODE_EXE%" tools/prepare-local-server.mjs"`) do set "STOP_RESULT=%%S"
+if /i "%STOP_RESULT%"=="CONFLICT" (
+  echo.
+  echo [ERROR] 端口 %DISPLAY_PORT% 被其他程序占用，已停止启动以避免误杀。
+  echo 请关闭占用该端口的程序，或设置其他 PKC_PORT 后重试。
+  echo.
+  pause
+  exit /b 1
+)
+if /i "%STOP_RESULT%"=="FAILED" (
+  echo.
+  echo [ERROR] 旧 PKC 服务未能完全关闭，端口 %DISPLAY_PORT% 仍被占用。
+  echo 请在任务管理器中结束残留的 node.exe 后重试。
+  echo.
+  pause
+  exit /b 1
+)
+if /i "%STOP_RESULT%"=="STOPPED" (
+  echo 已关闭端口 %DISPLAY_PORT% 上的旧 PKC 服务，正在启动新实例…
 )
 
 if /i "%PKC_MODE_LABEL%"=="手机远程" (

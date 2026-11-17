@@ -10,6 +10,7 @@ import { obsReadAllowed, tokenMatches } from "./lib/obs-access.mjs";
 import fs from "node:fs";
 import path from "node:path";
 import crypto from "node:crypto";
+import { validateCompetitionLibrary } from "./lib/competition-teams.mjs";
 import { chartBundleLimit, createChartStorage, validChartBundle } from "./lib/game-chart-storage.mjs";
 import { createMatchReadApi } from "./lib/match-read-api.mjs";
 import os from "node:os";
@@ -496,19 +497,6 @@ async function saveRemoteMatchData(body) {
   if (body.seriesId && String(body.seriesId) !== String(series.id)) {
     throw Object.assign(new Error("远程录入只能写入当前系列赛"), { code:"series_scope_denied" });
   }
-  if (body.overwriteLatest !== true && (!body.baseRev || body.baseRev !== catalog.matchesRevision)) {
-    throw Object.assign(new Error("对局数据已在其他页面更新，请重新读取"), {
-      code:"revision_conflict",
-      revision:catalog.matchesRevision,
-    });
-  }
-  if (body.overwriteLatest !== true && body.contextRevision !== undefined
-    && Number(body.contextRevision) !== Number(catalog.contextRevision)) {
-    throw Object.assign(new Error("当前场次已在其他页面更新，请重新读取"), {
-      code:"context_conflict",
-      revision:catalog.contextRevision,
-    });
-  }
   const match = catalog.matches.find((item) => item.matchKey === String(body.matchKey || ""));
   if (!match) throw Object.assign(new Error("找不到目标场次或双方队伍尚未排定"), { code:"match_not_found" });
   const blueTeam = (series.teams || []).find((team) => String(team.id) === match.blueId);
@@ -518,6 +506,26 @@ async function saveRemoteMatchData(body) {
   if (body.gameId && (!existingGame || String(existingGame.matchKey || "") !== match.matchKey)) {
     throw Object.assign(new Error("目标局次不属于所选场次"), { code:"game_not_found" });
   }
+  const saveId = String(body.saveId || "");
+  if (saveId && !/^[a-f0-9]{32}$/i.test(saveId)) {
+    throw Object.assign(new Error("无效的保存标识"), { code:"invalid_draft" });
+  }
+  const newId = saveId && !body.gameId
+    ? crypto.createHash("sha256").update(JSON.stringify([series.id, match.matchKey, saveId])).digest("hex")
+    : "";
+  const prior = newId ? games.find((game) => game.id === newId) : null;
+  if (body.activateOnly || prior) {
+    const game = prior || existingGame;
+    if (!game) throw Object.assign(new Error("找不到已保存的局"), { code:"game_not_found" });
+    const activation = await activateRemoteGame(body, catalog, series, match, game);
+    return { ok:true, game, missing:[], warnings:[], revision:storeRev("matches"), ...activation };
+  }
+  if (body.overwriteLatest !== true && (!body.baseRev || body.baseRev !== catalog.matchesRevision)) {
+    throw Object.assign(new Error("对局数据已在其他页面更新，请重新读取"), {
+      code:"revision_conflict",
+      revision:catalog.matchesRevision,
+    });
+  }
   const built = buildRemoteGame({
     seriesId:series.id,
     matchKey:match.matchKey,
@@ -526,6 +534,7 @@ async function saveRemoteMatchData(body) {
     draft:body.draft,
     existingGames:games,
     existingGame,
+    gameId:newId,
     allowedMatchKeys:catalog.matches.map((item) => item.matchKey),
   });
   const nextMatches = {
@@ -537,7 +546,6 @@ async function saveRemoteMatchData(body) {
         : [...games, built.game],
     },
   };
-  const previousMatches = source.matches;
   const matchWrite = await dataStore.writeData("matches", nextMatches, {
     baseRevision:catalog.matchesRevision,
     forceBackup:true,
@@ -549,22 +557,47 @@ async function saveRemoteMatchData(body) {
       revision:matchWrite.revision,
     });
   }
+  const activation = await activateRemoteGame(body, catalog, series, match, built.game);
+  const warnings = [...built.warnings];
+  try {
+    await appendDataAudit("remote-upload-save",
+      (existingGame ? "覆盖" : "新建") + " " + built.game.label + " · 缺失 " + built.missing.length + " 项",
+      "matches", body.actor || "remote");
+  } catch (error) {
+    console.error("远程录入审计写入失败", built.game.id, error.message);
+    warnings.push("对局已保存，审计记录写入失败");
+  }
+  return {
+    ok:true, replaced:built.replaced, game:built.game, missing:built.missing,
+    warnings, revision:storeRev("matches"), ...activation,
+  };
+}
+
+async function activateRemoteGame(body, catalog, series, match, game) {
+  const current = catalog.source.context;
+  const expected = body.contextRevision ?? (body.activateOnly ? -1 : catalog.contextRevision);
+  if (String(expected) !== String(catalog.contextRevision)) {
+    if (current?.gameId === game.id && current.matchKey === match.matchKey) {
+      return { activated:true, context:current, contextRevision:catalog.contextRevision };
+    }
+    return { activated:false, activationError:"当前场次已更新，请核对后重试切换" };
+  }
   try {
     const candidate = {
-      ...(source.context || {}),
+      ...(catalog.source.context || {}),
       seriesId:series.id,
       seriesName:series.name || "",
       matchKey:match.matchKey,
       matchLabel:match.roundLabel + " · " + match.blueName + " vs " + match.redName,
       matchRound:match.roundLabel,
-      gameId:built.game.id,
-      gameLabel:built.game.label,
-      blueId:built.game.ourId,
-      redId:built.game.oppId,
-      blueTeam:built.game.ourId === match.blueId ? match.blueName : match.redName,
-      redTeam:built.game.oppId === match.redId ? match.redName : match.blueName,
-      blueScore:built.game.ourScore,
-      redScore:built.game.oppScore,
+      gameId:game.id,
+      gameLabel:game.label,
+      blueId:game.ourId,
+      redId:game.oppId,
+      blueTeam:game.ourId === match.blueId ? match.blueName : match.redName,
+      redTeam:game.oppId === match.redId ? match.redName : match.blueName,
+      blueScore:game.ourScore,
+      redScore:game.oppScore,
       remoteSavedAt:new Date().toISOString(),
     };
     const contextResult = await saveCompetitionContext(candidate, catalog.contextRevision, {
@@ -577,27 +610,9 @@ async function saveRemoteMatchData(body) {
       });
     }
     setDirectorContext(contextResult.context);
-    await appendDataAudit(
-      "remote-upload-save",
-      (existingGame ? "覆盖" : "新建") + " " + built.game.label + " · 缺失 " + built.missing.length + " 项",
-      "matches",
-      body.actor || "remote",
-    );
-    return {
-      ok:true,
-      replaced:built.replaced,
-      game:built.game,
-      missing:built.missing,
-      warnings:built.warnings,
-      revision:storeRev("matches"),
-      contextRevision:contextResult.revision,
-      context:contextResult.context,
-    };
+    return { activated:true, context:contextResult.context, contextRevision:contextResult.revision };
   } catch (error) {
-    try {
-      await dataStore.writeData("matches", previousMatches, { baseRevision:matchWrite.revision, actor:"rollback" });
-    } catch { /* original write remains backed up in Supabase */ }
-    throw error;
+    return { activated:false, activationError:error.message || "无法切换当前局" };
   }
 }
 
@@ -610,6 +625,8 @@ const server = http.createServer(async (req, res) => {
   try {
     if (await matchReadApi(req, res, url)) return;
     if (p === "/healthz") {
+      const commit = process.env.RENDER_GIT_COMMIT;
+      if (commit && /^[a-f0-9]{40}$/i.test(commit)) res.setHeader("X-PKC-Deploy-Commit", commit);
       return sendJSON(res, {
         ok: true,
         cloud: dataStore.hasCloudDataStore(),
@@ -1149,7 +1166,12 @@ const server = http.createServer(async (req, res) => {
       if (req.method === "POST") {
         let raw = await readBody(req);
         const incoming = JSON.parse(raw);                  // 校验 JSON
-        if (key === "library" && incoming && typeof incoming === "object" && !Array.isArray(incoming)) {
+        if (key === "library") {
+          try {
+            validateCompetitionLibrary(incoming);
+          } catch (error) {
+            return sendJSON(res, { error:"invalid_library", message:error.message }, 400);
+          }
           try {
             const current = readStoreJson(key, null);
             if (Array.isArray(current.migrationAudit)) {
@@ -1160,6 +1182,10 @@ const server = http.createServer(async (req, res) => {
         }
         const base = String(req.headers["x-pkc-base-rev"] || "");
         const cur = storeRev(key);
+        if (key === "library" && cur && !base) {
+          res.setHeader("X-PKC-Rev", cur);
+          return sendJSON(res, { error:"library_revision_required", rev:cur }, 428);
+        }
         if (STORE_CONFLICT_KEYS.has(key) && base && cur && base !== cur) {
           res.setHeader("X-PKC-Rev", cur);
           return sendJSON(res, { error: "conflict", key, rev: cur }, 409);
@@ -1221,7 +1247,7 @@ server.listen(PORT, LISTEN_HOST, () => {
   const heroes = Object.keys(st.heroes).length;
   console.log("──────────────────────────────────────────────");
   console.log("  PKC 赛后数据图生成器 · 本地服务已启动");
-  console.log("  地址: http://localhost:" + PORT);
+  console.log("  地址: http://localhost:" + server.address().port);
   if (REMOTE_MODE) {
     console.log("  远程模式: " + LISTEN_HOST + ":" + PORT);
     for (const item of lanAddresses()) console.log("  手机地址: " + item.url + "  (" + item.interface + ")");

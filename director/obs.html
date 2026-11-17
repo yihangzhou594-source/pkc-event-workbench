@@ -783,6 +783,11 @@ function showStatus(text) {
 }
 
 /** 赛后数据图场景：用共用模块在同一尺寸画布上重绘。 */
+function previewChartLive(state) {
+  const staged = PREVIEW_MODE && state.preview?.chartPlaylist;
+  return staged ? { ...state.live, chartPlaylist: staged } : state.live;
+}
+
 function currentChart(live) {
   const p = live && live.chartPlaylist;
   if (p && Array.isArray(p.items) && p.items.length) {
@@ -1279,7 +1284,8 @@ function render(state) {
     return;
   }
   if (scene === "chart") {
-    renderChart(currentChart(live), live && live.chartPlaylist);
+    const chartLive = previewChartLive(state);
+    renderChart(currentChart(chartLive), chartLive?.chartPlaylist);
     return;
   }
   if (scene === "commentary") {
@@ -1876,7 +1882,10 @@ function connect() {
         ? (st.live.context.matchKey || "") : "";
       renderBracketLive(st.live.bracket, st.live.bracketChange, activeKey);
     }
-    if (scene === "chart") renderChart(currentChart(st.live), st.live.chartPlaylist);
+    if (scene === "chart") {
+      const live = previewChartLive(st);
+      renderChart(currentChart(live), live.chartPlaylist);
+    }
     if (scene === "bp") renderBp(st.live.bp, st.live);
     if (scene === "lineup") renderLineup(st.live.bp, st.live);
     if (scene === "interval") renderInterval(activeSettings(st), st.live);

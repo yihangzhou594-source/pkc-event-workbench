@@ -471,7 +471,7 @@ const STORE = {
         if (STORE_CONFLICT_KEYS.has(key) && base) headers["X-PKC-Base-Rev"] = base;
         const r = await fetch("/api/store/"+key, { method:"POST", headers, body:JSON.stringify(data) });
         const result = await r.json().catch(() => ({}));
-        if (r.status === 409){ showStoreConflict(); return false; }
+        if (r.status === 409 || r.status === 428){ showStoreConflict(); return false; }
         if (!r.ok) throw new Error(result.message || result.error || ("HTTP " + r.status));
         const rev = r.headers.get("X-PKC-Rev");
         if (rev) STORE_REV.set(key, rev);
@@ -503,13 +503,14 @@ async function saveCoreData(){
     currentId: DB.currentId,
     series: DB.series.map(s => ({ id:s.id, name:s.name, teams:s.teams }))
   });
+  if (!librarySaved) return false;
   const games = {};
   DB.series.forEach(s => { games[s.id] = s.games; });
   const matchesSaved = await STORE.save("matches", { games });
+  if (!matchesSaved) return false;
   const brackets = {};
   DB.series.forEach(s => { brackets[s.id] = s.bracket || emptyBracket(); });
-  const bracketSaved = await STORE.save("bracket", brackets);
-  return librarySaved && matchesSaved && bracketSaved;
+  return STORE.save("bracket", brackets);
 }
 async function saveAll(){
   if (!await saveCoreData()) return false;

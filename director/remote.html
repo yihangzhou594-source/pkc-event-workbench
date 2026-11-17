@@ -156,6 +156,7 @@
           <div class="save-bar"><button class="btn primary" id="remoteSaveBtn">确认保存到电脑</button></div>
         </section>
         <div class="entry-status save-feedback" id="remoteSaveStatus" role="status" aria-live="polite"></div>
+        <button class="btn hidden" id="remoteActivateBtn" type="button">核对并重试切换当前局</button>
       </section>
       <button class="btn" id="repairBtn" type="button">重新配对</button>
     </section>
@@ -180,13 +181,15 @@
     let reviewTarget = null;
     let ocrBusy = false;
     let saving = false;
+    let saveId = "";
+    let pendingActivation = null;
     const lanes = ["上单","打野","中路","发育路","游走"];
     const draftKey = "pkcRemoteEntryDraft";
     function persistDraft() {
       if (!draft || !selectedMatch || !matchCatalog) return;
       try {
         localStorage.setItem(draftKey, JSON.stringify({
-          seriesId:matchCatalog.seriesId, matchKey:selectedMatch.matchKey, gameId:selectedGame, draft, reviewTarget,
+          seriesId:matchCatalog.seriesId, matchKey:selectedMatch.matchKey, gameId:selectedGame, draft, reviewTarget, saveId,
         }));
       } catch {}
     }
@@ -200,6 +203,7 @@
         selectedMatch = match;
         selectedGame = saved.gameId;
         draft = saved.draft;
+        saveId = saved.saveId || "";
         reviewTarget = saved.reviewTarget;
         renderReview();
       } catch {}
@@ -329,6 +333,7 @@
     }
 
     function resetReview() {
+      saveId = "";
       try { localStorage.removeItem(draftKey); } catch {}
       draft = null;
       reviewTarget = null;
@@ -569,6 +574,9 @@
       const gameLabel = reviewTarget?.gameLabel || selectedMatch?.nextGameLabel || "新局";
       if (!confirm("保存到「" + selectedMatch.label + " · " + gameLabel + "」？\n"
         + (selectedGame ? "将覆盖该局原有玩法数据。" : "将新建这一局。"))) return;
+      saveId ||= Array.from(crypto.getRandomValues(new Uint8Array(16)),
+        byte => byte.toString(16).padStart(2, "0")).join("");
+      persistDraft();
       saving = true;
       $("remoteSaveBtn").disabled = true;
       $("remoteMatchSelect").disabled = $("remoteGameSelect").disabled = true;
@@ -580,16 +588,27 @@
             seriesId:matchCatalog.seriesId,
             matchKey:selectedMatch.matchKey,
             gameId:selectedGame || null,
-            overwriteLatest:true,
+            saveId,
             baseRev:matchCatalog.matchesRevision,
             contextRevision:matchCatalog.contextRevision,
             draft,
           }),
         });
         if (status === 401) return showPair();
-        if (!ok) throw new Error(result.message || result.error || "保存失败");
-        $("remoteSaveStatus").textContent = "已保存 " + result.game.label + " · 缺失 " + result.missing.length
-          + " 项，电脑端会自动同步";
+        if (!ok) {
+          if (status === 409) await loadMatchCatalog(true);
+          throw new Error(result.message || result.error || "保存失败");
+        }
+        pendingActivation = result.activated ? null : {
+          seriesId:matchCatalog.seriesId, matchKey:selectedMatch.matchKey,
+          gameId:result.game.id, label:result.game.label,
+        };
+        $("remoteActivateBtn").classList.toggle("hidden", !pendingActivation);
+        $("remoteSaveStatus").textContent = "已保存 " + result.game.label
+          + (result.activated ? "，已切换当前局" : "，未切换当前局：" + result.activationError)
+          + (result.missing.length ? " · 缺失 " + result.missing.length + " 项" : "")
+          + (result.warnings.length ? " · " + result.warnings.join("、") : "");
+        saveId = "";
         try { localStorage.removeItem(draftKey); } catch {}
         draft = null;
         reviewTarget = null;
@@ -604,6 +623,35 @@
         $("remoteMatchSelect").disabled = $("remoteGameSelect").disabled = false;
       }
     }
+
+    $("remoteActivateBtn").onclick = async () => {
+      if (!pendingActivation || saving) return;
+      const target = pendingActivation;
+      saving = true;
+      $("remoteActivateBtn").disabled = true;
+      try {
+        const catalog = await request("/api/remote/match-context");
+        if (!catalog.ok) throw new Error("无法读取当前局");
+        const match = catalog.result.matches.find(item => item.matchKey === target.matchKey);
+        if (!match?.games.some(game => game.id === target.gameId)
+          || catalog.result.seriesId !== target.seriesId) throw new Error("该局已不在当前系列赛中");
+        if (!confirm("切换电脑当前局到「" + match.label + " · " + target.label + "」？")) return;
+        const { ok, result } = await request("/api/remote/match-data", {
+          method:"POST",
+          body:JSON.stringify({ ...target, activateOnly:true, contextRevision:catalog.result.contextRevision }),
+        });
+        if (!ok || !result.activated) throw new Error(result.activationError || result.message || "切换失败");
+        pendingActivation = null;
+        $("remoteActivateBtn").classList.add("hidden");
+        $("remoteSaveStatus").textContent = "已切换到 " + target.label;
+        await loadMatchCatalog(true);
+      } catch (error) {
+        $("remoteSaveStatus").textContent = "对局已保存，未切换当前局：" + error.message;
+      } finally {
+        saving = false;
+        $("remoteActivateBtn").disabled = false;
+      }
+    };
 
     $("pairBtn").onclick = pair;
     $("remoteMatchSelect").onchange = () => {

@@ -1,6 +1,9 @@
 import assert from "node:assert/strict";
 import { spawn, spawnSync } from "node:child_process";
 import fs from "node:fs";
+import os from "node:os";
+import net from "node:net";
+import { once } from "node:events";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -12,10 +15,13 @@ assert.ok(/local/i.test(source) && /remote/i.test(source), "启动脚本应支�
 assert.ok(source.includes("PKC_REMOTE"), "启动脚本应设置远程模式环境变量");
 assert.ok(source.includes("prepare-local-server.mjs"), "启动脚本应安全探测并接管旧 PKC 服务");
 
-function launchMode(arg, port) {
+const fixture = fs.mkdtempSync(path.join(os.tmpdir(), "pkc-launch-"));
+const pkcData = path.join(fixture, "data");
+
+function launchMode(arg, port, overrides = {}) {
   const child = spawn("cmd.exe", ["/d", "/c", "启动.bat", arg], {
     cwd: root,
-    env: { ...process.env, PKC_PORT: String(port), PKC_OPEN: "0" },
+    env: { ...process.env, PORT:"", PKC_CLOUD:"0", PKC_PORT:String(port), PKC_OPEN:"0", PKC_DATA_DIR:pkcData, ...overrides },
     stdio: ["ignore", "pipe", "pipe"],
     windowsHide: true,
   });
@@ -51,9 +57,9 @@ function killTree(child) {
 async function stopServer(port) {
   try { const r = await fetch(`http://127.0.0.1:${port}/api/ping`, {signal:AbortSignal.timeout(1000)}); const info=await r.json(); if (info.root === root && Number.isInteger(info.pid)) process.kill(info.pid); } catch {}
 }
-async function runMode(arg, remoteExpected) {
+async function runMode(arg, remoteExpected, overrides) {
   const port = (arg === "remote" ? 21100 : 21300) + Math.floor(Math.random() * 300);
-  const child = launchMode(arg, port);
+  const child = launchMode(arg, port, overrides);
   try {
     let info;
     try { info = await waitForMode(port, remoteExpected); } catch (e) { throw new Error(e.message + "\n" + child.output); }
@@ -64,22 +70,48 @@ async function runMode(arg, remoteExpected) {
   }
 }
 
-await runMode("local", false);
-await runMode("remote", true);
-
-const takeoverPort = 21700 + Math.floor(Math.random() * 200);
-const first = launchMode("local", takeoverPort);
-let second = null;
 try {
-  await waitForMode(takeoverPort, false);
-  second = launchMode("remote", takeoverPort);
-  let info;
-  try { info = await waitForMode(takeoverPort, true); } catch(e) { throw new Error(e.message + "\n" + second.output); }
-  assert.equal(info.enabled, true);
-  assert.equal(info.host, "0.0.0.0");
+  const programFiles = path.join(fixture, "Test Program Files");
+  const fallback = path.join(programFiles, "nodejs", "node.exe");
+  fs.mkdirSync(path.dirname(fallback), { recursive:true });
+  fs.copyFileSync(process.execPath, fallback);
+  const pathKey = Object.keys(process.env).find(key => /^path$/i.test(key)) || "PATH";
+  await runMode("local", false, {
+    [pathKey]:path.join(process.env.SystemRoot, "System32"), ProgramFiles:programFiles,
+  });
+
+  await runMode("local", false);
+  await runMode("remote", true);
+
+  const takeoverPort = 21700 + Math.floor(Math.random() * 200);
+  const first = launchMode("local", takeoverPort);
+  let second = null;
+  try {
+    await waitForMode(takeoverPort, false);
+    second = launchMode("remote", takeoverPort);
+    let info;
+    try { info = await waitForMode(takeoverPort, true); } catch(e) { throw new Error(e.message + "\n" + second.output); }
+    assert.equal(info.enabled, true);
+    assert.equal(info.host, "0.0.0.0");
+  } finally {
+    await stopServer(takeoverPort);
+    killTree(first);
+    killTree(second);
+  }
+
+  const occupied = net.createServer(socket => socket.destroy());
+  occupied.listen(0, "0.0.0.0");
+  await once(occupied, "listening");
+  const refused = launchMode("local", occupied.address().port);
+  try {
+    await once(refused, "close");
+    assert.match(refused.output, /被其他程序占用/);
+    assert.equal(occupied.listening, true);
+  } finally {
+    killTree(refused);
+    occupied.close();
+  }
 } finally {
-  await stopServer(takeoverPort);
-  killTree(first);
-  killTree(second);
+  fs.rmSync(fixture, { recursive:true, force:true, maxRetries:5, retryDelay:100 });
 }
 console.log("test-start-script: ok");

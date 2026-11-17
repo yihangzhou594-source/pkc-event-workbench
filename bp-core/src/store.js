@@ -47,6 +47,7 @@ export function createStore(options = {}) {
   const sceneId = isSceneId(options.scene) ? options.scene : SceneId.BLANK;
   const preview = initialPreview(sceneId);
   const live = initialLive();
+  let stagedChart = null;
   const onAir = { ...initialPreview(sceneId), settings: {}, revision: 0 };
   const pushHistory = [];
   let lastPush = null;
@@ -67,10 +68,11 @@ export function createStore(options = {}) {
   /** 对外快照。live 是实时值，preview/onAir 分别对应编辑态与播出态。 */
   function snapshot() {
     return {
-      preview: { ...preview, settings: { ...preview.settings } },
+      preview: { ...preview, chartPlaylist: stagedChart, settings: { ...preview.settings } },
       onAir: { ...onAir, settings: { ...onAir.settings } },
       live: { ...live },
-      isPreviewDirty: preview.scene !== onAir.scene
+      isPreviewDirty: (preview.scene === SceneId.CHART && stagedChart !== null)
+        || preview.scene !== onAir.scene
         || JSON.stringify(preview.settings) !== JSON.stringify(onAir.settings),
       canUndoPush: pushHistory.length > 0,
       lastPush: lastPush ? { ...lastPush } : null,
@@ -107,10 +109,16 @@ export function createStore(options = {}) {
     }
     pushHistory.push({
       scene: onAir.scene,
+      chartPlaylist: structuredClone(live.chartPlaylist),
       settings: JSON.parse(JSON.stringify(onAir.settings)),
       at: new Date().toISOString(),
     });
     if (pushHistory.length > 20) pushHistory.shift();
+    if (preview.scene === SceneId.CHART && stagedChart) {
+      live.chartPlaylist = { ...stagedChart, startedAt: Date.now() };
+      live.revision += 1;
+      stagedChart = null;
+    }
     onAir.scene = preview.scene;
     onAir.settings = JSON.parse(JSON.stringify(preview.settings));
     onAir.revision += 1;
@@ -123,6 +131,10 @@ export function createStore(options = {}) {
   function undoPush() {
     const previous = pushHistory.pop();
     if (!previous) return snapshot();
+    stagedChart = null;
+    live.chartPlaylist = previous.chartPlaylist
+      ? { ...previous.chartPlaylist, startedAt: Date.now() } : null;
+    live.revision += 1;
     onAir.scene = previous.scene;
     onAir.settings = JSON.parse(JSON.stringify(previous.settings));
     onAir.revision += 1;
@@ -136,6 +148,7 @@ export function createStore(options = {}) {
 
   /** 丢弃预览改动，回到当前在播状态。 */
   function discardPreview() {
+    stagedChart = null;
     preview.scene = onAir.scene;
     preview.settings = JSON.parse(JSON.stringify(onAir.settings));
     preview.revision += 1;
@@ -175,8 +188,8 @@ export function createStore(options = {}) {
    * 赛后数据图轮播。items 是 5 张对位图 + 五路总览，index 由服务端按间隔推进，
    * 这样导播台预览和 OBS 端看到的是同一张。
    */
-  function setChartPlaylist(patch) {
-    const cur = live.chartPlaylist || {
+  function setChartPlaylist(patch, stage = false) {
+    const cur = (stage ? stagedChart : live.chartPlaylist) || {
       items: [], index: 0, intervalMs: 8000, running: false, startedAt: Date.now(),
     };
     const next = { ...cur, ...(patch || {}) };
@@ -185,6 +198,12 @@ export function createStore(options = {}) {
     const len = Array.isArray(next.items) ? next.items.length : 0;
     next.index = len ? Math.max(0, Math.min(len - 1, Number(next.index) || 0)) : 0;
     next.startedAt = Date.now();
+    if (stage) {
+      stagedChart = next;
+      preview.revision += 1;
+      notify('preview');
+      return snapshot();
+    }
     live.chartPlaylist = next;
     live.revision += 1;
     notify('live');
@@ -192,11 +211,13 @@ export function createStore(options = {}) {
   }
 
   /** 手动上一张 / 下一张（dir = -1 / +1），并重置计时。 */
-  function stepChartPlaylist(dir = 1) {
-    const p = live.chartPlaylist;
+  function stepChartPlaylist(dir = 1, stage = false) {
+    const p = stage ? stagedChart : live.chartPlaylist;
     if (!p || !Array.isArray(p.items) || !p.items.length) return snapshot();
     const n = p.items.length;
-    p.index = (p.index + (dir >= 0 ? 1 : -1) + n) % n;
+    const index = (p.index + (dir >= 0 ? 1 : -1) + n) % n;
+    if (stage) return setChartPlaylist({ index }, true);
+    p.index = index;
     p.startedAt = Date.now();
     live.revision += 1;
     notify('live');

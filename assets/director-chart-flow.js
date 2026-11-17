@@ -14,11 +14,11 @@
       if (!result || result.error) throw new Error(result?.message || result?.error || "服务没有响应，请重试");
       return result;
     };
-    let next = await checked("chart/playlist", {patch:{items,index:0,running:false,intervalMs}});
+    let next = await checked("chart/playlist", {stage:true,patch:{items,index:0,running:!previewOnly,intervalMs}});
     next = await checked("scene", {id:"chart"});
     if (previewOnly) return next;
     if (!await push(next)) throw new Error("数据图已准备，尚未切到直播；请检查预检提示后重试");
-    return checked("chart/playlist", {patch:{running:true}});
+    return next;
   }
   root.PKCChartFlow = { play };
 })(typeof window !== "undefined" ? window : globalThis);

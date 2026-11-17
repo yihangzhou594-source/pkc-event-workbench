@@ -172,6 +172,41 @@ try {
   const cookieHeader = cookies.map((cookie) => cookie.split(";")[0]).filter(Boolean).join("; ");
   assert.match(cookieHeader, /pkc_auth_access=good-token/);
 
+  const playback = await fetch(`http://127.0.0.1:${serverPort}/api/obs/stream`, {
+    headers: obsHeaders,
+    signal: AbortSignal.timeout(5000),
+  });
+  assert.equal(playback.status, 200);
+  const playbackReader = playback.body.pipeThrough(new TextDecoderStream()).getReader();
+  try {
+    for (const id of ["interval", "commentary"]) {
+      for (const [action, payload] of [["scene", { id }], ["push", { force: true }]]) {
+        const response = await fetch(`http://127.0.0.1:${serverPort}/api/director/${action}`, {
+          method: "POST",
+          headers: { Cookie: cookieHeader, "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+        assert.equal(response.status, 200);
+      }
+    }
+    const onAirScenes = [];
+    let pending = "";
+    while (onAirScenes.length < 2) {
+      const chunk = await playbackReader.read();
+      assert.equal(chunk.done, false, "OBS stream ended before receiving both pushes");
+      const frames = (pending + chunk.value).split("\n\n");
+      pending = frames.pop();
+      for (const frame of frames) {
+        if (frame.startsWith("event: onAir\ndata: ")) {
+          onAirScenes.push(JSON.parse(frame.split("\ndata: ")[1]).onAir.scene);
+        }
+      }
+    }
+    assert.deepEqual(onAirScenes, ["interval", "commentary"]);
+  } finally {
+    await playbackReader.cancel();
+  }
+
   const allowed = await fetch(`http://127.0.0.1:${serverPort}/api/store/library`, {
     headers: { Cookie: cookieHeader },
   });

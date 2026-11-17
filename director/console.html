@@ -1099,7 +1099,8 @@ function paintContext() {
 function paintChartOps() {
   if (!$("chartOps")) return;
   $("chartOps").classList.toggle("on", state && state.preview.scene === "chart");
-  const p = state && state.live && state.live.chartPlaylist;
+  const staged = state?.preview?.chartPlaylist;
+  const p = staged || state?.live?.chartPlaylist;
   const ctx = state && state.live && state.live.context;
   const ctxLabel = ctx ? [ctx.matchLabel, ctx.gameLabel].filter(Boolean).join(" / ") : "";
   const statusEl = $("chartStatus");
@@ -1117,7 +1118,7 @@ function paintChartOps() {
   const lane = ["上单", "打野", "中路", "发育路", "游走"][item.idx];
   const label = item.label || (item.kind === "overview" ? "五路总览" : (lane ? lane + "对位图" : "数据图"));
   if (statusEl) {
-    statusEl.textContent = "第 " + (p.index + 1) + " / " + p.items.length + " 张 · " + label
+    statusEl.textContent = (staged ? "待推送 · " : "") + "第 " + (p.index + 1) + " / " + p.items.length + " 张 · " + label
       + (ctxLabel ? " · " + ctxLabel : "")
       + " · " + (p.running ? ("自动 " + Math.round(p.intervalMs / 1000) + " 秒") : "已暂停");
   }
@@ -1131,14 +1132,14 @@ function paintChartOps() {
       b.textContent = (i + 1) + " · " + (it.label || "数据图");
       b.title = "跳到第 " + (i + 1) + " 张";
       b.onclick = async () => {
-        state = await post("chart/playlist", { patch: { index: i } });
+        state = await post("chart/playlist", { stage:!!staged, patch: { index: i } });
         paint();
       };
       list.append(b);
     });
   }
   if (air) {
-    const liveNow = state.onAir.scene === "chart";
+    const liveNow = state.onAir.scene === "chart" && !staged;
     air.disabled = chartBusy || !!liveNow;
     air.textContent = liveNow ? "数据图已在直播端" : "切到直播端";
   }
@@ -1348,7 +1349,7 @@ if (chartPushBtn) chartPushBtn.onclick = () => playCurrentCharts();
 $("btnChartPrepare").onclick = () => playCurrentCharts(true);
 const chartAirBtn = $("btnChartAir");
 if (chartAirBtn) chartAirBtn.onclick = async () => {
-  const p = state && state.live && state.live.chartPlaylist;
+  const p = state?.preview?.chartPlaylist || state?.live?.chartPlaylist;
   if (!p || !Array.isArray(p.items) || !p.items.length) {
     if (window.__pkSay) window.__pkSay("先推送本局六张，再切到直播端");
     return;
@@ -1358,21 +1359,21 @@ if (chartAirBtn) chartAirBtn.onclick = async () => {
 };
 const chartToggleBtn = $("btnChartToggle");
 if (chartToggleBtn) chartToggleBtn.onclick = async () => {
-  const p = state && state.live && state.live.chartPlaylist;
+  const p = state?.preview?.chartPlaylist || state?.live?.chartPlaylist;
   if (!p || !Array.isArray(p.items) || !p.items.length) {
     if (chartPushBtn) chartPushBtn.click();
     return;
   }
-  state = await post("chart/playlist", { patch: { running: !p.running } });
+  state = await post("chart/playlist", { stage:!!state?.preview?.chartPlaylist, patch: { running: !p.running } });
   paint();
 };
 const chartPrevBtn = $("btnChartPrev");
-if (chartPrevBtn) chartPrevBtn.onclick = async () => { state = await post("chart/step", { dir: -1 }); paint(); };
+if (chartPrevBtn) chartPrevBtn.onclick = async () => { state = await post("chart/step", { dir: -1, stage:!!state?.preview?.chartPlaylist }); paint(); };
 const chartNextBtn = $("btnChartNext");
-if (chartNextBtn) chartNextBtn.onclick = async () => { state = await post("chart/step", { dir: 1 }); paint(); };
+if (chartNextBtn) chartNextBtn.onclick = async () => { state = await post("chart/step", { dir: 1, stage:!!state?.preview?.chartPlaylist }); paint(); };
 const chartIntervalSel = $("chartInterval");
 if (chartIntervalSel) chartIntervalSel.onchange = async () => {
-  state = await post("chart/playlist", { patch: { intervalMs: Number(chartIntervalSel.value) } });
+  state = await post("chart/playlist", { stage:!!state?.preview?.chartPlaylist, patch: { intervalMs: Number(chartIntervalSel.value) } });
   paint();
 };
 $("spotlightPrev").onclick = async () => { state = await post("spotlight/step", { dir: -1 }); paint(); };
