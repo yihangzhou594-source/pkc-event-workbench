@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { spawn, spawnSync } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
-import net from "node:net";
+import http from "node:http";
 import { once } from "node:events";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -99,7 +99,10 @@ try {
     killTree(second);
   }
 
-  const occupied = net.createServer(socket => socket.destroy());
+  const occupied = http.createServer((req, res) => {
+    res.writeHead(404, { "Content-Type":"text/plain", Connection:"close" });
+    res.end("another service");
+  });
   occupied.listen(0, "0.0.0.0");
   await once(occupied, "listening");
   const refused = launchMode("local", occupied.address().port);
