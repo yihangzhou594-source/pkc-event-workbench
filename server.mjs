@@ -355,6 +355,22 @@ function serveFile(res, file, extra = {}) {
   });
 }
 
+// Cache static assets in the browser only, after the normal access checks.
+function serveBrowserAsset(req, res, file, cacheControl) {
+  fs.stat(file, (error, stat) => {
+    if (error || !stat.isFile()) return send(res, 404, "Not Found");
+    const etag = `W/"${stat.size}-${stat.mtimeMs}-${stat.ctimeMs}"`;
+    const headers = { "Cache-Control":cacheControl, ETag:etag, Vary:"Cookie" };
+    const previous = String(req.headers["if-none-match"] || "").split(",")
+      .map(value => value.trim().replace(/^W\//, ""));
+    if (["GET", "HEAD"].includes(req.method)
+      && (previous.includes("*") || previous.includes(etag.slice(2)))) {
+      return send(res, 304, undefined, headers);
+    }
+    serveFile(res, file, headers);
+  });
+}
+
 const STORE_KEYS = new Set(["library", "matches", "prefs", "heroPick", "bracket", "context", "heroStats"]);
 const BACKUP_KEYS = new Set([...STORE_KEYS, "heroStats"]);
 /* 这些是真正的赛事数据：多标签页同时写时要拦住，避免互相覆盖。
@@ -1204,12 +1220,17 @@ const server = http.createServer(async (req, res) => {
         return sendJSON(res, { ok: true, key, bytes: raw.length });
       }
     }
-    // 英雄素材随时可能被整批替换：一律不许浏览器缓存，换图后刷新即可生效
     const NO_STORE = { "Cache-Control": "no-store, must-revalidate" };
-    if (p.startsWith("/hero/")) return serveFile(res, safeJoin(DIR_HERO, p.slice(6)) || "", NO_STORE);
-    if (p.startsWith("/thumb/")) return serveFile(res, safeJoin(DIR_THUMB, p.slice(7)) || "", NO_STORE);
-    if (p.startsWith("/opt/")) return serveFile(res, safeJoin(DIR_OPT, p.slice(5)) || "", NO_STORE);
-    if (p.startsWith("/hicon/")) return serveFile(res, safeJoin(DIR_HICON, p.slice(7)) || "", { "Cache-Control": "max-age=86400" });
+    const heroCacheControl = "private, no-cache";
+    if (p.startsWith("/hero/")) return serveBrowserAsset(req, res, safeJoin(DIR_HERO, p.slice(6)) || "", heroCacheControl);
+    if (p.startsWith("/thumb/")) return serveBrowserAsset(req, res, safeJoin(DIR_THUMB, p.slice(7)) || "", heroCacheControl);
+    if (p.startsWith("/opt/")) return serveBrowserAsset(req, res, safeJoin(DIR_OPT, p.slice(5)) || "", heroCacheControl);
+    if (p.startsWith("/hicon/")) return serveBrowserAsset(req, res, safeJoin(DIR_HICON, p.slice(7)) || "", heroCacheControl);
+    if (p.startsWith("/assets/tesseract/")) {
+      const ocrDirectory = path.join(DIR_ASSETS, "tesseract");
+      return serveBrowserAsset(req, res, safeJoin(ocrDirectory, p.slice("/assets/tesseract/".length)) || "",
+        "private, max-age=3600, must-revalidate");
+    }
     if (p.startsWith("/assets/")) return serveFile(res, safeJoin(DIR_ASSETS, p.slice(8)) || "", NO_STORE);
     if (p.startsWith("/docs/")) return serveFile(res, safeJoin(DIR_DOCS, p.slice(6)) || "", NO_STORE);
     if (p.startsWith("/preview/")) return serveFile(res, safeJoin(DIR_PREVIEW, p.slice(9)) || "", NO_STORE);

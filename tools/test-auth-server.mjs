@@ -210,6 +210,36 @@ try {
   const allowed = await fetch(`http://127.0.0.1:${serverPort}/api/store/library`, {
     headers: { Cookie: cookieHeader },
   });
+  const ocrAsset = `http://127.0.0.1:${serverPort}/assets/tesseract/tesseract.min.js`;
+  const firstAsset = await fetch(ocrAsset, { headers:{ Cookie:cookieHeader } });
+  assert.equal(firstAsset.status, 200);
+  assert.match(firstAsset.headers.get("cache-control"), /private, max-age=3600/);
+  const assetVersion = firstAsset.headers.get("etag");
+  assert.ok(assetVersion);
+  assert.ok((await firstAsset.arrayBuffer()).byteLength > 0);
+  const revalidated = await fetch(ocrAsset, {
+    headers:{ Cookie:cookieHeader, "If-None-Match":assetVersion },
+  });
+  assert.equal(revalidated.status, 304);
+  assert.equal((await revalidated.arrayBuffer()).byteLength, 0);
+  const anonymous = await fetch(ocrAsset, {
+    headers:{ "If-None-Match":assetVersion }, redirect:"manual",
+  });
+  assert.equal(anonymous.status, 303);
+
+  const thumbnail = fs.readdirSync(path.join(root, "英雄缩略图")).find(name => /\.(jpg|png|webp)$/i.test(name));
+  const thumbUrl = `http://127.0.0.1:${serverPort}/thumb/${encodeURIComponent(thumbnail)}`;
+  const thumb = await fetch(thumbUrl, { headers:{ Cookie:cookieHeader } });
+  assert.equal(thumb.status, 200);
+  assert.equal(thumb.headers.get("cache-control"), "private, no-cache");
+  const thumbVersion = thumb.headers.get("etag");
+  await thumb.arrayBuffer();
+  assert.ok(thumbVersion);
+  const unchangedThumb = await fetch(thumbUrl, {
+    headers:{ Cookie:cookieHeader, "If-None-Match":thumbVersion },
+  });
+  assert.equal(unchangedThumb.status, 304);
+
   assert.equal(allowed.status, 200);
   assert.deepEqual(await allowed.json(), { series: [] });
 
